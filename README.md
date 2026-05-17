@@ -1,3 +1,3 @@
 # PlaneWar
 ---
-> H5 canvas实现的飞机大战 ✈️
+> H5 Canvas 实现的飞机大战 ✈️
