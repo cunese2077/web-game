@@ -80,7 +80,7 @@ var bg = null,
 // 加载图片的进度
 var progress = 1;
 /*********加载图片*********/
-function download() {
+function download () {
   bg = nImg(imgName[0]);
   pause = nImg(imgName[1]);
   m = nImg(imgName[2]);
@@ -101,14 +101,14 @@ function download() {
     heroImg[i] = nImg(imgName[8][i]);
   }
 
-  function nImg(src) {
+  function nImg (src) {
     var img = new Image();
     img.src = "img/" + src;
     img.onload = imgLoad;
     return img;
   }
   // 绘制游戏加载进度画面
-  function imgLoad() {
+  function imgLoad () {
     progress += 3;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     var text = progress + "%";
@@ -127,7 +127,7 @@ function download() {
 download();
 
 /*********开始游戏**************/
-function start() {
+function start () {
   curPhase = PHASE_READY;
   canvas.onclick = function () {
     curPhase == PHASE_READY && (curPhase = PHASE_LOADING);
@@ -138,9 +138,9 @@ function start() {
   gameEngine();
 }
 /********画背景*******/
-function paintBg() {
+function paintBg () {
   var y = 0;
-  function paintBg() {
+  function paintBg () {
     ctx.drawImage(bg, 0, y);
     ctx.drawImage(bg, 0, y - 852);
     y++ == 852 && (y = 0);
@@ -149,14 +149,14 @@ function paintBg() {
 }
 
 /**********画game开始图*********/
-function paintLogo() {
+function paintLogo () {
   ctx.drawImage(startImg, 40, 0);
 }
 /*******************/
-function loading() {
+function loading () {
   this.index = 0;
 
-  function loading() {
+  function loading () {
     this.index % 1 == 0 &&
       ctx.drawImage(gameLoad[index], 0, canvas.height - gameLoad[0].height);
     this.index += 0.5;
@@ -170,7 +170,7 @@ function loading() {
 /*********构造hero************/
 var hero = null;
 
-function Hero() {
+function Hero () {
   this.x = (width - heroImg[0].width) / 2; // hero的坐标
   this.y = height - heroImg[0].height;
   this.index = 0; // 用于切换hero的图片
@@ -245,7 +245,7 @@ function Hero() {
     }
   };
 
-  function move(e) {
+  function move (e) {
     if (curPhase == PHASE_PLAY || curPhase == PHASE_PAUSE) {
       curPhase = PHASE_PLAY;
       var offsetX = e.offsetX || e.touches[0].pageX;
@@ -257,13 +257,13 @@ function Hero() {
       nx < 20 - w / 2
         ? (nx = 20 - w / 2)
         : nx > canvas.width - w / 2 - 20
-        ? (nx = canvas.width - w / 2 - 20)
-        : 0;
+          ? (nx = canvas.width - w / 2 - 20)
+          : 0;
       ny < 0
         ? (ny = 0)
         : ny > canvas.height - h / 2
-        ? (ny = canvas.height - h / 2)
-        : 0;
+          ? (ny = canvas.height - h / 2)
+          : 0;
       hero.x = nx;
       hero.y = ny;
       hero.count = 2;
@@ -283,7 +283,7 @@ function Hero() {
 /**********构造子弹***********/
 var hullet = []; // 存储画布中所以子弹的数组
 
-function Hullet(n) {
+function Hullet (n) {
   this.n = n; // 用于确定是左中右哪一颗子弹
   // 子弹的坐标
   this.mx = hero.x + (heroImg[0].width - m.width) / 2 + this.n;
@@ -316,7 +316,7 @@ Hullet.prototype.draw = function () {
 /***********构造敌机********/
 var liveEnemy = []; // 用于存储画布上的所有敌机
 
-function Enemy() {
+function Enemy () {
   this.n = Math.random() * 20;
   this.enemy = null; // 保存敌机图片的数组
   this.speed = 0; // 敌机的速度
@@ -400,7 +400,7 @@ function Enemy() {
   };
 }
 
-function drawEnemy() {
+function drawEnemy () {
   for (var i = 0; i < liveEnemy.length; i++) {
     if (liveEnemy[i].removable) {
       liveEnemy.splice(i, 1);
@@ -411,11 +411,11 @@ function drawEnemy() {
   }
 }
 /*******游戏暂停*******/
-function drawPause() {
+function drawPause () {
   ctx.drawImage(pause, (width - pause.width) / 2, (height - pause.height) / 2);
 }
 //游戏结束
-function gameover() {
+function gameover () {
   alert("游戏结束，成绩" + gameScore);
   gameScore = 0;
   curPhase = PHASE_READY;
@@ -426,7 +426,7 @@ function gameover() {
 var pBg = paintBg();
 var load = loading();
 
-function gameEngine() {
+function gameEngine () {
   switch (curPhase) {
     case PHASE_READY:
       pBg();
