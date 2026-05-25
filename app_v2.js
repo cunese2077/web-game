@@ -1,4 +1,4 @@
-/*********飞机大战************/
+/*********飞机大战代码************/
 var width = window.innerWidth > 480 ? 480 : window.innerWidth,
   height = window.innerHeight > 650 ? 650 : window.innerHeight - 20;
 
