@@ -451,4 +451,5 @@ function gameEngine () {
   }
   //requestAnimationFrame(gameEngine);
 }
+// 启动游戏
 setInterval(gameEngine, 50);
