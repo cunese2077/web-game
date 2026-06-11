@@ -452,4 +452,5 @@ function gameEngine () {
   //requestAnimationFrame(gameEngine);
 }
 // 启动游戏逻辑
+//TODO 启动定时器，待优化
 setInterval(gameEngine, 50);
