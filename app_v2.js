@@ -400,6 +400,7 @@ function Enemy () {
   };
 }
 
+// 绘制所有敌机
 function drawEnemy () {
   // 从后向前遍历：删除不会影响尚未遍历的元素索引
   for (var i = liveEnemy.length - 1; i >= 0; i--) {
