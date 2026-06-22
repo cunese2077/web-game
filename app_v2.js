@@ -401,13 +401,13 @@ function Enemy () {
 }
 
 function drawEnemy () {
-  for (var i = 0; i < liveEnemy.length; i++) {
+  // 从后向前遍历：删除不会影响尚未遍历的元素索引
+  for (var i = liveEnemy.length - 1; i >= 0; i--) {
     if (liveEnemy[i].removable) {
       liveEnemy.splice(i, 1);
+    } else {
+      liveEnemy[i].draw();
     }
-  }
-  for (var i = 0; i < liveEnemy.length; i++) {
-    liveEnemy[i].draw();
   }
 }
 /*******游戏暂停*******/
