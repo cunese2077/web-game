@@ -119,8 +119,17 @@ web-game/
 │   ├── enemy3_hit.png            # 大型敌机受击图
 │   ├── enemy3_down1~6.png        # 大型敌机爆炸帧
 │   └── p1~p6.png                 # 其他素材
+├── js/                           # 游戏逻辑模块（ES Module）
+│   ├── constants.js              # 游戏阶段常量定义
+│   ├── canvas.js                 # 画布初始化与导出
+│   ├── resources.js              # 图片资源加载与管理
+│   ├── hero.js                   # 玩家战机类
+│   ├── bullet.js                 # 子弹类
+│   ├── enemy.js                  # 敌机类
+│   ├── ui.js                     # UI 绘制（背景、logo、loading、暂停、结束）
+│   └── engine.js                 # 游戏主引擎入口
 ├── index.html                    # 页面入口，承载 canvas
-├── app_v2.js                     # 游戏全部逻辑代码
+├── app_v2.js                     # 旧版单文件逻辑（已拆分为 js/ 目录）
 ├── README.md                     # 项目简介
 ├── .gitignore                    # Git 忽略配置
 └── PROJECT_GUIDE.md              # 本文档
@@ -135,29 +144,62 @@ web-game/
 - 声明 `<canvas id="canvas">` 作为游戏画布
 - 设置 `viewport` meta，禁用用户缩放（适配移动端）
 - 全屏布局，隐藏溢出内容
-- 引入 `app_v2.js` 启动游戏
+- 通过 `<script type="module">` 引入 `js/engine.js` 启动游戏
 
-### 2. [app_v2.js](web-game/app_v2.js)
-游戏核心逻辑文件（约 457 行），包含以下模块：
+### 2. [js/engine.js](web-game/js/engine.js)
+游戏主引擎入口，负责：
+- 加载资源完成后启动游戏
+- 管理游戏阶段（`curPhase`）状态
+- 驱动主循环 `setInterval(gameEngine, 50)`
+- 根据阶段分发渲染逻辑
 
-| 模块 | 关键函数/对象 | 行号参考 | 作用 |
-| ---- | -------------- | -------- | ---- |
-| 画布初始化 | `canvas` / `ctx` | 1-9 | 获取并设置画布尺寸（最大 480×650） |
-| 状态常量 | `PHASE_*` | 11-17 | 定义 6 个游戏阶段 |
-| 资源定义 | `imgName` / `enemy1` 等 | 19-77 | 声明所有图片资源名及存储数组 |
-| 资源加载 | `download()` | 80-118 | 加载图片并绘制进度百分比 |
-| 游戏启动 | `start()` | 120-130 | 进入 READY 阶段，创建 Hero，启动引擎 |
-| 背景绘制 | `paintBg()` | 132-142 | 闭包实现无缝滚动背景 |
-| Logo 绘制 | `paintLogo()` | 144-146 | 绘制开始界面 logo |
-| 加载动画 | `loading()` | 148-163 | 4 帧加载动画过渡 |
-| 玩家战机 | `Hero()` | 166-237 | 战机绘制、子弹/敌机生成、碰撞检测、事件绑定 |
-| 子弹 | `Hullet()` | 240-272 | 子弹构造与批量绘制 |
-| 敌机 | `Enemy()` | 275-345 | 敌机构造、随机生成、爆炸动画、碰撞检测 |
-| 敌机批量绘制 | `drawEnemy()` | 347-356 | 从后向前遍历清理并绘制敌机 |
-| 暂停 | `drawPause()` | 358-360 | 居中绘制暂停图标 |
-| 游戏结束 | `gameover()` | 362-368 | 弹窗显示成绩并重置 |
-| 主引擎 | `gameEngine()` | 370-398 | 状态分发，调度各阶段渲染 |
-| 主循环 | `setInterval(gameEngine, 50)` | 401 | 每 50ms 驱动一次游戏循环 |
+### 3. [js/constants.js](web-game/js/constants.js)
+游戏阶段常量定义，导出 6 个阶段常量：
+- `PHASE_DOWNLOAD` / `PHASE_READY` / `PHASE_LOADING` / `PHASE_PLAY` / `PHASE_PAUSE` / `PHASE_GAMEOVER`
+
+### 4. [js/canvas.js](web-game/js/canvas.js)
+画布初始化模块，导出：
+- `width` / `height`：画布尺寸（最大 480×650）
+- `canvas`：Canvas DOM 元素
+- `ctx`：2D 渲染上下文
+
+### 5. [js/resources.js](web-game/js/resources.js)
+图片资源加载与管理，导出：
+- `download(callback)`：加载所有图片资源，完成后调用回调
+- `bg` / `pause` / `m` / `startImg`：单张图片资源
+- `enemy1` / `enemy2` / `enemy3` / `gameLoad` / `heroImg`：图片数组资源
+
+### 6. [js/hero.js](web-game/js/hero.js)
+玩家战机类 `Hero`，负责：
+- 战机绘制与双帧动画切换
+- 自动发射三路子弹
+- 定时生成敌机
+- 与敌机碰撞检测及爆炸动画
+- 鼠标/触摸事件绑定控制移动
+- 导出 `getGameScore()` / `resetGameScore()` / `addGameScore()` 分数管理函数
+
+### 7. [js/bullet.js](web-game/js/bullet.js)
+子弹类 `Hullet`，负责：
+- 子弹绘制与移动（含三路偏移）
+- 出界标记移除
+- 静态方法 `drawHullet()` 批量绘制与清理
+- 静态方法 `add()` / `getAll()` / `clear()` 管理子弹数组
+
+### 8. [js/enemy.js](web-game/js/enemy.js)
+敌机类 `Enemy`，负责：
+- 三种敌机随机生成（小/中/大）
+- 敌机移动与爆炸动画
+- 与子弹碰撞检测及计分
+- 静态方法 `drawEnemy()` 批量绘制与清理
+- 静态方法 `add()` / `getAll()` / `clear()` 管理敌机数组
+
+### 9. [js/ui.js](web-game/js/ui.js)
+UI 绘制模块，导出：
+- `paintBg()`：返回闭包函数，实现无缝滚动背景
+- `paintLogo()`：绘制开始界面 logo
+- `loading()`：返回加载动画函数，完成后返回 `PHASE_PLAY`
+- `drawPause()`：居中绘制暂停图标
+- `gameover()`：弹窗显示成绩并重置
 
 ---
 
@@ -189,8 +231,7 @@ npx http-server -p 8080
 ## 七、项目注意事项
 
 ### 1. 已知问题与待优化项
-- ⚠️ **主循环使用 `setInterval(gameEngine, 50)`**：代码中已标注 `TODO 启动定时器，待优化`，建议替换为 `requestAnimationFrame` 以获得更流畅的动画和更好的性能（代码中已注释掉 `requestAnimationFrame(gameEngine)`）。
-- ⚠️ **全局变量过多**：`hero`、`hullet`、`liveEnemy`、`gameScore` 等均为全局变量，不利于维护和扩展。
+- ⚠️ **主循环使用 `setInterval(gameEngine, 50)`**：代码中已标注 `TODO 启动定时器，待优化`，建议替换为 `requestAnimationFrame` 以获得更流畅的动画和更好的性能。
 - ⚠️ **`gameover()` 使用 `alert`**：会阻塞主线程，影响用户体验，建议改为画布内 UI 提示。
 - ⚠️ **`Hero` 内部直接绑定事件**：每次 `new Hero()` 都会重复绑定 `mousemove`/`touchmove`，重启游戏后事件可能叠加。
 
@@ -204,17 +245,17 @@ npx http-server -p 8080
 - 图片总数量约 40 张，建议预加载以避免游戏中卡顿
 
 ### 4. 代码风格
-- 采用 ES5 语法（`var`、构造函数 + `prototype`），未使用 ES6+ 特性
-- 注释以中文为主，部分含幽默表达
-- 命名混合驼峰与下划线（如 `gameScore` vs `PHASE_PLAY`）
+- 新版模块（`js/` 目录）采用 ES6+ 语法（`let`/`const`、`class`、`import`/`export`）
+- 旧版 `app_v2.js` 采用 ES5 语法（`var`、构造函数 + `prototype`），已不再维护
+- 注释以中文为主
+- 命名混合驼峰与全大写常量（如 `gameScore` vs `PHASE_PLAY`）
 
 ### 5. 扩展建议
-- 引入模块化（ES Module）拆分 `app_v2.js`
+- ~~引入模块化（ES Module）拆分 `app_v2.js`~~ ✅ 已完成
 - 使用 `requestAnimationFrame` + 时间步长替代 `setInterval`
 - 增加音效系统
 - 增加道具系统（双倍火力、护盾等）
 - 增加难度递增机制
-- 重构为面向对象（ES6 Class）或 ECS 架构
 
 ---
 
