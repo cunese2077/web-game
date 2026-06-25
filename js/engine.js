@@ -12,6 +12,7 @@ import {
 import { Hero, getGameScore, resetGameScore } from "./hero.js";
 import Hullet from "./bullet.js";
 import Enemy from "./enemy.js";
+import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameover } from "./ui.js";
 
 let curPhase = PHASE_DOWNLOAD;
@@ -39,6 +40,7 @@ function start() {
       hero.setPhaseCallbacks(getCurPhase, setCurPhase);
       Hullet.clear();
       Enemy.clear();
+      Item.clear();
       curPhase = PHASE_READY;
     }
   };
@@ -64,6 +66,7 @@ function gameEngine() {
     case PHASE_PLAY:
       pBg();
       Enemy.drawEnemy();
+      Item.drawItems();
       Hullet.drawHullet();
       curPhase = hero.draw(curPhase);
       break;

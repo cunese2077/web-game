@@ -2,22 +2,53 @@
 import { ctx } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Hullet from "./bullet.js";
-import { addGameScore } from "./hero.js";
+import { addGameScore, getHeroHp, getHeroMaxHp } from "./hero.js";
+import Item from "./item.js";
 
 const liveEnemy = []; // 存储画布上所有敌机
 
+// 大型敌机生成冷却：防止连续刷出多个
+let bigEnemyCooldown = 0; // 剩余冷却帧数
+const BIG_ENEMY_COOLDOWN_FRAMES = 40; // 两个大型敌机之间至少间隔40帧（约2秒）
+
+// 根据玩家血量计算动态概率
+function getDynamicProbabilities() {
+  const hp = getHeroHp();
+  const maxHp = getHeroMaxHp();
+  const hpRatio = maxHp > 0 ? hp / maxHp : 1;
+
+  // 血量越低，最大敌机出现概率越高，道具掉落概率越高
+  // hpRatio: 1(满血) → 0(空血)
+  // 最大敌机概率: 基础5% → 满血5%, 空血10%
+  const bigEnemyProb = 0.05 + (1 - hpRatio) * 0.05;
+  // 道具掉落概率: 基础30% → 满血30%, 空血80%
+  const itemDropProb = 0.3 + (1 - hpRatio) * 0.5;
+
+  return { bigEnemyProb, itemDropProb };
+}
+
+// 每帧递减冷却计数
+function tickCooldown() {
+  if (bigEnemyCooldown > 0) bigEnemyCooldown--;
+}
+
 class Enemy {
   constructor() {
+    const { bigEnemyProb } = getDynamicProbabilities();
+    const bigEnemyThreshold = bigEnemyProb * 20;
+    const midEnemyThreshold = bigEnemyThreshold + 5;
+
     this.n = Math.random() * 20;
     this.enemy = null;
     this.speed = 0;
     this.lifes = 2;
 
-    if (this.n < 1) {
+    if (this.n < bigEnemyThreshold && bigEnemyCooldown === 0) {
       this.enemy = enemy3[0];
       this.speed = 2;
       this.lifes = 50;
-    } else if (this.n < 6) {
+      bigEnemyCooldown = BIG_ENEMY_COOLDOWN_FRAMES; // 触发冷却
+    } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
       this.speed = 4;
       this.lifes = 10;
@@ -85,6 +116,13 @@ class Enemy {
         if (--this.lifes === 0) {
           this.die = true;
           addGameScore(this.speed === 6 ? 10 : this.speed === 4 ? 20 : 100);
+          // 击败最大敌机（speed=2）时根据玩家血量动态调整道具掉落概率
+          if (this.speed === 2) {
+            const { itemDropProb } = getDynamicProbabilities();
+            if (Math.random() < itemDropProb) {
+              Item.add(this.x + this.width / 2, this.y + this.height / 2);
+            }
+          }
         }
         h.removable = true;
       }
@@ -93,6 +131,7 @@ class Enemy {
 
   // 批量绘制并清理敌机
   static drawEnemy() {
+    tickCooldown();
     for (let i = liveEnemy.length - 1; i >= 0; i--) {
       if (liveEnemy[i].removable) {
         liveEnemy.splice(i, 1);
@@ -115,6 +154,7 @@ class Enemy {
   // 清空敌机
   static clear() {
     liveEnemy.length = 0;
+    bigEnemyCooldown = 0;
   }
 }
 

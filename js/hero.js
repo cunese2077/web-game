@@ -4,6 +4,7 @@ import { heroImg } from "./resources.js";
 import { PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER } from "./constants.js";
 import Hullet from "./bullet.js";
 import Enemy from "./enemy.js";
+import Item from "./item.js";
 
 let gameScore = 0;
 
@@ -68,6 +69,8 @@ class Hero {
     this.hp = this.maxHp;
     this.invincible = 0; // 受伤后无敌帧数
     this.dying = false; // 是否正在播放死亡动画
+    this.healAnim = 0; // 回血动画帧计数
+    this.hpFlash = 0; // 血条闪烁帧计数
     // 注册为当前活跃实例
     activeHero = this;
     bindEventsOnce();
@@ -112,6 +115,22 @@ class Hero {
     this._drawScore();
     this._drawHp();
 
+    // 检测道具拾取
+    if (!this.dying) {
+      const picked = Item.checkCollision(this.x, this.y, heroImg[0].width, heroImg[0].height);
+      if (picked > 0 && this.hp < this.maxHp) {
+        this.hp = Math.min(this.hp + picked, this.maxHp);
+        this.healAnim = 30;
+        this.hpFlash = 30;
+      }
+    }
+
+    // 绘制回血动效
+    if (this.healAnim > 0) {
+      this._drawHealEffect();
+      this.healAnim--;
+    }
+
     this.hCount++;
     if (this.hCount % 3 === 0) {
       this.n === 32 && (this.n = 0);
@@ -144,19 +163,37 @@ class Hero {
     const x = width - barWidth - 10;
     const y = ctx.canvas.height - barHeight - 10;
 
+    // 血条闪烁效果
+    if (this.hpFlash > 0) {
+      this.hpFlash--;
+    }
+
     // 背景
     ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
     ctx.fillRect(x, y, barWidth, barHeight);
 
     // 血量
     const ratio = this.hp / this.maxHp;
-    ctx.fillStyle = ratio > 0.5 ? "#0f0" : ratio > 0.25 ? "#ff0" : "#f00";
+    // 闪烁时血条颜色交替
+    if (this.hpFlash > 0 && this.hpFlash % 6 < 3) {
+      ctx.fillStyle = "#fff";
+    } else {
+      ctx.fillStyle = ratio > 0.5 ? "#0f0" : ratio > 0.25 ? "#ff0" : "#f00";
+    }
     ctx.fillRect(x, y, barWidth * ratio, barHeight);
+
+    // 闪烁时额外发光边框
+    if (this.hpFlash > 0) {
+      ctx.shadowColor = "#0f0";
+      ctx.shadowBlur = 8;
+    }
 
     // 边框
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, barWidth, barHeight);
+
+    ctx.shadowBlur = 0;
 
     // 文字
     ctx.fillStyle = "#fff";
@@ -164,6 +201,37 @@ class Hero {
     ctx.textAlign = "center";
     ctx.fillText("HP " + this.hp + "/" + this.maxHp, x + barWidth / 2, y + barHeight - 1);
     ctx.textAlign = "left";
+  }
+
+  _drawHealEffect() {
+    const heroCx = this.x + heroImg[0].width / 2;
+    const heroCy = this.y + heroImg[0].height / 2;
+    const progress = 1 - this.healAnim / 30; // 0→1
+
+    // +1 浮动文字（向上飘动并淡出）
+    const floatY = heroCy - 40 - progress * 50;
+    const alpha = 1 - progress;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "#0f0";
+    ctx.font = "bold 28px arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#0f0";
+    ctx.shadowBlur = 12;
+    ctx.fillText("+1 HP", heroCx, floatY);
+    ctx.restore();
+
+    // 绿色光环扩散
+    const ringRadius = 20 + progress * 60;
+    const ringAlpha = (1 - progress) * 0.5;
+    ctx.save();
+    ctx.globalAlpha = ringAlpha;
+    ctx.beginPath();
+    ctx.arc(heroCx, heroCy, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = "#0f0";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
   }
 
   hit() {
@@ -214,6 +282,14 @@ function getGameScore() {
   return gameScore;
 }
 
+function getHeroHp() {
+  return activeHero ? activeHero.hp : 0;
+}
+
+function getHeroMaxHp() {
+  return activeHero ? activeHero.maxHp : 3;
+}
+
 function resetGameScore() {
   gameScore = 0;
 }
@@ -222,5 +298,5 @@ function addGameScore(score) {
   gameScore += score;
 }
 
-export { Hero, getGameScore, resetGameScore, addGameScore };
+export { Hero, getGameScore, getHeroHp, getHeroMaxHp, resetGameScore, addGameScore };
 export default Hero;
