@@ -1,9 +1,10 @@
 // 敌机类
 import { ctx } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
-import Hullet from "./bullet.js";
+import Bullet from "./bullet.js";
 import { addGameScore, getHeroHp, getHeroMaxHp } from "./hero.js";
 import Item from "./item.js";
+import { addScoreEffect } from "./ui.js";
 
 const liveEnemy = []; // 存储画布上所有敌机
 
@@ -104,9 +105,9 @@ class Enemy {
   }
 
   hit() {
-    const hullets = Hullet.getAll();
-    for (let i = 0; i < hullets.length; i++) {
-      const h = hullets[i];
+    const bullets = Bullet.getAll();
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const h = bullets[i];
       if (
         this.x + this.width >= h.mx &&
         h.mx + h.width >= this.x &&
@@ -115,7 +116,10 @@ class Enemy {
       ) {
         if (--this.lifes === 0) {
           this.die = true;
-          addGameScore(this.speed === 6 ? 10 : this.speed === 4 ? 20 : 100);
+          const score = this.speed === 6 ? 10 : this.speed === 4 ? 20 : 100;
+          addGameScore(score);
+          // 击败敌机时在敌机位置显示得分动效
+          addScoreEffect(this.x + this.width / 2, this.y + this.height / 2, score);
           // 击败最大敌机（speed=2）时根据玩家血量动态调整道具掉落概率
           if (this.speed === 2) {
             const { itemDropProb } = getDynamicProbabilities();

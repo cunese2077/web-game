@@ -10,10 +10,10 @@ import {
   PHASE_GAMEOVER,
 } from "./constants.js";
 import { Hero, getGameScore, resetGameScore } from "./hero.js";
-import Hullet from "./bullet.js";
+import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameover } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawScoreEffects, clearScoreEffects } from "./ui.js";
 
 let curPhase = PHASE_DOWNLOAD;
 let hero = null;
@@ -38,9 +38,10 @@ function start() {
       resetGameScore();
       hero = new Hero();
       hero.setPhaseCallbacks(getCurPhase, setCurPhase);
-      Hullet.clear();
+      Bullet.clear();
       Enemy.clear();
       Item.clear();
+      clearScoreEffects();
       curPhase = PHASE_READY;
     }
   };
@@ -67,15 +68,16 @@ function gameEngine() {
       pBg();
       Enemy.drawEnemy();
       Item.drawItems();
-      Hullet.drawHullet();
+      Bullet.drawBullet();
       curPhase = hero.draw(curPhase);
+      drawScoreEffects();
       break;
     case PHASE_PAUSE:
       drawPause();
       break;
     case PHASE_GAMEOVER:
       pBg();
-      drawGameover();
+      drawGameOver();
       break;
   }
 }

@@ -2,9 +2,9 @@
 import { ctx } from "./canvas.js";
 import { m } from "./resources.js";
 
-const hullet = []; // 存储画布中所有子弹的数组
+const bullet = []; // 存储画布中所有子弹的数组
 
-class Hullet {
+class Bullet {
   constructor(n, heroX, heroY, heroW, heroH) {
     this.n = n; // 用于确定是左中右哪一颗子弹
     // 子弹的坐标
@@ -25,29 +25,29 @@ class Hullet {
   }
 
   // 批量绘制所有子弹
-  static drawHullet() {
-    for (let i = hullet.length - 1; i >= 0; i--) {
-      hullet[i].draw();
-      if (hullet[i].removable) {
-        hullet.splice(i, 1);
+  static drawBullet() {
+    for (let i = bullet.length - 1; i >= 0; i--) {
+      bullet[i].draw();
+      if (bullet[i].removable) {
+        bullet.splice(i, 1);
       }
     }
   }
 
   // 添加子弹
-  static add(hulletObj) {
-    hullet.push(hulletObj);
+  static add(bulletObj) {
+    bullet.push(bulletObj);
   }
 
   // 获取子弹数组
   static getAll() {
-    return hullet;
+    return bullet;
   }
 
   // 清空子弹
   static clear() {
-    hullet.length = 0;
+    bullet.length = 0;
   }
 }
 
-export default Hullet;
+export default Bullet;

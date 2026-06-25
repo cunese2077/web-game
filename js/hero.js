@@ -2,7 +2,7 @@
 import { ctx, canvas, width } from "./canvas.js";
 import { heroImg } from "./resources.js";
 import { PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER } from "./constants.js";
-import Hullet from "./bullet.js";
+import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
 
@@ -134,11 +134,11 @@ class Hero {
     this.hCount++;
     if (this.hCount % 3 === 0) {
       this.n === 32 && (this.n = 0);
-      Hullet.add(new Hullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+      Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
       this.n === 0 && (this.n = -32);
-      Hullet.add(new Hullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+      Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
       this.n === -32 && (this.n = 32);
-      Hullet.add(new Hullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+      Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
       this.hCount = 0;
     }
 

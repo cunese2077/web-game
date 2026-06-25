@@ -199,11 +199,11 @@ function Hero () {
     if (this.hCount % 3 == 0) {
       // 同时生成三颗子弹
       this.n == 32 && (this.n = 0);
-      hullet.push(new Hullet(this.n));
+      bullet.push(new Bullet(this.n));
       this.n == 0 && (this.n = -32);
-      hullet.push(new Hullet(this.n));
+      bullet.push(new Bullet(this.n));
       this.n == -32 && (this.n = 32);
-      hullet.push(new Hullet(this.n));
+      bullet.push(new Bullet(this.n));
       this.hCount = 0;
     }
     this.eCount++;
@@ -280,10 +280,10 @@ function Hero () {
   };
 }
 
-/**********构造子弹***********/
-var hullet = []; // 存储画布中所以子弹的数组
+//**********构造子弹***********/
+var bullet = []; // 存储画布中所有子弹的数组
 
-function Hullet (n) {
+function Bullet (n) {
   this.n = n; // 用于确定是左中右哪一颗子弹
   // 子弹的坐标
   this.mx = hero.x + (heroImg[0].width - m.width) / 2 + this.n;
@@ -292,17 +292,17 @@ function Hullet (n) {
   this.height = m.height;
   this.removable = false; // 标识子弹是否可移除了
 }
-Hullet.drawHullet = function () {
-  for (var i = 0; i < hullet.length; i++) {
+Bullet.drawBullet = function () {
+  for (var i = 0; i < bullet.length; i++) {
     //在画布上画出所以子弹
-    hullet[i].draw();
-    if (hullet[i].removable) {
+    bullet[i].draw();
+    if (bullet[i].removable) {
       // 如果为true就移除这颗子弹
-      hullet.splice(i, 1);
+      bullet.splice(i, 1);
     }
   }
 };
-Hullet.prototype.draw = function () {
+Bullet.prototype.draw = function () {
   // 在画布上画子弹
   ctx.drawImage(m, this.mx, this.my);
   this.my -= 20;
@@ -379,8 +379,8 @@ function Enemy () {
   };
   this.hit = function () {
     //判断是否击中敌机
-    for (var i = 0; i < hullet.length; i++) {
-      var h = hullet[i];
+    for (var i = 0; i < bullet.length; i++) {
+      var h = bullet[i];
       // 敌机与子弹的碰撞检测，自己体会吧
       if (
         this.x + this.width >= h.mx &&
@@ -440,7 +440,7 @@ function gameEngine () {
     case PHASE_PLAY:
       pBg();
       drawEnemy();
-      Hullet.drawHullet();
+      Bullet.drawBullet();
       hero.draw();
       break;
     case PHASE_PAUSE:
