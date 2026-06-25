@@ -64,7 +64,10 @@ class Hero {
     this.hCount = 0;
     this.eCount = 0;
     this.n = 0;
-    this.life = 0;
+    this.maxHp = 3;
+    this.hp = this.maxHp;
+    this.invincible = 0; // 受伤后无敌帧数
+    this.dying = false; // 是否正在播放死亡动画
     // 注册为当前活跃实例
     activeHero = this;
     bindEventsOnce();
@@ -72,22 +75,42 @@ class Hero {
 
   draw(curPhase) {
     this.count++;
-    this.hit();
 
-    if (this.index > 4) {
-      curPhase = PHASE_GAMEOVER;
-      this.index = 5;
+    // 死亡动画
+    if (this.dying) {
+      this.index++;
+      if (this.index >= heroImg.length) {
+        curPhase = PHASE_GAMEOVER;
+        this.index = heroImg.length - 1;
+      }
+      ctx.drawImage(heroImg[this.index], this.x, this.y);
+      this._drawScore();
+      this._drawHp();
+      return curPhase;
     }
 
+    // 无敌帧递减
+    if (this.invincible > 0) {
+      this.invincible--;
+    }
+
+    this.hit();
+
+    // 正常动画：0/1 交替
     if (this.count % 3 === 0 && this.index <= 1) {
       this.index = this.index === 0 ? 1 : 0;
       this.count = 0;
     }
 
-    ctx.drawImage(heroImg[this.index], this.x, this.y);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 20px arial";
-    ctx.fillText("SCORE:" + gameScore, 10, 30);
+    // 无敌时闪烁效果（每隔2帧不绘制）
+    if (this.invincible > 0 && this.invincible % 4 < 2) {
+      // 不绘制战机，产生闪烁
+    } else {
+      ctx.drawImage(heroImg[this.index], this.x, this.y);
+    }
+
+    this._drawScore();
+    this._drawHp();
 
     this.hCount++;
     if (this.hCount % 3 === 0) {
@@ -109,10 +132,48 @@ class Hero {
     return curPhase;
   }
 
+  _drawScore() {
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 20px arial";
+    ctx.fillText("SCORE:" + gameScore, 10, 30);
+  }
+
+  _drawHp() {
+    const barWidth = 150;
+    const barHeight = 12;
+    const x = width - barWidth - 10;
+    const y = ctx.canvas.height - barHeight - 10;
+
+    // 背景
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.fillRect(x, y, barWidth, barHeight);
+
+    // 血量
+    const ratio = this.hp / this.maxHp;
+    ctx.fillStyle = ratio > 0.5 ? "#0f0" : ratio > 0.25 ? "#ff0" : "#f00";
+    ctx.fillRect(x, y, barWidth * ratio, barHeight);
+
+    // 边框
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, barWidth, barHeight);
+
+    // 文字
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px arial";
+    ctx.textAlign = "center";
+    ctx.fillText("HP " + this.hp + "/" + this.maxHp, x + barWidth / 2, y + barHeight - 1);
+    ctx.textAlign = "left";
+  }
+
   hit() {
+    if (this.dying || this.invincible > 0) return;
+
     const enemies = Enemy.getAll();
     for (let i = 0; i < enemies.length; i++) {
       const d = enemies[i];
+      if (d.die) continue; // 已死亡的敌机不造成伤害
+
       const px = this.x <= d.x ? d.x : this.x;
       const py = this.y <= d.y ? d.y : this.y;
 
@@ -126,14 +187,15 @@ class Hero {
         py >= d.y &&
         py <= d.y + d.height
       ) {
-        this.life++;
-        if (this.life > 30) {
-          if (this.index <= 2) {
-            this.index = 3;
-          }
-          this.index++;
-          this.life = 0;
+        this.hp--;
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.dying = true;
+          this.index = 2; // 从爆炸第一帧开始
+        } else {
+          this.invincible = 40; // 约2秒无敌时间（40帧 * 50ms）
         }
+        break; // 一次只受一次伤害
       }
     }
   }
