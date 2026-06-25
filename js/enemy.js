@@ -5,6 +5,7 @@ import Bullet from "./bullet.js";
 import { addGameScore, getHeroHp, getHeroMaxHp } from "./hero.js";
 import Item from "./item.js";
 import { addScoreEffect } from "./ui.js";
+import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig } from "./audio.js";
 
 const liveEnemy = []; // 存储画布上所有敌机
 
@@ -120,6 +121,14 @@ class Enemy {
           addGameScore(score);
           // 击败敌机时在敌机位置显示得分动效
           addScoreEffect(this.x + this.width / 2, this.y + this.height / 2, score);
+          // 播放对应敌机摧毁音效
+          if (this.speed === 2) {
+            playEnemyDestroyBig();
+          } else if (this.speed === 4) {
+            playEnemyDestroyMedium();
+          } else {
+            playEnemyDestroySmall();
+          }
           // 击败最大敌机（speed=2）时根据玩家血量动态调整道具掉落概率
           if (this.speed === 2) {
             const { itemDropProb } = getDynamicProbabilities();

@@ -1,8 +1,10 @@
 // 子弹类
 import { ctx } from "./canvas.js";
 import { m } from "./resources.js";
+import { playShoot } from "./audio.js";
 
 const bullet = []; // 存储画布中所有子弹的数组
+let shootSoundCooldown = 0; // 射击音效冷却（单位：帧），避免连续播放
 
 class Bullet {
   constructor(n, heroX, heroY, heroW, heroH) {
@@ -32,11 +34,18 @@ class Bullet {
         bullet.splice(i, 1);
       }
     }
+    // 递减射击音效冷却
+    if (shootSoundCooldown > 0) shootSoundCooldown--;
   }
 
   // 添加子弹
   static add(bulletObj) {
     bullet.push(bulletObj);
+    // 射击音效（每6帧最多播放一次，避免音效叠加）
+    if (shootSoundCooldown === 0) {
+      playShoot();
+      shootSoundCooldown = 6;
+    }
   }
 
   // 获取子弹数组

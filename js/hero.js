@@ -5,6 +5,7 @@ import { PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER } from "./constants.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
+import { playHit, playHeal } from "./audio.js";
 
 let gameScore = 0;
 
@@ -122,6 +123,7 @@ class Hero {
         this.hp = Math.min(this.hp + picked, this.maxHp);
         this.healAnim = 30;
         this.hpFlash = 30;
+        playHeal();
       }
     }
 
@@ -256,6 +258,7 @@ class Hero {
         py <= d.y + d.height
       ) {
         this.hp--;
+        playHit();
         if (this.hp <= 0) {
           this.hp = 0;
           this.dying = true;
