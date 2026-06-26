@@ -1,17 +1,12 @@
-// 分数管理模块（独立于 hero.js，避免循环依赖）
-
+// 分数管理模块（独立于 hero.ts，避免循环依赖）
 let gameScore = 0;
-
 function getGameScore() {
-  return gameScore;
+    return gameScore;
 }
-
 function resetGameScore() {
-  gameScore = 0;
+    gameScore = 0;
 }
-
 function addGameScore(score) {
-  gameScore += score;
+    gameScore += score;
 }
-
 export { getGameScore, resetGameScore, addGameScore };

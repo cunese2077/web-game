@@ -1,0 +1,13 @@
+{
+  "name": "web-game",
+  "version": "2.0.0",
+  "description": "飞机大战网页版 - TypeScript",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "npx http-server . -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
