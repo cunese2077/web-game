@@ -36,7 +36,8 @@
 - **碰撞检测**：子弹与敌机、敌机与战机的碰撞判定
 - **爆炸动画**：敌机和战机被击毁时播放逐帧爆炸动画
 - **计分系统**：击毁不同敌机获得不同分数（10/20/100），带浮动得分动效
-- **血量系统**：玩家战机 3 HP，受伤后 2 秒无敌时间，底部血条显示
+- **等级系统**：击毁敌机获得经验，升级后属性加成（HP/伤害/射速/Buff），30 级满级
+- **血量系统**：玩家战机基础 3 HP（随等级增长），受伤后 2 秒无敌时间，底部血条显示
 - **道具系统**：4 种道具（回血、双倍火力、护盾、散弹），击败敌机后概率掉落
 - **Buff 系统**：拾取道具后激活对应 buff，带进度条 UI 和视觉反馈
 - **音效系统**：Web Audio API 程序化合成 10 种音效
@@ -139,12 +140,85 @@ hpRatio = 当前HP / 最大HP（1.0=满血, 0.0=空血）
 
 **Buff UI**：血条上方显示激活 buff 的进度条，拾取时显示浮动文字动效。
 
-### 6. 血量系统
+### 6. 等级系统
+
+#### 6.1 核心参数
+
+| 参数 | 值 | 说明 |
+| ---- | --- | ---- |
+| 基础升级经验 (base) | 450 | 1→2 级所需经验（起步门槛） |
+| 递增系数 (growth) | 30 | 每级递增基数 |
+| 曲线指数 (exponent) | 1.0 | 线性增长，前期平稳后期不过陡 |
+| 满级 | 30 | 最高等级 |
+| 经验曲线 | `base + growth × (lv-1)^exponent` | 线性增长（exponent=1.0） |
+
+#### 6.2 经验来源
+
+| 敌机类型 | 击毁得分 | 经验值 |
+| -------- | -------- | ------ |
+| 小型敌机 | 10 | 7 |
+| 中型敌机 | 20 | 20 |
+| 大型敌机 | 100 | 100 |
+
+#### 6.3 升级经验示例
+
+| 等级 | 升级所需 | 累计总经验 |
+| ---- | -------- | ---------- |
+| 1→2 | 450 | 450 |
+| 5→6 | 570 | 2,220 |
+| 10→11 | 720 | 5,130 |
+| 15→16 | 870 | 8,580 |
+| 20→21 | 1,020 | 13,680 |
+| 25→26 | 1,170 | 19,350 |
+| 29→30 | 1,290 | 25,230 |
+
+#### 6.4 等级奖励
+
+所有奖励规则通过 `config.ts` 的 `levelConfig.bonuses` 配置，无需改代码即可调参：
+
+| 等级段 | 奖励 | 配置字段 | 触发等级 | 效果 |
+| ------ | ---- | -------- | -------- | ---- |
+| 1~10 | maxHp +1 | `bonuses.hpBonusLevels` | 2/4/7/10 | 10 级时 maxHp=3→7 |
+| 1~10 | 子弹伤害 +perLevel | `bonuses.damageBonus` | 每级（封顶 maxLevel=10） | 10 级时基础伤害 1→2.5 |
+| 11~20 | maxHp +1 | `bonuses.hpBonusLevels` | 13/17/20 | 20 级时 maxHp=10 |
+| 11~20 | 射击间隔 -reduction | `bonuses.bulletInterval` | 每 perLevels=2 级（11~20区间） | 射速加快（下限 1 帧） |
+| 21~30 | maxHp +1 | `bonuses.hpBonusLevels` | 23/27/30 | 30 级时 maxHp=13 |
+| 21~30 | Buff 持续 ×multiplier | `bonuses.buffDuration` | 每 perLevels=3 级（21~30区间） | 累计 ×1.15 |
+
+**升级回血**：每次升级回复 1 HP，连续升 N 级则回 N HP（不超过 maxHp）。
+
+#### 6.5 伤害计算
+
+```
+damage = (baseDamage + extraDamage) × firepowerMultiplier
+```
+- `baseDamage`：子弹基础伤害（config.ts 中 bulletConfig.baseDamage = 1）
+- `extraDamage`：等级加成额外伤害
+- `firepowerMultiplier`：firepower buff 倍率（激活时 2，否则 1）
+
+#### 6.6 等级 UI
+
+- 右上角：`LV.XX` + 金色经验条（满级后变紫色，显示 "MAX"）
+- 升级特效：金色光环 + "LEVEL UP! → N" 浮动文字（60 帧淡出）
+- 升级音效：C5-E5-G5-C6 上行琶音
+- 游戏结束界面：显示 LEVEL 和 TOTAL EXP
+
+#### 6.7 游戏节奏
+
+| 时间 | 预计等级 |
+| ---- | -------- |
+| 1 分钟 | 3~4 级 |
+| 4 分钟 | 8~10 级 |
+| 8 分钟 | 16~18 级 |
+| 12 分钟 | 24~26 级 |
+| 15 分钟 | 30 级（满级） |
+
+### 7. 血量系统
 
 | 属性 | 值 | 说明 |
 | ---- | --- | ---- |
-| maxHp | 3 | 最大血量 |
-| hp | 3 | 当前血量 |
+| maxHp | 3 + extraHp | 基础 3 + 等级加成（满级 13） |
+| hp | maxHp | 当前血量 |
 | 无敌帧数 | 40 | 受伤后约 2 秒无敌 |
 | 闪烁表现 | 透明度交替 | 无敌期间战机闪烁 |
 
@@ -166,6 +240,7 @@ hpRatio = 当前HP / 最大HP（1.0=满血, 0.0=空血）
 | 拾取散弹 | 三角波快速琶音 | 拾取散弹道具 | |
 | 玩家扣血 | 噪声+重击+嗡鸣+蜂鸣 | 碰撞敌机扣 HP | 四层叠加 |
 | 游戏结束 | G4-F4-E4-C4 下降音阶 | 进入 GAMEOVER | 仅播放一次 |
+| 升级 | C5-E5-G5-C6 上行琶音 | 等级提升 | 区别于道具拾取 |
 
 **AudioContext 策略**：延迟初始化，用户首次点击画布时 `resumeAudio()` 激活。
 
@@ -199,6 +274,7 @@ hpRatio = 当前HP / 最大HP（1.0=满血, 0.0=空血）
 | `ItemConfig` | 道具配置（`Record<ItemType, ItemTypeConfig>`） |
 | `DropConfig` | 道具掉落概率配置 |
 | `HeroConfig` / `BulletConfig` | 玩家/子弹配置 |
+| `LevelConfig` / `LevelBonusConfig` / `LevelBonuses` | 等级配置、奖励规则、属性加成 |
 | `BuffFloat` | Buff 浮动文字动效 |
 
 ### 3. 核心架构
@@ -272,7 +348,8 @@ web-game/
 │   ├── config.ts                 # 集中配置管理
 │   ├── resources.ts              # 图片资源加载与管理
 │   ├── score.ts                  # 分数管理模块
-│   ├── hero.ts                   # 玩家战机类 + 血量系统 + Buff 管理
+│   ├── level.ts                  # 等级管理模块（经验/升级/属性加成）
+│   ├── hero.ts                   # 环家战机类 + 血量系统 + Buff 管理 + 等级UI
 │   ├── bullet.ts                 # 子弹类（支持散弹斜射）
 │   ├── enemy.ts                  # 敌机类 + 动态概率生成 + 横向移动 + 道具掉落
 │   ├── item.ts                   # 道具类（4 种类型）+ 碰撞拾取
@@ -347,6 +424,7 @@ web-game/
 - `itemConfig`：道具外观配置（大小、颜色、发光、浮动文字）
 - `heroConfig`：玩家战机配置（HP、无敌帧数、射击间隔）
 - `bulletConfig`：子弹配置（伤害、速度、偏移）
+- `levelConfig`：等级配置（经验曲线 base/growth/exponent、满级、经验奖励、**等级奖励规则 bonuses**）
 - 7 个动态概率函数
 
 ### 5. [src/constants.ts](web-game/src/constants.ts)
@@ -364,7 +442,15 @@ web-game/
 分数管理模块，导出：
 - `getGameScore()` / `resetGameScore()` / `addGameScore()`
 
-### 9. [src/hero.ts](web-game/src/hero.ts)
+### 9. [src/level.ts](web-game/src/level.ts)
+等级管理模块（独立于 hero.ts，避免循环依赖），导出：
+- `getLevel()` / `getExp()` / `getExpToNext()` / `getTotalExp()`：等级/经验查询
+- `addExp(amount)` → 返回升级次数（支持连升多级）
+- `resetLevel()`：重置为 1 级
+- `getLevelBonuses()` → `LevelBonuses`：当前等级属性加成汇总
+- `getExpReward(enemySpeed)` → 该敌机类型经验奖励
+
+### 10. [src/hero.ts](web-game/src/hero.ts)
 玩家战机类 `Hero`，负责：
 - 战机绘制与双帧动画切换
 - 自动发射三路子弹（散弹模式五路齐射）
@@ -377,14 +463,14 @@ web-game/
 - 道具碰撞拾取
 - 事件绑定：`bindEventsOnce()` 只绑定一次
 
-### 10. [src/bullet.ts](web-game/src/bullet.ts)
+### 11. [src/bullet.ts](web-game/src/bullet.ts)
 子弹类 `Bullet`，负责：
 - 子弹绘制与移动（含三路偏移 + 散弹斜射）
 - 双倍火力时橙色光晕
 - 出界标记移除（逆序遍历）
 - 射击音效（6 帧冷却）
 
-### 11. [src/enemy.ts](web-game/src/enemy.ts)
+### 12. [src/enemy.ts](web-game/src/enemy.ts)
 敌机类 `Enemy`，负责：
 - 三种敌机动态概率生成
 - 大型敌机 40 帧冷却机制
@@ -396,14 +482,14 @@ web-game/
 - 与子弹碰撞检测、计分、得分动效、摧毁音效
 - 道具掉落逻辑（动态概率，根据玩家血量调整）
 
-### 12. [src/item.ts](web-game/src/item.ts)
+### 13. [src/item.ts](web-game/src/item.ts)
 道具类 `Item`，负责：
 - 4 种道具绘制：心形（回血）、火焰（火力）、盾牌（护盾）、星形（散弹）
 - 呼吸动画 + 外发光效果
 - 下落移动与出界移除
 - 碰撞拾取检测（返回 `ItemType[]`，支持同帧多拾取）
 
-### 13. [src/ui.ts](web-game/src/ui.ts)
+### 14. [src/ui.ts](web-game/src/ui.ts)
 UI 绘制模块，导出：
 - `paintBg()`：返回闭包函数，实现无缝滚动背景
 - `paintLogo()`：绘制开始界面 logo
@@ -412,7 +498,7 @@ UI 绘制模块，导出：
 - `drawGameOver()`：画布内绘制 GAME OVER + 得分 + 重新开始提示
 - `addScoreEffect()` / `drawScoreEffects()` / `clearScoreEffects()`：得分动效系统
 
-### 14. [src/audio.ts](web-game/src/audio.ts)
+### 15. [src/audio.ts](web-game/src/audio.ts)
 音效合成模块，使用 Web Audio API 程序化合成 10 种音效：
 - `resumeAudio()`：激活 AudioContext
 - `playShoot()`：子弹发射
@@ -420,6 +506,7 @@ UI 绘制模块，导出：
 - `playHeal()` / `playFirepower()` / `playShield()` / `playSpread()`：道具拾取
 - `playHit()`：玩家扣血
 - `playGameOver()`：游戏结束
+- `playLevelUp()`：升级音效（C5-E5-G5-C6 上行琶音）
 
 ---
 
@@ -505,6 +592,24 @@ dropConfig.bigEnemy.shieldBonus = 0.20;  // 空血时额外加成
 dropConfig.bigEnemy.healBase = 0.25;     // 满血时回血掉落概率
 dropConfig.bigEnemy.healBonus = 0.50;    // 空血时额外加成
 dropConfig.mediumEnemy.shieldBase = 0.08; // 中型敌机护盾掉落概率
+
+// 等级系统 - 经验曲线（控制升级速度）
+levelConfig.base = 450;             // 基础升级经验（起步门槛）
+levelConfig.growth = 30;            // 每级递增基数
+levelConfig.exponent = 1.0;         // 曲线指数（1.0=线性）
+levelConfig.maxLevel = 30;          // 满级
+levelConfig.expRewards.small = 7;   // 小型敌机经验
+levelConfig.expRewards.medium = 20; // 中型敌机经验
+levelConfig.expRewards.big = 100;   // 大型敌机经验
+
+// 等级系统 - 等级奖励（控制升级后的属性加成）
+levelConfig.bonuses.hpBonusLevels = [2, 4, 7, 10, 13, 17, 20, 23, 27, 30]; // HP+1 等级点
+levelConfig.bonuses.damageBonus.perLevel = 0.15;  // 每级伤害加成
+levelConfig.bonuses.damageBonus.maxLevel = 10;    // 伤害加成封顶等级
+levelConfig.bonuses.bulletInterval.perLevels = 2; // 每 N 级减射速间隔
+levelConfig.bonuses.bulletInterval.reduction = 0.15;
+levelConfig.bonuses.buffDuration.perLevels = 3;   // 每 N 级增 Buff 时长
+levelConfig.bonuses.buffDuration.multiplier = 1.05;
 ```
 
 **概率调整注意事项**：
@@ -524,6 +629,7 @@ dropConfig.mediumEnemy.shieldBase = 0.08; // 中型敌机护盾掉落概率
 - ~~使用 `requestAnimationFrame` + 时间步长替代 `setInterval`~~ ✅ 已完成
 - ~~迁移到 TypeScript~~ ✅ 已完成（strict 模式，禁止 any）
 - ~~敌机横向移动~~ ✅ 已完成（sine/zigzag/straight 三种模式）
+- ~~玩家战机等级系统~~ ✅ 已完成（经验/升级/属性加成/30级满级）
 - 增加难度递增机制
 - 增加敌机射击（向下发射敌弹）
 - 增加中型敌机俯冲行为
@@ -533,10 +639,10 @@ dropConfig.mediumEnemy.shieldBase = 0.08; // 中型敌机护盾掉落概率
 
 ## 八、版本信息
 
-- **当前版本**：v3（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动）
+- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统）
 - **架构**：TypeScript + ES Module
-- **源码模块数量**：13 个（src/ 目录）
-- **类型定义**：20+ 接口/类型（types.ts）
+- **源码模块数量**：14 个（src/ 目录）
+- **类型定义**：22+ 接口/类型（types.ts）
 - **构建方式**：`tsc` 编译到 js/
 - **最后更新**：见 Git 提交历史
 - **维护状态**：基础功能完整，存在扩展空间

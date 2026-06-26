@@ -122,6 +122,55 @@ const bulletConfig = {
     horizontalDrift: 3,
     diagonalDrift: 5,
 };
+// ========== 等级配置 ==========
+// 所有等级成长相关参数集中在此，修改本对象即可调整整个等级系统
+//
+// 【经验曲线】expToNext(lv) = base + growth × (lv-1)^exponent
+//   - base:      1→2 级所需经验（起步门槛），值越大前期升级越慢
+//   - growth:    每级递增基数，值越大后期升级越慢
+//   - exponent:  曲线指数，1.0=线性（平稳），1.5=超线性（后期陡峭）
+//   - 当前采用线性增长（exponent=1.0），满级约 15 分钟
+//
+// 【等级奖励】bonuses 对象控制各等级段的属性加成：
+//   - hpBonusLevels:    达到任一指定等级时 maxHp +1
+//   - damageBonus:      每级增加 perLevel 伤害，累计至 maxLevel 级封顶
+//   - bulletInterval:   每 perLevels 级减少 reduction 射击间隔，区间内生效
+//   - buffDuration:     每 perLevels 级乘以 multiplier，区间内生效
+const levelConfig = {
+    base: 450, // 1→2 级所需经验（起步门槛）
+    growth: 30, // 每级递增基数（线性：每级 +30）
+    exponent: 1.0, // 曲线指数（1.0=线性，前期平稳后期不过陡）
+    maxLevel: 30, // 满级
+    expRewards: {
+        small: 7, // 小型敌机击毁经验
+        medium: 20, // 中型敌机击毁经验
+        big: 100, // 大型敌机击毁经验
+    },
+    // 等级奖励配置 —— 修改此处可调整各等级段的属性加成
+    bonuses: {
+        // HP 加成等级点：达到任一等级时 maxHp +1（满级共 +10 HP）
+        hpBonusLevels: [2, 4, 7, 10, 13, 17, 20, 23, 27, 30],
+        // 子弹伤害加成：1~10 级每级 +0.15（10 级时累计 +1.5）
+        damageBonus: {
+            perLevel: 0.15,
+            maxLevel: 10,
+        },
+        // 射击间隔减少：11~20 级每 2 级 -0.15（下限 1 帧）
+        bulletInterval: {
+            perLevels: 2,
+            reduction: 0.15,
+            startLevel: 11,
+            endLevel: 20,
+        },
+        // Buff 持续倍率：21~30 级每 3 级 ×1.05（累计 ×1.15）
+        buffDuration: {
+            perLevels: 3,
+            multiplier: 1.05,
+            startLevel: 21,
+            endLevel: 30,
+        },
+    },
+};
 // ========== 动态概率计算函数 ==========
 function getDynamicHealDropProb(hpRatio) {
     return dropConfig.bigEnemy.healBase + (1 - hpRatio) * dropConfig.bigEnemy.healBonus;
@@ -144,4 +193,4 @@ function getDynamicSpreadDropProb(hpRatio) {
 function getDynamicBigEnemySpawnProb(hpRatio) {
     return enemyConfig.big.spawnProbBase + (1 - hpRatio) * (enemyConfig.big.spawnProbMax - enemyConfig.big.spawnProbBase);
 }
-export { enemyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, };
+export { enemyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, };

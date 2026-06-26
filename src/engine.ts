@@ -11,6 +11,7 @@ import {
 } from "./constants.js";
 import { Hero } from "./hero.js";
 import { resetGameScore } from "./score.js";
+import { resetLevel } from "./level.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
@@ -40,6 +41,7 @@ function start(): void {
       curPhase = PHASE_LOADING;
     } else if (curPhase === PHASE_GAMEOVER) {
       resetGameScore();
+      resetLevel();
       hero = new Hero();
       hero.setPhaseCallbacks(getCurPhase, setCurPhase);
       Bullet.clear();

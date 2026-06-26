@@ -75,6 +75,7 @@ interface AudioConfig {
   firepower: FirepowerConfig;
   shield: MelodyConfig;
   spread: MelodyConfig;
+  levelUp: MelodyConfig;
 }
 
 // ========== 音效配置对象 ==========
@@ -146,6 +147,14 @@ const audioConfig: AudioConfig = {
     attackTime: 0.02,
     volume: 0.12,
     duration: 0.2,
+  },
+  levelUp: {
+    type: "sine",
+    notes: [523, 659, 784, 1047],
+    noteInterval: 0.08,
+    attackTime: 0.03,
+    volume: 0.18,
+    duration: 0.35,
   },
 };
 
@@ -455,6 +464,25 @@ function playSpread(): void {
   });
 }
 
+function playLevelUp(): void {
+  const c = audioConfig.levelUp;
+  const ctx = getAudioCtx();
+  c.notes.forEach((freq: number, i: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = c.type;
+    const startTime = ctx.currentTime + i * c.noteInterval;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(vol(c.volume), startTime + c.attackTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.duration);
+    osc.start(startTime);
+    osc.stop(startTime + c.duration);
+  });
+}
+
 export {
   audioConfig,
   resumeAudio,
@@ -468,4 +496,5 @@ export {
   playFirepower,
   playShield,
   playSpread,
+  playLevelUp,
 };

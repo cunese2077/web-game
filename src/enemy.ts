@@ -3,6 +3,7 @@ import { ctx } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
+import { addExp, getExpReward, getLevelBonuses } from "./level.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs } from "./hero.js";
 import Item from "./item.js";
 import { addScoreEffect } from "./ui.js";
@@ -10,6 +11,7 @@ import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig } fr
 import {
   enemyConfig,
   buffConfig,
+  bulletConfig,
   getDynamicHealDropProb,
   getDynamicShieldDropProb,
   getDynamicBigFirepowerDropProb,
@@ -168,7 +170,9 @@ class Enemy {
 
     const allBullets = Bullet.getAll();
     const buffs: BuffState = getHeroBuffs();
-    const damageMultiplier = buffs.firepower > 0 ? buffConfig.firepower.damageMultiplier : 1;
+    const levelBonuses = getLevelBonuses();
+    const baseDamage = bulletConfig.baseDamage + levelBonuses.extraDamage;
+    const damageMultiplier = baseDamage * (buffs.firepower > 0 ? buffConfig.firepower.damageMultiplier : 1);
 
     for (let i = allBullets.length - 1; i >= 0; i--) {
       const h = allBullets[i];
@@ -185,6 +189,7 @@ class Enemy {
                        : this.speed === enemyConfig.medium.speed ? enemyConfig.medium.score
                        : enemyConfig.small.score;
           addGameScore(score);
+          addExp(getExpReward(this.speed));
           addScoreEffect(this.x + this.width / 2, this.y + this.height / 2, score);
           if (this.speed === enemyConfig.big.speed) {
             playEnemyDestroyBig();

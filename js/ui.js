@@ -3,6 +3,7 @@ import { ctx, width, height } from "./canvas.js";
 import { bg, startImg, pause, gameLoad } from "./resources.js";
 import { PHASE_LOADING, PHASE_PLAY } from "./constants.js";
 import { getGameScore } from "./score.js";
+import { getLevel, getTotalExp } from "./level.js";
 // ========== 得分动效系统 ==========
 const scoreEffects = [];
 const SCORE_EFFECT_FRAMES = 30;
@@ -93,12 +94,15 @@ function drawGameOver() {
     ctx.fillStyle = "#fff";
     ctx.font = "bold 40px arial";
     ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", width / 2, height / 2 - 60);
+    ctx.fillText("GAME OVER", width / 2, height / 2 - 80);
     ctx.font = "28px arial";
-    ctx.fillText("SCORE: " + getGameScore(), width / 2, height / 2);
+    ctx.fillText("SCORE: " + getGameScore(), width / 2, height / 2 - 30);
+    ctx.fillStyle = "#fd0";
+    ctx.font = "24px arial";
+    ctx.fillText("LEVEL: " + getLevel() + "  |  TOTAL EXP: " + getTotalExp(), width / 2, height / 2 + 10);
     ctx.font = "20px arial";
     ctx.fillStyle = "#ccc";
-    ctx.fillText("Click to Restart", width / 2, height / 2 + 50);
+    ctx.fillText("Click to Restart", width / 2, height / 2 + 60);
     ctx.textAlign = "left";
 }
 export { paintBg, paintLogo, loading, drawPause, drawGameOver, addScoreEffect, drawScoreEffects, clearScoreEffects };

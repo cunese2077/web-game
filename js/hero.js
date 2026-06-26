@@ -5,8 +5,9 @@ import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER } from "./const
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { playHit, playHeal, playFirepower, playShield, playSpread } from "./audio.js";
+import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp } from "./audio.js";
 import { getGameScore } from "./score.js";
+import { getLevel, getExp, getExpToNext, getLevelBonuses } from "./level.js";
 import { buffConfig, heroConfig, itemConfig } from "./config.js";
 let activeHero = null;
 let eventsBound = false;
@@ -58,7 +59,8 @@ class Hero {
         this.hCount = 0;
         this.eCount = 0;
         this.n = 0;
-        this.maxHp = heroConfig.maxHp;
+        this.levelBonuses = getLevelBonuses();
+        this.maxHp = heroConfig.maxHp + this.levelBonuses.extraHp;
         this.hp = this.maxHp;
         this.invincible = 0;
         this.dying = false;
@@ -70,6 +72,8 @@ class Hero {
             spread: 0,
         };
         this.buffFloats = [];
+        this.levelUpAnim = 0;
+        this.lastLevel = getLevel();
         this._getCurrentPhase = () => PHASE_DOWNLOAD;
         this._setCurrentPhase = () => { };
         activeHero = this;
@@ -92,6 +96,7 @@ class Hero {
             this.invincible--;
         }
         this._tickBuffs();
+        this._checkLevelUp();
         this.hit();
         if (this.count % 3 === 0 && this.index <= 1) {
             this.index = this.index === 0 ? 1 : 0;
@@ -107,6 +112,7 @@ class Hero {
             this._drawShieldAura();
         }
         this._drawScore();
+        this._drawLevel();
         this._drawHp();
         this._drawBuffs();
         this._drawBuffFloats();
@@ -118,8 +124,13 @@ class Hero {
             this._drawHealEffect();
             this.healAnim--;
         }
+        if (this.levelUpAnim > 0) {
+            this._drawLevelUpEffect();
+            this.levelUpAnim--;
+        }
         this.hCount++;
-        if (this.hCount % 3 === 0) {
+        const bulletInterval = Math.max(1, Math.floor(3 - this.levelBonuses.bulletIntervalReduction));
+        if (this.hCount % bulletInterval === 0) {
             const isSpread = this.buffs.spread > 0;
             if (isSpread) {
                 Bullet.add(new Bullet(-48, this.x, this.y, heroImg[0].width, heroImg[0].height, true));
@@ -260,6 +271,58 @@ class Hero {
         ctx.font = "bold 20px arial";
         ctx.fillText("SCORE:" + getGameScore(), 10, 30);
     }
+    _drawLevel() {
+        const lv = getLevel();
+        const exp = getExp();
+        const expNext = getExpToNext();
+        const isMaxLevel = lv >= 30;
+        // 等级文字
+        ctx.fillStyle = "#fd0";
+        ctx.font = "bold 16px arial";
+        ctx.textAlign = "right";
+        ctx.fillText("LV." + lv, width - 10, 20);
+        // 经验条
+        const barWidth = 100;
+        const barHeight = 8;
+        const barX = width - barWidth - 10;
+        const barY = 26;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        const ratio = isMaxLevel ? 1 : (expNext > 0 ? exp / expNext : 0);
+        ctx.fillStyle = isMaxLevel ? "#f0f" : "#fd0";
+        ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+        ctx.strokeStyle = "#fd0";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+        // 经验数值
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 8px arial";
+        ctx.textAlign = "center";
+        if (isMaxLevel) {
+            ctx.fillText("MAX", barX + barWidth / 2, barY + barHeight - 1);
+        }
+        else {
+            ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - 1);
+        }
+        ctx.textAlign = "left";
+    }
+    _checkLevelUp() {
+        const currentLevel = getLevel();
+        if (currentLevel > this.lastLevel) {
+            // 连续升多级时，计算实际升级次数
+            const levelsGained = currentLevel - this.lastLevel;
+            this.lastLevel = currentLevel;
+            this.levelBonuses = getLevelBonuses();
+            // 更新 maxHp（按当前等级的累计 HP 加成）
+            this.maxHp = heroConfig.maxHp + this.levelBonuses.extraHp;
+            // 每级升级回血 1 HP，连续升多级时累计回血（不超过 maxHp）
+            this.hp = Math.min(this.hp + levelsGained, this.maxHp);
+            // 升级特效
+            this.levelUpAnim = 60;
+            this.hpFlash = 20;
+            playLevelUp();
+        }
+    }
     _drawHp() {
         const barWidth = 150;
         const barHeight = 12;
@@ -315,6 +378,37 @@ class Hero {
         ctx.arc(heroCx, heroCy, ringRadius, 0, Math.PI * 2);
         ctx.strokeStyle = "#0f0";
         ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+    }
+    _drawLevelUpEffect() {
+        const lv = getLevel();
+        const heroCx = this.x + heroImg[0].width / 2;
+        const heroCy = this.y + heroImg[0].height / 2;
+        const progress = 1 - this.levelUpAnim / 60;
+        // 浮动文字
+        const floatY = heroCy - 60 - progress * 80;
+        const alpha = 1 - progress;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#fd0";
+        ctx.font = "bold 32px arial";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#fd0";
+        ctx.shadowBlur = 16;
+        ctx.fillText("LEVEL UP! → " + lv, heroCx, floatY);
+        ctx.restore();
+        // 金色光环
+        const ringRadius = 20 + progress * 80;
+        const ringAlpha = (1 - progress) * 0.6;
+        ctx.save();
+        ctx.globalAlpha = ringAlpha;
+        ctx.beginPath();
+        ctx.arc(heroCx, heroCy, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = "#fd0";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#fd0";
+        ctx.shadowBlur = 12;
         ctx.stroke();
         ctx.restore();
     }

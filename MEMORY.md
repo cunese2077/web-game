@@ -89,16 +89,31 @@
 
 **修复**：`moveType === "sine"` 分支直接使用 `enemyConfig.medium.move`（类型为 `SineMoveConfig`），`moveType === "zigzag"` 分支直接使用 `enemyConfig.big.move`（类型为 `ZigzagMoveConfig`），避免联合类型收窄问题。
 
+### 问题十：连续升级只回血 1 HP
+
+**现象**：一次获得大量经验连续升多级时，`_checkLevelUp()` 只触发一次 HP 回血（固定 +1），且无 HP 加成的等级升级时完全不回血。
+
+**根因**：
+1. 回血量硬编码为 `this.hp + 1`，未按升级次数累计
+2. 回血逻辑被包在 `if (newMaxHp > this.maxHp)` 条件内，只有 HP 加成等级才回血
+
+**修复**（`hero.ts` 的 `_checkLevelUp()`）：
+- 用 `levelsGained = currentLevel - this.lastLevel` 计算实际升级次数
+- 回血改为 `this.hp + levelsGained`（连续升 N 级回 N HP）
+- `maxHp` 改为无条件赋值（按当前等级累计 HP 加成更新）
+- 回血逻辑移出 maxHp 条件块，确保每次升级都回血
+
 ---
 
 ## 问题共性分析
 
-所有问题的本质可归为三类：
+所有问题的本质可归为以下几类：
 
 1. **模块拆分遗漏**：拆分时遗漏了跨模块的依赖关系（import 遗漏、全局变量修改未替换为函数调用）
 2. **原代码逻辑缺陷**：硬编码进度、重复事件绑定、阻塞式 UI、正序 splice 删除、提前 return
 3. **状态保护不足**：敌机死亡后缺少状态守卫（`die` 标志未在 `hit()` 入口检查），导致重复触发
 4. **类型收窄问题**：区分联合类型（Discriminated Union）需通过 `type` 字段或直接引用具体子类型来收窄
+5. **批量操作遗漏**：连续升级等批量操作未按次数累计奖励（如回血量硬编码而非按升级次数计算）
 
 ---
 
@@ -121,20 +136,21 @@
 - 使用浏览器 Console 确认无 `ReferenceError` 或 `TypeError`
 
 ### 4. 避免循环依赖
-当前模块依赖链（TypeScript 源码）：
+当前模块依赖链（TypeScript 源码，含等级模块）：
 ```
 types.ts（类型定义 + 阶段常量）
    ↓
 constants.ts（re-export from types.ts）
 config.ts（导入 types.ts 接口）
    ↓
-engine.ts → hero.ts → bullet.ts → resources.ts → canvas.ts
-engine.ts → enemy.ts → hero.ts (getHeroHp/getHeroMaxHp/getHeroBuffs), item.ts, ui.ts, audio.ts, config.ts
-engine.ts → ui.ts → hero.ts (getGameScore), score.ts
-hero.ts → item.ts, audio.ts, config.ts
-bullet.ts → audio.ts, hero.ts (getHeroBuffs)
-item.ts → config.ts
-enemy.ts → config.ts (动态概率函数)
+level.ts（导入 config.ts, types.ts）  ← 独立模块
+   ↓
+engine.ts → hero.ts → bullet.ts, resources.ts, canvas.ts, level.ts
+engine.ts → enemy.ts → hero.ts (getHeroHp/getHeroMaxHp/getHeroBuffs), item.ts, ui.ts, audio.ts, config.ts, level.ts
+engine.ts → ui.ts → score.ts, level.ts
+hero.ts → item.ts, audio.ts, config.ts, level.ts
+bullet.ts → audio.ts, hero.ts
+enemy.ts → config.ts (动态概率函数 + bulletConfig), level.ts (addExp/getExpReward/getLevelBonuses)
 ```
 
 ### 5. 数组遍历删除
@@ -188,6 +204,18 @@ enemy.ts → config.ts (动态概率函数)
 - 小型敌机保持直线下落（straight）
 - 中型敌机移动增加了躲避难度，大型敌机移动增加了命中难度
 
+#### 第六轮调整（等级成长速度重构）
+- 问题：原参数 base=20, growth=3, exponent=1.5 导致成长过快，满级仅需约 3.5 分钟
+- 根因：base 过低（开局几秒升级）、growth 在低等级增量微弱、1.5 次方曲线前期太平缓、敌机经验奖励相对偏高
+- 修复：
+  - base: 20 → 450（大幅提高起步门槛）
+  - growth: 3 → 30（每级递增基数提高）
+  - exponent: 1.5(硬编码) → 1.0(配置化，线性增长)
+  - 敌机经验：small 8→7, medium 25→20, big 120→100
+  - LevelConfig 接口新增 exponent 字段，level.ts 的 expToNext 改用 levelConfig.exponent
+- 新节奏：10级约4分钟，20级约8分钟，满级约15分钟
+- 线性曲线（exponent=1.0）优势：前期平稳起步，后期不过陡，绝对耗时仍递增
+
 ### 10. TypeScript 开发注意
 
 - **源码目录**：`src/`，编译输出目录：`js/`（勿手动修改）
@@ -200,3 +228,19 @@ enemy.ts → config.ts (动态概率函数)
 - **事件类型**：鼠标/触摸联合事件用 `e instanceof MouseEvent` 收窄
 - **阶段常量**：定义在 `types.ts` 中用 `as const`，`constants.ts` re-export，`GamePhase` 类型为 `1|2|3|4|5|6`
 - **BuffState 迭代**：`_tickBuffs()` 使用 `const keys: (keyof BuffState)[]` 确保类型安全
+
+### 11. 等级系统注意
+
+- **独立模块**：`level.ts` 仅依赖 `config.ts` + `types.ts`（type-only），与 `hero.ts` 无循环依赖
+- **升级检测**：`hero.ts` 的 `_checkLevelUp()` 每帧比较 `getLevel()` 与 `this.lastLevel`，检测到升级时应用属性加成
+- **经验曲线**：`expToNext(lv) = base + growth × (lv - 1)^exponent`，exponent 已配置化（当前 1.0=线性），满级约 15 分钟
+- **属性加成全配置化**：所有等级奖励规则从 `levelConfig.bonuses` 读取，`level.ts` 无硬编码数值
+  - HP 加成：`bonuses.hpBonusLevels` 数组指定触发等级点
+  - 子弹伤害：`bonuses.damageBonus.perLevel` 每级增量，`maxLevel` 封顶
+  - 射击间隔：`bonuses.bulletInterval`（perLevels/reduction/startLevel/endLevel）区间触发
+  - Buff 持续倍率：`bonuses.buffDuration`（perLevels/multiplier/startLevel/endLevel）区间触发
+  - 修改任何奖励只需调整 `config.ts` 的 `levelConfig.bonuses` 字段
+- **伤害计算**：`baseDamage + extraDamage` 作为基础，再乘以 firepower buff 倍率
+- **升级回血**：每次升级回复 1 HP，连续升 N 级则回 N HP（不超过 maxHp）；maxHp 按当前等级累计 HP 加成无条件更新
+- **重置**：`engine.ts` 重新开始时调用 `resetLevel()`，等级归 1
+- **满级行为**：30 级后 `addExp()` 不再累积，`getExpToNext()` 返回 0，经验条显示 "MAX"
