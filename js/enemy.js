@@ -70,6 +70,59 @@ class Enemy {
     this.index = 0;
     this.removable = false;
     this.die = false;
+
+    // 横向移动属性（根据敌机类型的 move 配置初始化）
+    this.originX = this.x;                       // 初始 X 位置（正弦摆动的中心点）
+    this.moveType = this._getMoveType();          // 移动模式："straight" / "sine" / "zigzag"
+    this.movePhase = Math.random() * Math.PI * 2; // 正弦初始相位（随机起始位置，避免同步摆动）
+    this.moveDirection = Math.random() < 0.5 ? 1 : -1; // 锯齿移动方向（1=右, -1=左，随机初始方向）
+  }
+
+  // 获取当前敌机的移动模式（从配置读取）
+  _getMoveType() {
+    if (this.speed === enemyConfig.big.speed) {
+      return enemyConfig.big.move.type;
+    } else if (this.speed === enemyConfig.medium.speed) {
+      return enemyConfig.medium.move.type;
+    }
+    return enemyConfig.small.move.type; // 小型敌机默认直线
+  }
+
+  // 计算横向偏移量（每帧调用，在 draw() 中更新 this.x）
+  _updateHorizontalPosition() {
+    // 死亡动画期间不移动
+    if (this.die) return;
+
+    const canvasWidth = ctx.canvas.width;
+
+    if (this.moveType === "sine") {
+      // 正弦摆动：x = originX + amplitude * sin(phase)
+      // 适用：中型敌机，平滑左右摆动
+      const config = this.speed === enemyConfig.medium.speed
+        ? enemyConfig.medium.move
+        : enemyConfig.big.move;
+      this.movePhase += config.frequency;
+      this.x = this.originX + config.amplitude * Math.sin(this.movePhase);
+      // 边界保护：确保不超出画布
+      this.x = Math.max(0, Math.min(this.x, canvasWidth - this.width));
+
+    } else if (this.moveType === "zigzag") {
+      // 锯齿形移动：以固定速度横向移动，到边界反弹
+      // 适用：大型敌机，左右巡逻
+      const config = enemyConfig.big.move;
+      this.x += config.horizontalSpeed * this.moveDirection;
+      // 左边界反弹
+      if (this.x <= 0) {
+        this.x = 0;
+        this.moveDirection = 1;
+      }
+      // 右边界反弹
+      if (this.x >= canvasWidth - this.width) {
+        this.x = canvasWidth - this.width;
+        this.moveDirection = -1;
+      }
+    }
+    // "straight" 模式不做任何横向偏移
   }
 
   draw() {
@@ -102,6 +155,7 @@ class Enemy {
 
     ctx.drawImage(this.enemy, this.x, this.y);
     this.y += this.speed;
+    this._updateHorizontalPosition(); // 横向移动（根据 moveType 配置）
     this.hit();
 
     if (this.y > ctx.canvas.height) {

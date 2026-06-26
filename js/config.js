@@ -2,23 +2,31 @@
 
 // ========== 敌机配置 ==========
 const enemyConfig = {
-  // 【小型敌机】快速移动，1HP，得分10
+  // 【小型敌机】快速移动，1HP，得分10，无横向移动
   small: {
     speed: 6,         // 下落速度（像素/帧）
     hp: 1,            // 生命值（实际代码中 lifes=2，这里仅作参考）
     score: 10,        // 击败得分
     spawnWeight: 15,  // 出现权重（相对于随机数20的阈值）
+    move: {
+      type: "straight",  // 移动模式："straight"=直线（默认，无横向移动）
+    },
   },
 
-  // 【中型敌机】中等速度，HP提升，得分20
+  // 【中型敌机】中等速度，HP提升，得分20，正弦摆动
   medium: {
     speed: 4,         // 下落速度（像素/帧）
     hp: 15,           // 生命值（调整后：15HP，需3轮普通子弹或2轮双倍火力）
     score: 20,        // 击败得分
     spawnWeight: 5,   // 出现权重
+    move: {
+      type: "sine",       // 移动模式："straight"=直线 / "sine"=正弦摆动 / "zigzag"=锯齿形
+      amplitude: 40,      // 正弦振幅（像素，摆动宽度）
+      frequency: 0.03,    // 正弦频率（值越大摆动越快）
+    },
   },
 
-  // 【大型敌机】缓慢移动，高HP，得分100
+  // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
   big: {
     speed: 2,         // 下落速度（像素/帧）
     hp: 70,           // 生命值（调整后：70HP，对抗双倍火力）
@@ -26,6 +34,11 @@ const enemyConfig = {
     spawnProbBase: 0.05,        // 基础出现概率（5%）
     spawnProbMax: 0.10,         // 最大出现概率（10%，血量低时）
     cooldownFrames: 40,         // 连续生成冷却帧数（~2秒）
+    move: {
+      type: "zigzag",      // 移动模式："straight"=直线 / "zigzag"=锯齿形（到边界反弹）
+      amplitude: 60,       // 锯齿偏移幅度（像素）
+      horizontalSpeed: 1,  // 横向移动速度（像素/帧）
+    },
   },
 };
 
