@@ -7,7 +7,7 @@ import {
   PHASE_LOADING,
   PHASE_PLAY,
   PHASE_PAUSE,
-  PHASE_GAMEOVER,
+  PHASE_GAME_OVER,
 } from "./constants.js";
 import { Hero } from "./hero.js";
 import { resetGameScore } from "./score.js";
@@ -39,7 +39,7 @@ function start(): void {
     resumeAudio();
     if (curPhase === PHASE_READY) {
       curPhase = PHASE_LOADING;
-    } else if (curPhase === PHASE_GAMEOVER) {
+    } else if (curPhase === PHASE_GAME_OVER) {
       resetGameScore();
       resetLevel();
       hero = new Hero();
@@ -81,7 +81,7 @@ function gameEngine(): void {
     case PHASE_PAUSE:
       drawPause();
       break;
-    case PHASE_GAMEOVER:
+    case PHASE_GAME_OVER:
       if (pBg) pBg();
       drawGameOver();
       if (!gameOverSoundPlayed) {

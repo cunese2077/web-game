@@ -12,7 +12,7 @@ const PHASE_READY = 2;
 const PHASE_LOADING = 3;
 const PHASE_PLAY = 4;
 const PHASE_PAUSE = 5;
-const PHASE_GAMEOVER = 6;
+const PHASE_GAME_OVER = 6;
 /**********游戏当前状态************/
 var curPhase = PHASE_DOWNLOAD;
 var gameScore = 0;
@@ -183,7 +183,7 @@ function Hero () {
     this.count++;
     this.hit();
     if (this.index > 4) {
-      curPhase = PHASE_GAMEOVER;
+      curPhase = PHASE_GAME_OVER;
       this.index = 5;
     }
     if (this.count % 3 == 0 && this.index <= 1) {
@@ -320,16 +320,16 @@ function Enemy () {
   this.n = Math.random() * 20;
   this.enemy = null; // 保存敌机图片的数组
   this.speed = 0; // 敌机的速度
-  this.lifes = 2; // 敌机的生命值
+  this.lives = 2; // 敌机的生命值
   if (this.n < 1) {
     // 不同大小的敌机随机出现
     this.enemy = enemy3[0];
     this.speed = 2;
-    this.lifes = 50;
+    this.lives = 50;
   } else if (this.n < 6) {
     this.enemy = enemy2[0];
     this.speed = 4;
-    this.lifes = 10;
+    this.lives = 10;
   } else {
     this.enemy = enemy1[0];
     this.speed = 6;
@@ -388,7 +388,7 @@ function Enemy () {
         h.my + h.height >= this.y &&
         this.height + this.y >= h.my
       ) {
-        if (--this.lifes == 0) {
+        if (--this.lives == 0) {
           // 若生命值为零，标识为死亡
           this.die = true;
           // 计分
@@ -416,7 +416,7 @@ function drawPause () {
   ctx.drawImage(pause, (width - pause.width) / 2, (height - pause.height) / 2);
 }
 //游戏结束
-function gameover () {
+function gameOver () {
   alert("游戏结束，成绩" + gameScore);
   gameScore = 0;
   curPhase = PHASE_READY;
@@ -446,8 +446,8 @@ function gameEngine () {
     case PHASE_PAUSE:
       drawPause();
       break;
-    case PHASE_GAMEOVER:
-      gameover();
+    case PHASE_GAME_OVER:
+      gameOver();
       break;
   }
   //requestAnimationFrame(gameEngine);

@@ -6,7 +6,7 @@ export const PHASE_READY = 2 as const;
 export const PHASE_LOADING = 3 as const;
 export const PHASE_PLAY = 4 as const;
 export const PHASE_PAUSE = 5 as const;
-export const PHASE_GAMEOVER = 6 as const;
+export const PHASE_GAME_OVER = 6 as const;
 
 export type GamePhase =
   | typeof PHASE_DOWNLOAD
@@ -14,7 +14,7 @@ export type GamePhase =
   | typeof PHASE_LOADING
   | typeof PHASE_PLAY
   | typeof PHASE_PAUSE
-  | typeof PHASE_GAMEOVER;
+  | typeof PHASE_GAME_OVER;
 
 // --- 移动模式 ---
 export type MoveType = "straight" | "sine" | "zigzag";
@@ -61,7 +61,7 @@ export interface BigEnemyConfig {
   score: number;
   spawnProbBase: number;
   spawnProbMax: number;
-  cooldownFrames: number;
+  coolDownFrames: number;
   move: ZigzagMoveConfig;
 }
 

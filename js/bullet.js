@@ -4,7 +4,7 @@ import { m } from "./resources.js";
 import { playShoot } from "./audio.js";
 import { getHeroBuffs } from "./hero.js";
 const bullets = [];
-let shootSoundCooldown = 0;
+let shootSoundCoolDown = 0;
 class Bullet {
     constructor(n, heroX, heroY, heroW, heroH, isDiagonal = false) {
         this.n = n;
@@ -44,14 +44,14 @@ class Bullet {
                 bullets.splice(i, 1);
             }
         }
-        if (shootSoundCooldown > 0)
-            shootSoundCooldown--;
+        if (shootSoundCoolDown > 0)
+            shootSoundCoolDown--;
     }
     static add(bulletObj) {
         bullets.push(bulletObj);
-        if (shootSoundCooldown === 0) {
+        if (shootSoundCoolDown === 0) {
             playShoot();
-            shootSoundCooldown = 6;
+            shootSoundCoolDown = 6;
         }
     }
     static getAll() {

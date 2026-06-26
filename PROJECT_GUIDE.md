@@ -26,7 +26,7 @@
 | `PHASE_LOADING` | 3 | 加载动画阶段，过渡到游戏 |
 | `PHASE_PLAY` | 4 | 游戏进行阶段 |
 | `PHASE_PAUSE` | 5 | 暂停阶段（鼠标移出画布触发） |
-| `PHASE_GAMEOVER` | 6 | 游戏结束阶段（画布内 UI，点击重新开始） |
+| `PHASE_GAME_OVER` | 6 | 游戏结束阶段（画布内 UI，点击重新开始） |
 
 ### 2. 核心玩法
 - **战机控制**：鼠标移动 / 手指触摸控制己方战机位置
@@ -222,7 +222,7 @@ damage = (baseDamage + extraDamage) × firepowerMultiplier
 | 无敌帧数 | 40 | 受伤后约 2 秒无敌 |
 | 闪烁表现 | 透明度交替 | 无敌期间战机闪烁 |
 
-受伤时扣 1 HP，进入无敌状态；HP 归零时进入 dying 状态，播放爆炸动画后 GAMEOVER。
+受伤时扣 1 HP，进入无敌状态；HP 归零时进入 dying 状态，播放爆炸动画后 GAME_OVER。
 
 ### 7. 音效系统
 
@@ -239,7 +239,7 @@ damage = (baseDamage + extraDamage) × firepowerMultiplier
 | 拾取护盾 | 正弦波双音和弦 | 拾取护盾道具 | |
 | 拾取散弹 | 三角波快速琶音 | 拾取散弹道具 | |
 | 玩家扣血 | 噪声+重击+嗡鸣+蜂鸣 | 碰撞敌机扣 HP | 四层叠加 |
-| 游戏结束 | G4-F4-E4-C4 下降音阶 | 进入 GAMEOVER | 仅播放一次 |
+| 游戏结束 | G4-F4-E4-C4 下降音阶 | 进入 GAME_OVER | 仅播放一次 |
 | 升级 | C5-E5-G5-C6 上行琶音 | 等级提升 | 区别于道具拾取 |
 
 **AudioContext 策略**：延迟初始化，用户首次点击画布时 `resumeAudio()` 激活。
@@ -290,7 +290,7 @@ requestAnimationFrame(gameLoop)
         ├─ PHASE_LOADING  → pBg() + load()
         ├─ PHASE_PLAY     → pBg() + drawEnemy() + drawItems() + drawBullet() + hero.draw() + drawScoreEffects()
         ├─ PHASE_PAUSE    → drawPause()
-        └─ PHASE_GAMEOVER → pBg() + drawGameOver() + playGameOver()
+        └─ PHASE_GAME_OVER → pBg() + drawGameOver() + playGameOver()
 ```
 
 ### 4. 关键技术点
@@ -312,7 +312,7 @@ requestAnimationFrame(gameLoop)
 - `ScoreEffectObj`：得分动效，浮动文字+发光
 
 #### （4）碰撞检测
-- **子弹 vs 敌机**：AABB 矩形碰撞检测，`hit()` 入口检查 `this.die` 防重复触发
+- **子弹 vs 敌机**：矩形碰撞检测，`hit()` 入口检查 `this.die` 防重复触发
 - **敌机 vs 战机**：基于重叠点的碰撞判定
 - **道具 vs 战机**：矩形碰撞，支持同帧拾取多个道具，返回 `ItemType[]`
 
@@ -406,7 +406,7 @@ web-game/
 
 ### 3. [src/types.ts](web-game/src/types.ts)
 全局类型定义模块，导出：
-- 6 个游戏阶段常量（`PHASE_DOWNLOAD` ~ `PHASE_GAMEOVER`，使用 `as const`）
+- 6 个游戏阶段常量（`PHASE_DOWNLOAD` ~ `PHASE_GAME_OVER`，使用 `as const`）
 - `GamePhase` 类型（1|2|3|4|5|6 联合类型）
 - 敌机移动配置接口（`SmallEnemyMoveConfig` / `SineMoveConfig` / `ZigzagMoveConfig`）
 - 敌机配置接口（`EnemyConfig` 及子接口）

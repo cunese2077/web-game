@@ -1,7 +1,7 @@
 // UI 绘制模块：背景、logo、loading、暂停、游戏结束、得分动效
 import { ctx, width, height } from "./canvas.js";
 import { bg, startImg, pause, gameLoad } from "./resources.js";
-import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAMEOVER } from "./constants.js";
+import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAME_OVER } from "./constants.js";
 import { getGameScore, resetGameScore } from "./score.js";
 import { getLevel, getTotalExp } from "./level.js";
 import type { GamePhase } from "./types.js";

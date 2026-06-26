@@ -6,7 +6,7 @@ import { getHeroBuffs } from "./hero.js";
 import type { BuffState } from "./types.js";
 
 const bullets: Bullet[] = [];
-let shootSoundCooldown: number = 0;
+let shootSoundCoolDown: number = 0;
 
 class Bullet {
   n: number;
@@ -59,14 +59,14 @@ class Bullet {
         bullets.splice(i, 1);
       }
     }
-    if (shootSoundCooldown > 0) shootSoundCooldown--;
+    if (shootSoundCoolDown > 0) shootSoundCoolDown--;
   }
 
   static add(bulletObj: Bullet): void {
     bullets.push(bulletObj);
-    if (shootSoundCooldown === 0) {
+    if (shootSoundCoolDown === 0) {
       playShoot();
-      shootSoundCooldown = 6;
+      shootSoundCoolDown = 6;
     }
   }
 

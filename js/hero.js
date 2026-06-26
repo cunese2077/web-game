@@ -1,7 +1,7 @@
 // 玩家战机类
 import { ctx, canvas, width } from "./canvas.js";
 import { heroImg } from "./resources.js";
-import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER } from "./constants.js";
+import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER } from "./constants.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
@@ -84,7 +84,7 @@ class Hero {
         if (this.dying) {
             this.index++;
             if (this.index >= heroImg.length) {
-                curPhase = PHASE_GAMEOVER;
+                curPhase = PHASE_GAME_OVER;
                 this.index = heroImg.length - 1;
             }
             ctx.drawImage(heroImg[this.index], this.x, this.y);

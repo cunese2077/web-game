@@ -24,10 +24,10 @@ import type { MoveType, BuffState } from "./types.js";
 
 const liveEnemy: Enemy[] = [];
 
-let bigEnemyCooldown: number = 0;
+let bigEnemyCoolDown: number = 0;
 
-function tickCooldown(): void {
-  if (bigEnemyCooldown > 0) bigEnemyCooldown--;
+function tickCoolDown(): void {
+  if (bigEnemyCoolDown > 0) bigEnemyCoolDown--;
 }
 
 function getHpRatio(): number {
@@ -40,7 +40,7 @@ class Enemy {
   n: number;
   enemy: HTMLImageElement;
   speed: number;
-  lifes: number;
+  lives: number;
   x: number;
   y: number;
   width: number;
@@ -62,17 +62,17 @@ class Enemy {
     this.n = Math.random() * 20;
     this.enemy = new Image();
     this.speed = 0;
-    this.lifes = 2;
+    this.lives = 2;
 
-    if (this.n < bigEnemyThreshold && bigEnemyCooldown === 0) {
+    if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
       this.enemy = enemy3[0];
       this.speed = enemyConfig.big.speed;
-      this.lifes = enemyConfig.big.hp;
-      bigEnemyCooldown = enemyConfig.big.cooldownFrames;
+      this.lives = enemyConfig.big.hp;
+      bigEnemyCoolDown = enemyConfig.big.coolDownFrames;
     } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
       this.speed = enemyConfig.medium.speed;
-      this.lifes = enemyConfig.medium.hp;
+      this.lives = enemyConfig.medium.hp;
     } else {
       this.enemy = enemy1[0];
       this.speed = enemyConfig.small.speed;
@@ -182,8 +182,8 @@ class Enemy {
         h.my + h.height >= this.y &&
         this.height + this.y >= h.my
       ) {
-        this.lifes -= damageMultiplier;
-        if (this.lifes <= 0) {
+        this.lives -= damageMultiplier;
+        if (this.lives <= 0) {
           this.die = true;
           const score = this.speed === enemyConfig.big.speed ? enemyConfig.big.score
                        : this.speed === enemyConfig.medium.speed ? enemyConfig.medium.score
@@ -244,7 +244,7 @@ class Enemy {
   }
 
   static drawEnemy(): void {
-    tickCooldown();
+    tickCoolDown();
     for (let i = liveEnemy.length - 1; i >= 0; i--) {
       if (liveEnemy[i].removable) {
         liveEnemy.splice(i, 1);

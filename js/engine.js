@@ -1,7 +1,7 @@
 // 游戏主引擎
 import { canvas, ctx } from "./canvas.js";
 import { download } from "./resources.js";
-import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER, } from "./constants.js";
+import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, } from "./constants.js";
 import { Hero } from "./hero.js";
 import { resetGameScore } from "./score.js";
 import { resetLevel } from "./level.js";
@@ -28,7 +28,7 @@ function start() {
         if (curPhase === PHASE_READY) {
             curPhase = PHASE_LOADING;
         }
-        else if (curPhase === PHASE_GAMEOVER) {
+        else if (curPhase === PHASE_GAME_OVER) {
             resetGameScore();
             resetLevel();
             hero = new Hero();
@@ -74,7 +74,7 @@ function gameEngine() {
         case PHASE_PAUSE:
             drawPause();
             break;
-        case PHASE_GAMEOVER:
+        case PHASE_GAME_OVER:
             if (pBg)
                 pBg();
             drawGameOver();

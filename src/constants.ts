@@ -5,5 +5,5 @@ export {
   PHASE_LOADING,
   PHASE_PLAY,
   PHASE_PAUSE,
-  PHASE_GAMEOVER,
+  PHASE_GAME_OVER,
 } from "./types.js";

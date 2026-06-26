@@ -10,10 +10,10 @@ import { addScoreEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig } from "./audio.js";
 import { enemyConfig, buffConfig, bulletConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, } from "./config.js";
 const liveEnemy = [];
-let bigEnemyCooldown = 0;
-function tickCooldown() {
-    if (bigEnemyCooldown > 0)
-        bigEnemyCooldown--;
+let bigEnemyCoolDown = 0;
+function tickCoolDown() {
+    if (bigEnemyCoolDown > 0)
+        bigEnemyCoolDown--;
 }
 function getHpRatio() {
     const hp = getHeroHp();
@@ -29,17 +29,17 @@ class Enemy {
         this.n = Math.random() * 20;
         this.enemy = new Image();
         this.speed = 0;
-        this.lifes = 2;
-        if (this.n < bigEnemyThreshold && bigEnemyCooldown === 0) {
+        this.lives = 2;
+        if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
             this.enemy = enemy3[0];
             this.speed = enemyConfig.big.speed;
-            this.lifes = enemyConfig.big.hp;
-            bigEnemyCooldown = enemyConfig.big.cooldownFrames;
+            this.lives = enemyConfig.big.hp;
+            bigEnemyCoolDown = enemyConfig.big.coolDownFrames;
         }
         else if (this.n < midEnemyThreshold) {
             this.enemy = enemy2[0];
             this.speed = enemyConfig.medium.speed;
-            this.lifes = enemyConfig.medium.hp;
+            this.lives = enemyConfig.medium.hp;
         }
         else {
             this.enemy = enemy1[0];
@@ -144,8 +144,8 @@ class Enemy {
                 h.mx + h.width >= this.x &&
                 h.my + h.height >= this.y &&
                 this.height + this.y >= h.my) {
-                this.lifes -= damageMultiplier;
-                if (this.lifes <= 0) {
+                this.lives -= damageMultiplier;
+                if (this.lives <= 0) {
                     this.die = true;
                     const score = this.speed === enemyConfig.big.speed ? enemyConfig.big.score
                         : this.speed === enemyConfig.medium.speed ? enemyConfig.medium.score
@@ -206,7 +206,7 @@ class Enemy {
         }
     }
     static drawEnemy() {
-        tickCooldown();
+        tickCoolDown();
         for (let i = liveEnemy.length - 1; i >= 0; i--) {
             if (liveEnemy[i].removable) {
                 liveEnemy.splice(i, 1);

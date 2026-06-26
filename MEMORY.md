@@ -36,7 +36,7 @@
 
 **现象**：重启游戏后移动一次触发多次回调，性能下降。
 
-**根因**：每次 `new Hero()` 都调用 `_bindEvents()` 重复绑定 `mousemove`/`touchmove`。
+**根因**：每次 `new Hero()` 都调用 `_bindEvents()` 重复绑定 `mouseMove`/`touchMove`。
 
 **修复**：事件绑定提取为模块级 `bindEventsOnce()`，用 `eventsBound` 标志只绑定一次，`activeHero` 引用最新实例。
 
@@ -52,7 +52,7 @@
 
 ### 问题六：遍历数组时删除元素导致跳过项
 
-**现象**：`bullet.js` 的 `drawHullet()` 正序遍历 + `splice` 删除会跳过相邻元素。
+**现象**：`bullet.js` 的 `drawBullet()` 正序遍历 + `splice` 删除会跳过相邻元素。
 
 **修复**：改为逆序遍历，与 `enemy.js` 保持一致。
 
@@ -71,7 +71,7 @@
 **现象**：击败一个敌机连续触发多次分数增加事件。
 
 **根因**：
-1. `hit()` 方法中 `lifes <= 0` 触发 `die = true` 后**没有 break**，同帧后续子弹继续命中
+1. `hit()` 方法中 `lives <= 0` 触发 `die = true` 后**没有 break**，同帧后续子弹继续命中
 2. `draw()` 死亡动画期间仍调用 `hit()`，后续帧子弹继续打爆炸中的敌机
 3. 双倍火力 `damageMultiplier=2` 时，50HP 敌机 25 发子弹，第一发致死其余全触发
 
