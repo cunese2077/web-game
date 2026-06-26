@@ -81,6 +81,16 @@
 
 ---
 
+### 问题九：TypeScript 迁移中区分联合类型收窄问题
+
+**现象**：`enemy.ts` 中 `_updateHorizontalPosition()` 访问 `config.frequency` 时 TS 报错"ZigzagMoveConfig 上不存在 frequency"。
+
+**根因**：`this.speed === enemyConfig.medium.speed ? enemyConfig.medium.move : enemyConfig.big.move` 返回联合类型 `SineMoveConfig | ZigzagMoveConfig`，TS 无法通过运行时条件收窄。
+
+**修复**：`moveType === "sine"` 分支直接使用 `enemyConfig.medium.move`（类型为 `SineMoveConfig`），`moveType === "zigzag"` 分支直接使用 `enemyConfig.big.move`（类型为 `ZigzagMoveConfig`），避免联合类型收窄问题。
+
+---
+
 ## 问题共性分析
 
 所有问题的本质可归为三类：
@@ -88,6 +98,7 @@
 1. **模块拆分遗漏**：拆分时遗漏了跨模块的依赖关系（import 遗漏、全局变量修改未替换为函数调用）
 2. **原代码逻辑缺陷**：硬编码进度、重复事件绑定、阻塞式 UI、正序 splice 删除、提前 return
 3. **状态保护不足**：敌机死亡后缺少状态守卫（`die` 标志未在 `hit()` 入口检查），导致重复触发
+4. **类型收窄问题**：区分联合类型（Discriminated Union）需通过 `type` 字段或直接引用具体子类型来收窄
 
 ---
 
@@ -110,17 +121,20 @@
 - 使用浏览器 Console 确认无 `ReferenceError` 或 `TypeError`
 
 ### 4. 避免循环依赖
-当前模块依赖链：
+当前模块依赖链（TypeScript 源码）：
 ```
-config.js（无依赖，纯配置）
+types.ts（类型定义 + 阶段常量）
    ↓
-engine.js → hero.js → bullet.js → resources.js → canvas.js
-engine.js → enemy.js → hero.js (getHeroHp/getHeroMaxHp/getHeroBuffs), item.js, ui.js, audio.js, config.js
-engine.js → ui.js → hero.js (getGameScore), score.js
-hero.js → item.js, audio.js, config.js
-bullet.js → audio.js, hero.js (getHeroBuffs)
-item.js → config.js
-enemy.js → config.js (动态概率函数)
+constants.ts（re-export from types.ts）
+config.ts（导入 types.ts 接口）
+   ↓
+engine.ts → hero.ts → bullet.ts → resources.ts → canvas.ts
+engine.ts → enemy.ts → hero.ts (getHeroHp/getHeroMaxHp/getHeroBuffs), item.ts, ui.ts, audio.ts, config.ts
+engine.ts → ui.ts → hero.ts (getGameScore), score.ts
+hero.ts → item.ts, audio.ts, config.ts
+bullet.ts → audio.ts, hero.ts (getHeroBuffs)
+item.ts → config.ts
+enemy.ts → config.ts (动态概率函数)
 ```
 
 ### 5. 数组遍历删除
@@ -138,8 +152,8 @@ enemy.js → config.js (动态概率函数)
 - 死亡判定后必须 `break` 跳出子弹循环，防止同帧多子弹重复命中
 
 ### 8. 配置管理
-- 所有游戏数值参数集中在 `config.js`，方便后期调优
-- 修改道具掉落概率、buff 持续时间、敌机 HP 等参数只需修改 `config.js` 对应字段
+- 所有游戏数值参数集中在 `config.ts`，方便后期调优
+- 修改道具掉落概率、buff 持续时间、敌机 HP 等参数只需修改 `config.ts` 对应字段
 - 动态概率函数统一使用 `base + (1 - hpRatio) * bonus` 公式
 - **概率判断顺序**：优先判断的道具拥有独立概率区间（0~prob），后续道具的区间受前置挤压，因此**低概率道具应优先判断**或确保基础概率足够高
 
@@ -167,3 +181,22 @@ enemy.js → config.js (动态概率函数)
 - 大型敌机护盾：shieldBase 0.12→0.30, shieldBonus 0.13→0.20
 - 中型敌机新增护盾：shieldBase 0.08, shieldBonus 0.04
 - 整体护盾出现频率提升 5~8 倍
+
+#### 第五轮调整（敌机横向移动）
+- 中型敌机新增正弦摆动（sine）：amplitude=40px, frequency=0.03
+- 大型敌机新增锯齿形移动（zigzag）：horizontalSpeed=1px/帧，到边界反弹
+- 小型敌机保持直线下落（straight）
+- 中型敌机移动增加了躲避难度，大型敌机移动增加了命中难度
+
+### 10. TypeScript 开发注意
+
+- **源码目录**：`src/`，编译输出目录：`js/`（勿手动修改）
+- **构建命令**：`npm run build`（编译）、`npm run watch`（监听）
+- **禁止 `any`**：所有类型必须使用具体类型定义
+- **区分联合类型收窄**：当访问联合类型特有属性时，直接引用具体子类型而非通过条件推断
+  - 例：`moveType === "sine"` 时直接用 `enemyConfig.medium.move`（类型 `SineMoveConfig`），而非 `enemyConfig[...].move`（联合类型）
+- **DOM 类型断言**：`document.getElementById("canvas") as HTMLCanvasElement`、`canvas.getContext("2d") as CanvasRenderingContext2D`
+- **AudioContext 兼容**：`webkitAudioContext` 通过 `window as unknown as { webkitAudioContext: ... }` 类型断言
+- **事件类型**：鼠标/触摸联合事件用 `e instanceof MouseEvent` 收窄
+- **阶段常量**：定义在 `types.ts` 中用 `as const`，`constants.ts` re-export，`GamePhase` 类型为 `1|2|3|4|5|6`
+- **BuffState 迭代**：`_tickBuffs()` 使用 `const keys: (keyof BuffState)[]` 确保类型安全

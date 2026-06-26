@@ -1,19 +1,23 @@
 # 飞机大战（PlaneWar）项目说明
 
-> 基于 H5 Canvas 实现的飞机大战网页游戏
+> 基于 H5 Canvas + TypeScript 实现的飞机大战网页游戏
 
 ---
 
 ## 一、项目概述
 
-本项目是一个使用纯原生 HTML5 Canvas + JavaScript（ES6+）实现的网页版飞机大战游戏，采用 ES Module 模块化架构，无需任何框架和依赖，通过本地服务器访问即可运行。
+本项目是一个使用纯原生 HTML5 Canvas + TypeScript 实现的网页版飞机大战游戏，采用 ES Module 模块化架构 + TypeScript 强类型系统，无需任何框架和依赖，通过本地服务器访问即可运行。
+
+- **源码**：`src/*.ts`（TypeScript）
+- **编译输出**：`js/*.js`（自动生成，勿手动修改）
+- **构建**：`npm run build`
 
 ---
 
 ## 二、项目功能
 
 ### 1. 游戏阶段（状态机）
-游戏共包含 6 个阶段，由 `curPhase` 变量驱动：
+游戏共包含 6 个阶段，由 `curPhase: GamePhase` 变量驱动：
 
 | 阶段常量 | 值 | 说明 |
 | ---------- | --- | -------------------------- |
@@ -28,6 +32,7 @@
 - **战机控制**：鼠标移动 / 手指触摸控制己方战机位置
 - **自动射击**：战机自动发射三路子弹（左、中、右），散弹模式下五路齐射
 - **敌机生成**：随机生成三种不同体型、速度、生命值的敌机（概率随玩家血量动态调整）
+- **敌机移动**：中型敌机正弦摆动，大型敌机锯齿形巡逻，小型敌机直线下落
 - **碰撞检测**：子弹与敌机、敌机与战机的碰撞判定
 - **爆炸动画**：敌机和战机被击毁时播放逐帧爆炸动画
 - **计分系统**：击毁不同敌机获得不同分数（10/20/100），带浮动得分动效
@@ -40,13 +45,30 @@
 
 ### 3. 敌机类型与生成逻辑
 
-| 类型 | 速度 | 生命值 | 击毁得分 | 爆炸帧数 | 基础出现概率 |
-| ---- | ---- | ------ | -------- | -------- | ------------ |
-| 小型敌机（enemy1） | 6 | 1 | 10 | 4 | 高（剩余概率） |
-| 中型敌机（enemy2） | 4 | 15 | 20 | 4 | 中（30%） |
-| 大型敌机（enemy3） | 2 | 70 | 100 | 6 | 低（动态 5%~10%） |
+| 类型 | 速度 | 生命值 | 击毁得分 | 爆炸帧数 | 移动模式 | 基础出现概率 |
+| ---- | ---- | ------ | -------- | -------- | -------- | ------------ |
+| 小型敌机（enemy1） | 6 | 1 | 10 | 4 | 直线（straight） | 高（剩余概率） |
+| 中型敌机（enemy2） | 4 | 15 | 20 | 4 | 正弦摆动（sine） | 中（30%） |
+| 大型敌机（enemy3） | 2 | 70 | 100 | 6 | 锯齿形（zigzag） | 低（动态 5%~10%） |
 
 **大型敌机冷却机制**：生成一个大型敌机后，40 帧（约 2 秒）内不会再生成大型敌机，避免连续出现多个大型敌机。
+
+### 3.1 敌机横向移动系统
+
+敌机横向移动通过 `MoveType` 区分联合类型实现，配置集中在 `config.ts` 的 `enemyConfig.*.move` 字段：
+
+| 模式 | 适用敌机 | 算法 | 配置参数 |
+| ---- | ------- | ---- | -------- |
+| `straight` | 小型敌机 | 无横向偏移 | `type: "straight"` |
+| `sine` | 中型敌机 | `x = originX + amplitude × sin(phase)`，每帧 `phase += frequency` | `amplitude: 40, frequency: 0.03` |
+| `zigzag` | 大型敌机 | `x += horizontalSpeed × direction`，到画布边界反弹 | `amplitude: 60, horizontalSpeed: 1` |
+
+**实现细节**：
+- `Enemy` 新增属性：`originX`（初始 X）、`moveType`（移动模式）、`movePhase`（正弦相位，随机初始值）、`moveDirection`（锯齿方向 ±1）
+- `_getMoveType()`：从 `enemyConfig` 读取当前敌机类型的移动模式
+- `_updateHorizontalPosition()`：每帧调用，根据 `moveType` 执行对应算法
+- 死亡动画期间不移动（`if (this.die) return`）
+- 碰撞检测、道具掉落位置自动适配（使用实时 `this.x`）
 
 ### 4. 道具系统
 
@@ -153,17 +175,37 @@ hpRatio = 当前HP / 最大HP（1.0=满血, 0.0=空血）
 
 ### 1. 技术栈
 - **渲染层**：HTML5 Canvas 2D Context
-- **脚本语言**：原生 JavaScript（ES6+，ES Module）
-- **模块架构**：`js/` 目录下 11 个模块
+- **脚本语言**：TypeScript 5.4+（ES Module 输出）
+- **类型系统**：严格模式（`strict: true`），禁止 `any`
+- **模块架构**：`src/` 目录下 13 个 TypeScript 模块
 - **音效**：Web Audio API 程序化合成
 - **资源**：本地 PNG 图片素材
-- **依赖**：无任何第三方库
+- **构建**：`tsc` 编译到 `js/` 目录
+- **依赖**：仅 `typescript`（devDependency）
 
-### 2. 核心架构
+### 2. TypeScript 类型系统
+
+核心类型定义在 [src/types.ts](web-game/src/types.ts)：
+
+| 类型 | 说明 |
+| ---- | ---- |
+| `GamePhase` | 游戏阶段枚举（`1 \| 2 \| 3 \| 4 \| 5 \| 6`，基于 `as const`） |
+| `MoveType` | 移动模式（`"straight" \| "sine" \| "zigzag"`） |
+| `SmallEnemyMoveConfig` / `SineMoveConfig` / `ZigzagMoveConfig` | 三种移动配置（区分联合类型） |
+| `EnemyConfig` | 敌机配置（small/medium/big，move 类型精确对应） |
+| `BuffConfig` / `BuffState` | Buff 配置与运行时状态 |
+| `FirepowerBuffConfig` / `ShieldBuffConfig` / `SpreadBuffConfig` | 三种 Buff 各自配置接口 |
+| `ItemType` | 道具类型（`"heal" \| "firepower" \| "shield" \| "spread"`） |
+| `ItemConfig` | 道具配置（`Record<ItemType, ItemTypeConfig>`） |
+| `DropConfig` | 道具掉落概率配置 |
+| `HeroConfig` / `BulletConfig` | 玩家/子弹配置 |
+| `BuffFloat` | Buff 浮动文字动效 |
+
+### 3. 核心架构
 游戏采用「主循环 + 状态机」的经典架构：
 
 ```
-setInterval(gameEngine, 50)  // 主循环每 50ms 调用一次
+requestAnimationFrame(gameLoop)
         │
         ▼
    gameEngine()
@@ -175,7 +217,7 @@ setInterval(gameEngine, 50)  // 主循环每 50ms 调用一次
         └─ PHASE_GAMEOVER → pBg() + drawGameOver() + playGameOver()
 ```
 
-### 3. 关键技术点
+### 4. 关键技术点
 
 #### （1）资源加载与进度显示
 - 通过 `Image.onload` 事件累加 `progress`
@@ -183,20 +225,20 @@ setInterval(gameEngine, 50)  // 主循环每 50ms 调用一次
 - 加载完成后自动进入 `PHASE_READY` 阶段
 
 #### （2）滚动背景
-- [ui.js](web-game/js/ui.js) 中的 `paintBg()` 使用闭包保存 `y` 偏移量
+- `paintBg()` 使用闭包保存 `y` 偏移量
 - 同时绘制两张背景图实现无缝循环滚动
 
 #### （3）ES6 类与模块化
 - `Hero`：玩家战机，负责绘制、子弹生成、碰撞检测、血量管理、Buff 管理
-- `Hullet`：子弹，含位置、移动、出界标记、散弹斜射支持
-- `Enemy`：敌机，含动态概率生成、爆炸动画、与子弹碰撞检测、道具掉落
+- `Bullet`：子弹，含位置、移动、出界标记、散弹斜射支持
+- `Enemy`：敌机，含动态概率生成、爆炸动画、横向移动、与子弹碰撞检测、道具掉落
 - `Item`：道具，多类型（心形/火焰/盾牌/星形），下落、碰撞拾取
-- `ScoreEffect`：得分动效，浮动文字+发光
+- `ScoreEffectObj`：得分动效，浮动文字+发光
 
 #### （4）碰撞检测
 - **子弹 vs 敌机**：AABB 矩形碰撞检测，`hit()` 入口检查 `this.die` 防重复触发
 - **敌机 vs 战机**：基于重叠点的碰撞判定
-- **道具 vs 战机**：矩形碰撞，支持同帧拾取多个道具，返回拾取道具类型数组
+- **道具 vs 战机**：矩形碰撞，支持同帧拾取多个道具，返回 `ItemType[]`
 
 #### （5）数组清理机制
 - 所有对象使用 `removable` 标记位 + 逆序遍历 `splice` 移除
@@ -205,6 +247,7 @@ setInterval(gameEngine, 50)  // 主循环每 50ms 调用一次
 #### （6）输入事件
 - 事件绑定提取为模块级 `bindEventsOnce()`，只绑定一次
 - 通过 `activeHero` 引用确保事件回调操作最新实例
+- 鼠标/触摸事件通过 `e instanceof MouseEvent` 类型收窄
 
 #### （7）音效合成
 - 所有音效通过 Web Audio API 振荡器 + 噪声缓冲区实时合成
@@ -212,9 +255,9 @@ setInterval(gameEngine, 50)  // 主循环每 50ms 调用一次
 - 连续触发音效加冷却帧数，单次音效加标志位防重复
 
 #### （8）配置集中管理
-- 所有游戏数值参数集中在 `config.js`，包括敌机属性、buff 配置、道具掉落概率、外观配置等
+- 所有游戏数值参数集中在 `config.ts`，包括敌机属性、移动模式、buff 配置、道具掉落概率、外观配置等
 - 动态概率函数统一使用 `base + (1 - hpRatio) * bonus` 公式
-- 修改参数只需调整 `config.js` 对应字段，业务逻辑自动引用
+- 修改参数只需调整 `config.ts` 对应字段，业务逻辑自动引用
 
 ---
 
@@ -222,6 +265,22 @@ setInterval(gameEngine, 50)  // 主循环每 50ms 调用一次
 
 ```
 web-game/
+├── src/                          # TypeScript 源码（开发目录）
+│   ├── types.ts                  # 全局类型定义 + 阶段常量
+│   ├── constants.ts              # 阶段常量（re-export from types.ts）
+│   ├── canvas.ts                 # 画布初始化与导出
+│   ├── config.ts                 # 集中配置管理
+│   ├── resources.ts              # 图片资源加载与管理
+│   ├── score.ts                  # 分数管理模块
+│   ├── hero.ts                   # 玩家战机类 + 血量系统 + Buff 管理
+│   ├── bullet.ts                 # 子弹类（支持散弹斜射）
+│   ├── enemy.ts                  # 敌机类 + 动态概率生成 + 横向移动 + 道具掉落
+│   ├── item.ts                   # 道具类（4 种类型）+ 碰撞拾取
+│   ├── ui.ts                     # UI 绘制 + 得分动效系统
+│   ├── audio.ts                  # 音效合成模块（10 种音效）
+│   └── engine.ts                 # 游戏主引擎入口
+├── js/                           # 编译输出（自动生成，勿手动修改）
+│   └── *.js
 ├── img/                          # 游戏图片资源目录
 │   ├── background.png            # 背景图
 │   ├── start.png                 # 开始界面 logo
@@ -238,21 +297,10 @@ web-game/
 │   ├── enemy3_hit.png            # 大型敌机受击图
 │   ├── enemy3_down1~6.png        # 大型敌机爆炸帧
 │   └── p1~p6.png                 # 其他素材
-├── js/                           # 游戏逻辑模块（ES Module）
-│   ├── config.js                 # 集中配置管理（敌机/Buff/道具掉落/外观/战机/子弹）
-│   ├── constants.js              # 游戏阶段常量定义
-│   ├── canvas.js                 # 画布初始化与导出
-│   ├── resources.js              # 图片资源加载与管理
-│   ├── score.js                  # 分数管理模块
-│   ├── hero.js                   # 玩家战机类 + 血量系统 + Buff 管理
-│   ├── bullet.js                 # 子弹类（支持散弹斜射）
-│   ├── enemy.js                  # 敌机类 + 动态概率生成 + 道具掉落
-│   ├── item.js                   # 道具类（4 种类型）+ 碰撞拾取
-│   ├── ui.js                     # UI 绘制 + 得分动效系统
-│   ├── audio.js                  # 音效合成模块（10 种音效）
-│   └── engine.js                 # 游戏主引擎入口
 ├── index.html                    # 页面入口，承载 canvas
-├── app_v2.js                     # 旧版单文件逻辑（已拆分为 js/ 目录）
+├── tsconfig.json                 # TypeScript 编译配置
+├── package.json                  # npm 脚本（build/watch/serve）
+├── app_v2.js                     # 旧版单文件逻辑（已弃用）
 ├── README.md                     # 项目简介
 ├── .gitignore                    # Git 忽略配置
 ├── PROJECT_GUIDE.md              # 本文档
@@ -270,41 +318,53 @@ web-game/
 - 全屏布局，隐藏溢出内容
 - 通过 `<script type="module">` 引入 `js/engine.js` 启动游戏
 
-### 2. [js/engine.js](web-game/js/engine.js)
+### 2. [src/engine.ts](web-game/src/engine.ts)
 游戏主引擎入口，负责：
 - 加载资源完成后启动游戏
 - 管理游戏阶段（`curPhase`）状态
-- 驱动主循环 `setInterval(gameEngine, 50)`
+- 驱动主循环 `requestAnimationFrame` + 时间步长
 - 根据阶段分发渲染逻辑
 - 处理画布点击事件（开始/重新开始）
 - 用户首次点击时激活 AudioContext
 
-### 3. [js/config.js](web-game/js/config.js)
+### 3. [src/types.ts](web-game/src/types.ts)
+全局类型定义模块，导出：
+- 6 个游戏阶段常量（`PHASE_DOWNLOAD` ~ `PHASE_GAMEOVER`，使用 `as const`）
+- `GamePhase` 类型（1|2|3|4|5|6 联合类型）
+- 敌机移动配置接口（`SmallEnemyMoveConfig` / `SineMoveConfig` / `ZigzagMoveConfig`）
+- 敌机配置接口（`EnemyConfig` 及子接口）
+- Buff 配置接口（`BuffConfig` / `BuffState` 及子接口）
+- 道具类型与配置接口（`ItemType` / `ItemConfig`）
+- 掉落配置接口（`DropConfig`）
+- 玩家/子弹配置接口（`HeroConfig` / `BulletConfig`）
+- 其他辅助类型（`BuffFloat` 等）
+
+### 4. [src/config.ts](web-game/src/config.ts)
 集中配置管理模块，导出：
-- `enemyConfig`：敌机属性配置（速度、HP、得分、出现权重）
+- `enemyConfig`：敌机属性配置（速度、HP、得分、出现权重、**移动模式配置**）
 - `buffConfig`：Buff 配置（持续时间、颜色、图标、伤害倍率）
 - `dropConfig`：道具掉落概率配置（base + bonus 动态概率参数）
 - `itemConfig`：道具外观配置（大小、颜色、发光、浮动文字）
 - `heroConfig`：玩家战机配置（HP、无敌帧数、射击间隔）
 - `bulletConfig`：子弹配置（伤害、速度、偏移）
-- 6 个动态概率函数：`getDynamicHealDropProb`、`getDynamicShieldDropProb`、`getDynamicBigFirepowerDropProb`、`getDynamicMediumFirepowerDropProb`、`getDynamicMediumShieldDropProb`、`getDynamicSpreadDropProb`、`getDynamicBigEnemySpawnProb`
+- 7 个动态概率函数
 
-### 4. [js/constants.js](web-game/js/constants.js)
-游戏阶段常量定义，导出 6 个阶段常量。
+### 5. [src/constants.ts](web-game/src/constants.ts)
+游戏阶段常量定义，re-export `types.ts` 中的 6 个阶段常量。
 
-### 5. [js/canvas.js](web-game/js/canvas.js)
+### 6. [src/canvas.ts](web-game/src/canvas.ts)
 画布初始化模块，导出 `width`/`height`/`canvas`/`ctx`。
 
-### 6. [js/resources.js](web-game/js/resources.js)
+### 7. [src/resources.ts](web-game/src/resources.ts)
 图片资源加载与管理，导出：
 - `download(callback)`：动态计算进度加载所有图片
 - 各图片资源对象/数组
 
-### 7. [js/score.js](web-game/js/score.js)
+### 8. [src/score.ts](web-game/src/score.ts)
 分数管理模块，导出：
 - `getGameScore()` / `resetGameScore()` / `addGameScore()`
 
-### 8. [js/hero.js](web-game/js/hero.js)
+### 9. [src/hero.ts](web-game/src/hero.ts)
 玩家战机类 `Hero`，负责：
 - 战机绘制与双帧动画切换
 - 自动发射三路子弹（散弹模式五路齐射）
@@ -317,29 +377,33 @@ web-game/
 - 道具碰撞拾取
 - 事件绑定：`bindEventsOnce()` 只绑定一次
 
-### 9. [js/bullet.js](web-game/js/bullet.js)
-子弹类 `Hullet`，负责：
+### 10. [src/bullet.ts](web-game/src/bullet.ts)
+子弹类 `Bullet`，负责：
 - 子弹绘制与移动（含三路偏移 + 散弹斜射）
 - 双倍火力时橙色光晕
 - 出界标记移除（逆序遍历）
 - 射击音效（6 帧冷却）
 
-### 10. [js/enemy.js](web-game/js/enemy.js)
+### 11. [src/enemy.ts](web-game/src/enemy.ts)
 敌机类 `Enemy`，负责：
 - 三种敌机动态概率生成
 - 大型敌机 40 帧冷却机制
 - 敌机移动与爆炸动画
+- **横向移动系统**：`_getMoveType()` 读取配置，`_updateHorizontalPosition()` 每帧更新 X 坐标
+  - `sine`：正弦摆动（`originX + amplitude × sin(phase)`）
+  - `zigzag`：锯齿形巡逻（到边界反弹）
+  - `straight`：无横向移动
 - 与子弹碰撞检测、计分、得分动效、摧毁音效
 - 道具掉落逻辑（动态概率，根据玩家血量调整）
 
-### 11. [js/item.js](web-game/js/item.js)
+### 12. [src/item.ts](web-game/src/item.ts)
 道具类 `Item`，负责：
 - 4 种道具绘制：心形（回血）、火焰（火力）、盾牌（护盾）、星形（散弹）
 - 呼吸动画 + 外发光效果
 - 下落移动与出界移除
-- 碰撞拾取检测（返回拾取道具类型数组，支持同帧多拾取）
+- 碰撞拾取检测（返回 `ItemType[]`，支持同帧多拾取）
 
-### 12. [js/ui.js](web-game/js/ui.js)
+### 13. [src/ui.ts](web-game/src/ui.ts)
 UI 绘制模块，导出：
 - `paintBg()`：返回闭包函数，实现无缝滚动背景
 - `paintLogo()`：绘制开始界面 logo
@@ -348,7 +412,7 @@ UI 绘制模块，导出：
 - `drawGameOver()`：画布内绘制 GAME OVER + 得分 + 重新开始提示
 - `addScoreEffect()` / `drawScoreEffects()` / `clearScoreEffects()`：得分动效系统
 
-### 13. [js/audio.js](web-game/js/audio.js)
+### 14. [src/audio.ts](web-game/src/audio.ts)
 音效合成模块，使用 Web Audio API 程序化合成 10 种音效：
 - `resumeAudio()`：激活 AudioContext
 - `playShoot()`：子弹发射
@@ -361,6 +425,12 @@ UI 绘制模块，导出：
 
 ## 六、运行方式
 
+### 构建（必须先编译）
+```bash
+npm install        # 安装 TypeScript
+npm run build      # 编译 src/*.ts → js/*.js
+```
+
 ### 本地服务器（必须）
 由于使用 ES Module，必须通过 HTTP 服务器访问（不支持 `file://` 协议）：
 
@@ -368,11 +438,16 @@ UI 绘制模块，导出：
 # Python 3
 python3 -m http.server 8080
 
-# Node.js
-npx http-server -p 8080
+# 或使用 npm serve
+npm run serve
 ```
 
 然后访问 `http://localhost:8080`。
+
+### 开发模式（自动编译）
+```bash
+npm run watch      # 监听文件变化，自动编译
+```
 
 ### 操作说明
 - **PC 端**：移动鼠标控制战机；鼠标移出画布暂停
@@ -384,34 +459,40 @@ npx http-server -p 8080
 
 ## 七、项目注意事项
 
-### 1. 已知问题与待优化项
-- **主循环使用 `setInterval(gameEngine, 50)`**：建议替换为 `requestAnimationFrame` 以获得更流畅的动画
-
-### 2. 兼容性说明
+### 1. 兼容性说明
 - 画布尺寸上限为 `480 × 650`，超过此尺寸的屏幕会留白
 - 移动端需通过 `e.touches[0].pageX` 获取触摸坐标
 - 不支持 Canvas 的浏览器会显示提示文字
 - Web Audio API 需要用户交互后才能创建 AudioContext
 
-### 3. 资源依赖
+### 2. 资源依赖
 - 所有图片资源位于 `img/` 目录，路径硬编码为 `"img/" + src`
 - 图片总数量 = `imgName.flat().length`，进度自动计算
 - 无外部音频文件，音效全部由 Web Audio API 合成
 
-### 4. 代码风格
-- 采用 ES6+ 语法（`let`/`const`、`class`、`import`/`export`）
-- 旧版 `app_v2.js` 保留但不再维护
-- 注释以中文为主
+### 3. 代码风格
+- TypeScript 严格模式，禁止 `any`
 - 命名混合驼峰与全大写常量（如 `gameScore` vs `PHASE_PLAY`）
+- 注释以中文为主
+- 旧版 `app_v2.js` 保留但不再维护
 
-### 5. 游戏平衡调整指南
+### 4. 游戏平衡调整指南
 
-所有数值参数集中在 `config.js`，修改对应字段即可调整游戏平衡：
+所有数值参数集中在 `config.ts`，修改对应字段即可调整游戏平衡：
 
-```javascript
+```typescript
 // 敌机属性
 enemyConfig.big.hp = 70;           // 大型敌机 HP
 enemyConfig.medium.hp = 15;        // 中型敌机 HP
+
+// 敌机移动
+enemyConfig.medium.move.amplitude = 40;   // 正弦摆动幅度
+enemyConfig.medium.move.frequency = 0.03; // 正弦摆动频率
+enemyConfig.big.move.horizontalSpeed = 1; // 锯齿横向速度
+
+// 关闭横向移动（恢复直线）
+enemyConfig.medium.move.type = "straight";
+enemyConfig.big.move.type = "straight";
 
 // Buff 持续时间
 buffConfig.firepower.duration = 200;  // 双倍火力持续帧数
@@ -432,24 +513,30 @@ dropConfig.mediumEnemy.shieldBase = 0.08; // 中型敌机护盾掉落概率
 - 总掉落概率可能超过 100%，但逐个判断不会重复掉落
 - 动态概率公式：`prob = base + (1 - hpRatio) * bonus`
 
-### 6. 扩展建议
+### 5. 扩展建议
 - ~~引入模块化（ES Module）拆分 `app_v2.js`~~ ✅ 已完成
 - ~~增加音效系统~~ ✅ 已完成（Web Audio API，10 种音效）
 - ~~增加道具系统~~ ✅ 已完成（4 种道具 + 动态概率）
 - ~~增加血量系统~~ ✅ 已完成（3 HP + 血条 + 回血动效）
 - ~~增加 Buff 系统~~ ✅ 已完成（双倍火力 + 护盾 + 散弹）
-- ~~配置集中管理~~ ✅ 已完成（config.js）
-- ~~分数独立模块~~ ✅ 已完成（score.js）
-- 使用 `requestAnimationFrame` + 时间步长替代 `setInterval`
+- ~~配置集中管理~~ ✅ 已完成（config.ts）
+- ~~分数独立模块~~ ✅ 已完成（score.ts）
+- ~~使用 `requestAnimationFrame` + 时间步长替代 `setInterval`~~ ✅ 已完成
+- ~~迁移到 TypeScript~~ ✅ 已完成（strict 模式，禁止 any）
+- ~~敌机横向移动~~ ✅ 已完成（sine/zigzag/straight 三种模式）
 - 增加难度递增机制
-- 增加更多敌机行为模式（横向移动、射击等）
+- 增加敌机射击（向下发射敌弹）
+- 增加中型敌机俯冲行为
+- 增加小型敌机编队出现
 
 ---
 
 ## 八、版本信息
 
-- **当前版本**：v2（模块化重构版 + 道具/Buff 系统）
-- **架构**：ES Module 模块化
-- **模块数量**：11 个（含 config.js、score.js）
+- **当前版本**：v3（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动）
+- **架构**：TypeScript + ES Module
+- **源码模块数量**：13 个（src/ 目录）
+- **类型定义**：20+ 接口/类型（types.ts）
+- **构建方式**：`tsc` 编译到 js/
 - **最后更新**：见 Git 提交历史
-- **维护状态**：基础功能完整，存在优化空间
+- **维护状态**：基础功能完整，存在扩展空间
