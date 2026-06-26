@@ -94,5 +94,18 @@ function gameEngine() {
 // 加载资源完成后启动游戏
 download(start);
 
-// 启动游戏主循环
-setInterval(gameEngine, 50);
+// 使用 requestAnimationFrame + 时间步长替代 setInterval
+// 目标帧间隔 50ms（20fps），与原 setInterval(gameEngine, 50) 一致
+const TARGET_DELTA = 50;
+let lastTimestamp = 0;
+
+function gameLoop(timestamp) {
+  const delta = timestamp - lastTimestamp;
+  if (delta >= TARGET_DELTA) {
+    lastTimestamp = timestamp - (delta % TARGET_DELTA); // 修正累积误差
+    gameEngine();
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(gameLoop);
