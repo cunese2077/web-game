@@ -60,6 +60,37 @@ const audioConfig = {
     volume: 0.15,                   // 单音符音量
     duration: 0.4,                  // 单音符持续时间（秒）
   },
+
+  // 【拾取双倍火力】上升音阶 + 噪声爆发，强调火力增强感
+  firepower: {
+    type: "sawtooth",               // 波形类型
+    notes: [440, 554, 660],         // A4-C#5-E5 上升音阶
+    noteInterval: 0.06,             // 音符间隔（秒）
+    attackTime: 0.02,               // 起音时间（秒）
+    volume: 0.12,                   // 单音符音量
+    duration: 0.25,                 // 单音符持续时间（秒）
+    noise: { volume: 0.08, duration: 0.08, amplitude: 0.4 },  // 附加噪声层：爆发感
+  },
+
+  // 【拾取护盾】低沉的双音和弦，安全感
+  shield: {
+    type: "sine",                   // 波形类型
+    notes: [262, 392],              // C4-G4 和弦
+    noteInterval: 0.1,              // 音符间隔（秒）
+    attackTime: 0.04,               // 起音时间（秒）
+    volume: 0.18,                   // 单音符音量
+    duration: 0.4,                  // 单音符持续时间（秒）
+  },
+
+  // 【拾取散弹】快速琶音，散射感
+  spread: {
+    type: "triangle",               // 波形类型
+    notes: [523, 659, 784, 1047],   // C5-E5-G5-C6 快速上升琶音
+    noteInterval: 0.04,             // 音符间隔（秒）
+    attackTime: 0.02,               // 起音时间（秒）
+    volume: 0.12,                   // 单音符音量
+    duration: 0.2,                  // 单音符持续时间（秒）
+  },
 };
 
 let audioCtx = null;
@@ -329,4 +360,84 @@ function playGameOver() {
   });
 }
 
-export { audioConfig, resumeAudio, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playGameOver };
+// 拾取双倍火力：上升锯齿波音阶 + 噪声爆发
+function playFirepower() {
+  const c = audioConfig.firepower;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  // 音阶层
+  c.notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = c.type;
+    const startTime = now + i * c.noteInterval;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(vol(c.volume), startTime + c.attackTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.duration);
+    osc.start(startTime);
+    osc.stop(startTime + c.duration);
+  });
+
+  // 噪声层
+  const noise = ctx.createBufferSource();
+  const noiseGain = ctx.createGain();
+  const bufferSize = ctx.sampleRate * c.noise.duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * c.noise.amplitude;
+  }
+  noise.buffer = buffer;
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+}
+
+// 拾取护盾：低沉双音和弦
+function playShield() {
+  const c = audioConfig.shield;
+  const ctx = getAudioCtx();
+  c.notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = c.type;
+    const startTime = ctx.currentTime + i * c.noteInterval;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(vol(c.volume), startTime + c.attackTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.duration);
+    osc.start(startTime);
+    osc.stop(startTime + c.duration);
+  });
+}
+
+// 拾取散弹：快速上升琶音
+function playSpread() {
+  const c = audioConfig.spread;
+  const ctx = getAudioCtx();
+  c.notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = c.type;
+    const startTime = ctx.currentTime + i * c.noteInterval;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(vol(c.volume), startTime + c.attackTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.duration);
+    osc.start(startTime);
+    osc.stop(startTime + c.duration);
+  });
+}
+
+export { audioConfig, resumeAudio, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playGameOver, playFirepower, playShield, playSpread };

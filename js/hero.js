@@ -5,8 +5,9 @@ import { PHASE_PLAY, PHASE_PAUSE, PHASE_GAMEOVER } from "./constants.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { playHit, playHeal } from "./audio.js";
+import { playHit, playHeal, playFirepower, playShield, playSpread } from "./audio.js";
 import { getGameScore } from "./score.js";
+import { buffConfig, heroConfig, itemConfig } from "./config.js";
 
 // 当前活跃的 hero 实例引用，供事件回调使用
 let activeHero = null;
@@ -65,12 +66,23 @@ class Hero {
     this.hCount = 0;
     this.eCount = 0;
     this.n = 0;
-    this.maxHp = 3;
+    this.maxHp = heroConfig.maxHp;
     this.hp = this.maxHp;
     this.invincible = 0; // 受伤后无敌帧数
     this.dying = false; // 是否正在播放死亡动画
     this.healAnim = 0; // 回血动画帧计数
     this.hpFlash = 0; // 血条闪烁帧计数
+
+    // Buff 状态：每种 buff 记录剩余帧数，0 表示未激活
+    this.buffs = {
+      firepower: 0,
+      shield: 0,
+      spread: 0,
+    };
+
+    // Buff 拾取浮动文字动效
+    this.buffFloats = []; // { text, color, frame, maxFrame }
+
     // 注册为当前活跃实例
     activeHero = this;
     bindEventsOnce();
@@ -97,6 +109,9 @@ class Hero {
       this.invincible--;
     }
 
+    // Buff 计时器递减
+    this._tickBuffs();
+
     this.hit();
 
     // 正常动画：0/1 交替
@@ -112,18 +127,20 @@ class Hero {
       ctx.drawImage(heroImg[this.index], this.x, this.y);
     }
 
+    // 护盾光环
+    if (this.buffs.shield > 0) {
+      this._drawShieldAura();
+    }
+
     this._drawScore();
     this._drawHp();
+    this._drawBuffs();
+    this._drawBuffFloats();
 
     // 检测道具拾取
     if (!this.dying) {
-      const picked = Item.checkCollision(this.x, this.y, heroImg[0].width, heroImg[0].height);
-      if (picked > 0 && this.hp < this.maxHp) {
-        this.hp = Math.min(this.hp + picked, this.maxHp);
-        this.healAnim = 30;
-        this.hpFlash = 30;
-        playHeal();
-      }
+      const pickedTypes = Item.checkCollision(this.x, this.y, heroImg[0].width, heroImg[0].height);
+      this._handleItemPickup(pickedTypes);
     }
 
     // 绘制回血动效
@@ -134,12 +151,23 @@ class Hero {
 
     this.hCount++;
     if (this.hCount % 3 === 0) {
-      this.n === 32 && (this.n = 0);
-      Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
-      this.n === 0 && (this.n = -32);
-      Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
-      this.n === -32 && (this.n = 32);
-      Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+      const isSpread = this.buffs.spread > 0;
+      if (isSpread) {
+        // 散弹模式：5 发（左斜、左、中、右、右斜）
+        Bullet.add(new Bullet(-48, this.x, this.y, heroImg[0].width, heroImg[0].height, true));
+        Bullet.add(new Bullet(-24, this.x, this.y, heroImg[0].width, heroImg[0].height));
+        Bullet.add(new Bullet(0, this.x, this.y, heroImg[0].width, heroImg[0].height));
+        Bullet.add(new Bullet(24, this.x, this.y, heroImg[0].width, heroImg[0].height));
+        Bullet.add(new Bullet(48, this.x, this.y, heroImg[0].width, heroImg[0].height, true));
+      } else {
+        // 普通模式：3 发
+        this.n === 32 && (this.n = 0);
+        Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+        this.n === 0 && (this.n = -32);
+        Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+        this.n === -32 && (this.n = 32);
+        Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+      }
       this.hCount = 0;
     }
 
@@ -150,6 +178,136 @@ class Hero {
     }
 
     return curPhase;
+  }
+
+  // Buff 计时器递减
+  _tickBuffs() {
+    for (const key in this.buffs) {
+      if (this.buffs[key] > 0) {
+        this.buffs[key]--;
+      }
+    }
+  }
+
+  // 处理道具拾取
+  _handleItemPickup(pickedTypes) {
+    for (const type of pickedTypes) {
+      switch (type) {
+        case "heal":
+          if (this.hp < this.maxHp) {
+            this.hp = Math.min(this.hp + 1, this.maxHp);
+            this.healAnim = 30;
+            this.hpFlash = 30;
+            playHeal();
+          }
+          break;
+        case "firepower":
+          this.buffs.firepower = buffConfig.firepower.duration;
+          this._addBuffFloat(itemConfig.types.firepower.label, itemConfig.types.firepower.color);
+          playFirepower();
+          break;
+        case "shield":
+          this.buffs.shield = buffConfig.shield.duration;
+          this._addBuffFloat(itemConfig.types.shield.label, itemConfig.types.shield.color);
+          playShield();
+          break;
+        case "spread":
+          this.buffs.spread = buffConfig.spread.duration;
+          this._addBuffFloat(itemConfig.types.spread.label, itemConfig.types.spread.color);
+          playSpread();
+          break;
+      }
+    }
+  }
+
+  // 添加 buff 拾取浮动文字
+  _addBuffFloat(text, color) {
+    this.buffFloats.push({ text, color, frame: 30, maxFrame: 30 });
+  }
+
+  // 绘制 buff 浮动文字
+  _drawBuffFloats() {
+    const heroCx = this.x + heroImg[0].width / 2;
+    const heroCy = this.y + heroImg[0].height / 2;
+
+    for (let i = this.buffFloats.length - 1; i >= 0; i--) {
+      const bf = this.buffFloats[i];
+      bf.frame--;
+      if (bf.frame <= 0) {
+        this.buffFloats.splice(i, 1);
+        continue;
+      }
+      const progress = 1 - bf.frame / bf.maxFrame;
+      const floatY = heroCy - 30 - progress * 50;
+      const alpha = 1 - progress;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = bf.color;
+      ctx.font = "bold 24px arial";
+      ctx.textAlign = "center";
+      ctx.shadowColor = bf.color;
+      ctx.shadowBlur = 10;
+      ctx.fillText(bf.text, heroCx, floatY);
+      ctx.restore();
+    }
+  }
+
+  // 绘制护盾光环
+  _drawShieldAura() {
+    const cx = this.x + heroImg[0].width / 2;
+    const cy = this.y + heroImg[0].height / 2;
+    const radius = Math.max(heroImg[0].width, heroImg[0].height) * 0.6;
+    const alpha = 0.3 + Math.sin(this.count * 0.15) * 0.15;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = "#4af";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "#4af";
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 绘制 Buff 状态栏（血条下方）
+  _drawBuffs() {
+    const barWidth = 150;
+    const barHeight = 8;
+    const baseX = width - barWidth - 10;
+    const baseY = ctx.canvas.height - 12 - 10 - 6; // 血条上方
+
+    const activeBuffs = [];
+    if (this.buffs.firepower > 0) activeBuffs.push("firepower");
+    if (this.buffs.shield > 0) activeBuffs.push("shield");
+    if (this.buffs.spread > 0) activeBuffs.push("spread");
+
+    for (let i = 0; i < activeBuffs.length; i++) {
+      const key = activeBuffs[i];
+      const cfg = buffConfig[key];
+      const y = baseY - i * (barHeight + 4);
+      const ratio = this.buffs[key] / cfg.duration;
+
+      // 背景
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.fillRect(baseX, y, barWidth, barHeight);
+
+      // 进度条
+      ctx.fillStyle = cfg.color;
+      ctx.fillRect(baseX, y, barWidth * ratio, barHeight);
+
+      // 边框
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(baseX, y, barWidth, barHeight);
+
+      // 文字
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 8px arial";
+      ctx.textAlign = "left";
+      ctx.fillText(cfg.label, baseX + 3, y + barHeight - 1);
+    }
   }
 
   _drawScore() {
@@ -256,6 +414,13 @@ class Hero {
         py >= d.y &&
         py <= d.y + d.height
       ) {
+        // 护盾抵消伤害
+        if (this.buffs.shield > 0) {
+          this.buffs.shield = 0; // 护盾消失
+          this.invincible = buffConfig.shield.invincibleFrames; // 短暂无敌
+          break;
+        }
+
         this.hp--;
         playHit();
         if (this.hp <= 0) {
@@ -263,7 +428,7 @@ class Hero {
           this.dying = true;
           this.index = 2; // 从爆炸第一帧开始
         } else {
-          this.invincible = 40; // 约2秒无敌时间（40帧 * 50ms）
+          this.invincible = heroConfig.invincibleFrames; // 受伤后无敌时间（配置值）
         }
         break; // 一次只受一次伤害
       }
@@ -288,5 +453,10 @@ function getHeroMaxHp() {
   return activeHero ? activeHero.maxHp : 3;
 }
 
-export { Hero, getHeroHp, getHeroMaxHp };
+// 获取当前 Hero 的 buff 状态（供 bullet.js 等模块读取）
+function getHeroBuffs() {
+  return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
+}
+
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs };
 export default Hero;

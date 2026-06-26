@@ -18,7 +18,7 @@
 
 **根因**：原代码直接修改全局 `gameScore`，拆分后 `enemy.js` 未调用 `addGameScore()`。
 
-**修复**：在 `enemy.js` 中 `import { addGameScore } from "./hero.js"` 并在击毁时调用。
+**修复**：在 `enemy.js` 中 `import { addGameScore } from "./score.js"` 并在击毁时调用。
 
 ---
 
@@ -66,12 +66,28 @@
 
 ---
 
+### 问题八：击败敌机分数重复增加
+
+**现象**：击败一个敌机连续触发多次分数增加事件。
+
+**根因**：
+1. `hit()` 方法中 `lifes <= 0` 触发 `die = true` 后**没有 break**，同帧后续子弹继续命中
+2. `draw()` 死亡动画期间仍调用 `hit()`，后续帧子弹继续打爆炸中的敌机
+3. 双倍火力 `damageMultiplier=2` 时，50HP 敌机 25 发子弹，第一发致死其余全触发
+
+**修复**：
+1. `hit()` 开头加 `if (this.die) return;` 保护
+2. 死亡判定块内加 `break` 跳出子弹循环
+
+---
+
 ## 问题共性分析
 
-所有问题的本质可归为两类：
+所有问题的本质可归为三类：
 
 1. **模块拆分遗漏**：拆分时遗漏了跨模块的依赖关系（import 遗漏、全局变量修改未替换为函数调用）
 2. **原代码逻辑缺陷**：硬编码进度、重复事件绑定、阻塞式 UI、正序 splice 删除、提前 return
+3. **状态保护不足**：敌机死亡后缺少状态守卫（`die` 标志未在 `hit()` 入口检查），导致重复触发
 
 ---
 
@@ -96,13 +112,16 @@
 ### 4. 避免循环依赖
 当前模块依赖链：
 ```
+config.js（无依赖，纯配置）
+   ↓
 engine.js → hero.js → bullet.js → resources.js → canvas.js
-engine.js → enemy.js → hero.js (addGameScore), item.js, ui.js, audio.js
-engine.js → ui.js → hero.js (getGameScore, resetGameScore)
-hero.js → item.js, audio.js
-bullet.js → audio.js
+engine.js → enemy.js → hero.js (getHeroHp/getHeroMaxHp/getHeroBuffs), item.js, ui.js, audio.js, config.js
+engine.js → ui.js → hero.js (getGameScore), score.js
+hero.js → item.js, audio.js, config.js
+bullet.js → audio.js, hero.js (getHeroBuffs)
+item.js → config.js
+enemy.js → config.js (动态概率函数)
 ```
-若后续增加更多交互，建议将共享状态（如分数）抽取为独立的 `score.js` 模块。
 
 ### 5. 数组遍历删除
 - 遍历数组并删除元素时，**必须使用逆序遍历**（`for i = length-1; i >= 0; i--`）
@@ -113,3 +132,38 @@ bullet.js → audio.js
 - `resumeAudio()` 在用户首次点击画布时调用
 - 连续触发的音效（如射击）需加冷却帧数，避免音效叠加刺耳
 - 游戏结束等单次音效需用标志位防止每帧重复播放
+
+### 7. 状态守卫
+- 敌机 `hit()` 入口必须检查 `this.die`，防止死亡后重复触发得分/掉落/音效
+- 死亡判定后必须 `break` 跳出子弹循环，防止同帧多子弹重复命中
+
+### 8. 配置管理
+- 所有游戏数值参数集中在 `config.js`，方便后期调优
+- 修改道具掉落概率、buff 持续时间、敌机 HP 等参数只需修改 `config.js` 对应字段
+- 动态概率函数统一使用 `base + (1 - hpRatio) * bonus` 公式
+- **概率判断顺序**：优先判断的道具拥有独立概率区间（0~prob），后续道具的区间受前置挤压，因此**低概率道具应优先判断**或确保基础概率足够高
+
+### 9. 游戏平衡调优记录
+
+#### 第一轮调整（基础平衡）
+- 大型敌机 HP: 50 → 70
+- 中型敌机 HP: 10 → 15
+- 双倍火力持续时间: 15秒 → 10秒
+- 护盾持续时间: 30秒 → 15秒
+- 散弹持续时间: 10秒 → 6秒
+
+#### 第二轮调整（动态概率系统）
+- 所有道具掉落概率改为根据玩家血量动态调整
+- 保护型道具（回血、护盾）：血量低时概率↑
+- 攻击型道具（火力、散弹）：血量高时概率↑
+
+#### 第三轮调整（护盾概率优化）
+- 问题：护盾判断排在回血之后，概率区间被挤压
+- 修复：护盾优先判断，确保有独立概率区间
+- 大型敌机护盾概率：12%→30%（满血），25%→50%（空血）
+- 中型敌机新增护盾掉落：8%（满血）→ 12%（空血）
+
+#### 第四轮调整（方案四：组合提升护盾频率）
+- 大型敌机护盾：shieldBase 0.12→0.30, shieldBonus 0.13→0.20
+- 中型敌机新增护盾：shieldBase 0.08, shieldBonus 0.04
+- 整体护盾出现频率提升 5~8 倍

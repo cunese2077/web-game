@@ -3,43 +3,46 @@ import { ctx } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
-import { getHeroHp, getHeroMaxHp } from "./hero.js";
+import { getHeroHp, getHeroMaxHp, getHeroBuffs } from "./hero.js";
 import Item from "./item.js";
 import { addScoreEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig } from "./audio.js";
+import {
+  enemyConfig,
+  buffConfig,
+  getDynamicHealDropProb,
+  getDynamicShieldDropProb,
+  getDynamicBigFirepowerDropProb,
+  getDynamicMediumFirepowerDropProb,
+  getDynamicMediumShieldDropProb,  // 方案四新增：中型敌机护盾概率
+  getDynamicSpreadDropProb,
+  getDynamicBigEnemySpawnProb,
+} from "./config.js";
 
 const liveEnemy = []; // 存储画布上所有敌机
 
 // 大型敌机生成冷却：防止连续刷出多个
 let bigEnemyCooldown = 0; // 剩余冷却帧数
-const BIG_ENEMY_COOLDOWN_FRAMES = 40; // 两个大型敌机之间至少间隔40帧（约2秒）
-
-// 根据玩家血量计算动态概率
-function getDynamicProbabilities() {
-  const hp = getHeroHp();
-  const maxHp = getHeroMaxHp();
-  const hpRatio = maxHp > 0 ? hp / maxHp : 1;
-
-  // 血量越低，最大敌机出现概率越高，道具掉落概率越高
-  // hpRatio: 1(满血) → 0(空血)
-  // 最大敌机概率: 基础5% → 满血5%, 空血10%
-  const bigEnemyProb = 0.05 + (1 - hpRatio) * 0.05;
-  // 道具掉落概率: 基础30% → 满血30%, 空血80%
-  const itemDropProb = 0.3 + (1 - hpRatio) * 0.5;
-
-  return { bigEnemyProb, itemDropProb };
-}
 
 // 每帧递减冷却计数
 function tickCooldown() {
   if (bigEnemyCooldown > 0) bigEnemyCooldown--;
 }
 
+// 获取当前玩家血量比例（供动态概率计算使用）
+function getHpRatio() {
+  const hp = getHeroHp();
+  const maxHp = getHeroMaxHp();
+  return maxHp > 0 ? hp / maxHp : 1;
+}
+
 class Enemy {
   constructor() {
-    const { bigEnemyProb } = getDynamicProbabilities();
+    // 根据玩家血量计算大型敌机出现概率
+    const hpRatio = getHpRatio();
+    const bigEnemyProb = getDynamicBigEnemySpawnProb(hpRatio);
     const bigEnemyThreshold = bigEnemyProb * 20;
-    const midEnemyThreshold = bigEnemyThreshold + 5;
+    const midEnemyThreshold = bigEnemyThreshold + enemyConfig.medium.spawnWeight;
 
     this.n = Math.random() * 20;
     this.enemy = null;
@@ -48,16 +51,16 @@ class Enemy {
 
     if (this.n < bigEnemyThreshold && bigEnemyCooldown === 0) {
       this.enemy = enemy3[0];
-      this.speed = 2;
-      this.lifes = 50;
-      bigEnemyCooldown = BIG_ENEMY_COOLDOWN_FRAMES; // 触发冷却
+      this.speed = enemyConfig.big.speed;
+      this.lifes = enemyConfig.big.hp;
+      bigEnemyCooldown = enemyConfig.big.cooldownFrames; // 触发冷却（配置值）
     } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
-      this.speed = 4;
-      this.lifes = 10;
+      this.speed = enemyConfig.medium.speed;
+      this.lifes = enemyConfig.medium.hp;
     } else {
       this.enemy = enemy1[0];
-      this.speed = 6;
+      this.speed = enemyConfig.small.speed;
     }
 
     this.x = parseInt(Math.random() * (ctx.canvas.width - this.enemy.width));
@@ -70,8 +73,8 @@ class Enemy {
   }
 
   draw() {
-    // 处理不同敌机的爆炸图
-    if (this.speed === 2) {
+    // 处理不同敌机的爆炸图（使用配置值判断）
+    if (this.speed === enemyConfig.big.speed) {
       if (this.die) {
         if (this.index < 2) {
           this.index = 3;
@@ -87,7 +90,7 @@ class Enemy {
       }
     } else if (this.die) {
       if (this.index < enemy1.length) {
-        if (this.speed === 6) {
+        if (this.speed === enemyConfig.small.speed) {
           this.enemy = enemy1[this.index++];
         } else {
           this.enemy = enemy2[this.index++];
@@ -107,7 +110,14 @@ class Enemy {
   }
 
   hit() {
+    // 保护：已死亡的敌机不再处理碰撞，避免重复得分
+    if (this.die) return;
+
     const bullets = Bullet.getAll();
+    const buffs = getHeroBuffs();
+    // 双倍火力：每颗子弹伤害 ×damageMultiplier（配置值）
+    const damageMultiplier = buffs.firepower > 0 ? buffConfig.firepower.damageMultiplier : 1;
+
     for (let i = bullets.length - 1; i >= 0; i--) {
       const h = bullets[i];
       if (
@@ -116,31 +126,79 @@ class Enemy {
         h.my + h.height >= this.y &&
         this.height + this.y >= h.my
       ) {
-        if (--this.lifes === 0) {
+        this.lifes -= damageMultiplier;
+        if (this.lifes <= 0) {
           this.die = true;
-          const score = this.speed === 6 ? 10 : this.speed === 4 ? 20 : 100;
+          // 根据敌机速度计算得分（使用配置值）
+          const score = this.speed === enemyConfig.big.speed ? enemyConfig.big.score
+                       : this.speed === enemyConfig.medium.speed ? enemyConfig.medium.score
+                       : enemyConfig.small.score;
           addGameScore(score);
           // 击败敌机时在敌机位置显示得分动效
           addScoreEffect(this.x + this.width / 2, this.y + this.height / 2, score);
           // 播放对应敌机摧毁音效
-          if (this.speed === 2) {
+          if (this.speed === enemyConfig.big.speed) {
             playEnemyDestroyBig();
-          } else if (this.speed === 4) {
+          } else if (this.speed === enemyConfig.medium.speed) {
             playEnemyDestroyMedium();
           } else {
             playEnemyDestroySmall();
           }
-          // 击败最大敌机（speed=2）时根据玩家血量动态调整道具掉落概率
-          if (this.speed === 2) {
-            const { itemDropProb } = getDynamicProbabilities();
-            if (Math.random() < itemDropProb) {
-              Item.add(this.x + this.width / 2, this.y + this.height / 2);
-            }
-          }
+          // 道具掉落逻辑
+          this._dropItems();
+          // 关键：敌机已死，立即跳出子弹循环，避免同帧内其他子弹再次触发得分
+          h.removable = true;
+          break;
         }
         h.removable = true;
       }
     }
+  }
+
+  // 道具掉落逻辑（使用动态概率）
+  // 所有道具掉落概率根据玩家血量动态调整
+  // 判断顺序已优化：护盾优先判断，确保有独立的概率区间
+  _dropItems() {
+    const cx = this.x + this.width / 2;
+    const cy = this.y + this.height / 2;
+
+    // 获取当前玩家血量比例
+    const hpRatio = getHpRatio();
+
+    if (this.speed === enemyConfig.big.speed) {
+      // 大型敌机掉落：护盾（独立区间优先）、回血、火力
+      // 概率计算（根据玩家血量动态调整，方案四大幅提升护盾概率）
+      const shieldProb = getDynamicShieldDropProb(hpRatio);   // 满血30% → 空血50%
+      const healProb = getDynamicHealDropProb(hpRatio);       // 满血25% → 空血75%
+      const firepowerProb = getDynamicBigFirepowerDropProb(hpRatio); // 满血12% → 空血8%
+
+      const rand = Math.random();
+      // 优化判断顺序：护盾优先，确保有独立概率区间 0~shieldProb
+      if (rand < shieldProb) {
+        Item.add(cx, cy, "shield");
+      } else if (rand < shieldProb + healProb) {
+        Item.add(cx, cy, "heal");
+      } else if (rand < shieldProb + healProb + firepowerProb) {
+        Item.add(cx, cy, "firepower");
+      }
+    } else if (this.speed === enemyConfig.medium.speed) {
+      // 中型敌机掉落：护盾（方案四新增）、火力、散弹
+      // 概率计算（根据玩家血量动态调整）
+      const shieldProb = getDynamicMediumShieldDropProb(hpRatio);   // 满血8% → 空血12%
+      const firepowerProb = getDynamicMediumFirepowerDropProb(hpRatio); // 满血8% → 空血5%
+      const spreadProb = getDynamicSpreadDropProb(hpRatio);             // 满血8% → 空血5%
+
+      const rand = Math.random();
+      // 护盾优先判断，确保有独立概率区间 0~shieldProb
+      if (rand < shieldProb) {
+        Item.add(cx, cy, "shield");
+      } else if (rand < shieldProb + firepowerProb) {
+        Item.add(cx, cy, "firepower");
+      } else if (rand < shieldProb + firepowerProb + spreadProb) {
+        Item.add(cx, cy, "spread");
+      }
+    }
+    // 小型敌机不掉落道具
   }
 
   // 批量绘制并清理敌机
@@ -172,4 +230,5 @@ class Enemy {
   }
 }
 
+export { Enemy };
 export default Enemy;
