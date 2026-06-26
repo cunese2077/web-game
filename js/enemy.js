@@ -2,7 +2,8 @@
 import { ctx } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
-import { addGameScore, getHeroHp, getHeroMaxHp } from "./hero.js";
+import { addGameScore } from "./score.js";
+import { getHeroHp, getHeroMaxHp } from "./hero.js";
 import Item from "./item.js";
 import { addScoreEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig } from "./audio.js";

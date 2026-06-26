@@ -6,8 +6,7 @@ import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { playHit, playHeal } from "./audio.js";
-
-let gameScore = 0;
+import { getGameScore } from "./score.js";
 
 // 当前活跃的 hero 实例引用，供事件回调使用
 let activeHero = null;
@@ -156,7 +155,7 @@ class Hero {
   _drawScore() {
     ctx.fillStyle = "#fff";
     ctx.font = "bold 20px arial";
-    ctx.fillText("SCORE:" + gameScore, 10, 30);
+    ctx.fillText("SCORE:" + getGameScore(), 10, 30);
   }
 
   _drawHp() {
@@ -281,10 +280,6 @@ class Hero {
   }
 }
 
-function getGameScore() {
-  return gameScore;
-}
-
 function getHeroHp() {
   return activeHero ? activeHero.hp : 0;
 }
@@ -293,13 +288,5 @@ function getHeroMaxHp() {
   return activeHero ? activeHero.maxHp : 3;
 }
 
-function resetGameScore() {
-  gameScore = 0;
-}
-
-function addGameScore(score) {
-  gameScore += score;
-}
-
-export { Hero, getGameScore, getHeroHp, getHeroMaxHp, resetGameScore, addGameScore };
+export { Hero, getHeroHp, getHeroMaxHp };
 export default Hero;

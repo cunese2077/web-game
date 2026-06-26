@@ -2,7 +2,7 @@
 import { ctx, width, height } from "./canvas.js";
 import { bg, startImg, pause, gameLoad } from "./resources.js";
 import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAMEOVER } from "./constants.js";
-import { getGameScore, resetGameScore } from "./hero.js";
+import { getGameScore, resetGameScore } from "./score.js";
 
 // ========== 得分动效系统 ==========
 const scoreEffects = []; // 存储所有活跃的得分动效

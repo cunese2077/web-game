@@ -9,7 +9,8 @@ import {
   PHASE_PAUSE,
   PHASE_GAMEOVER,
 } from "./constants.js";
-import { Hero, getGameScore, resetGameScore } from "./hero.js";
+import { Hero } from "./hero.js";
+import { resetGameScore } from "./score.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
