@@ -9,6 +9,7 @@ import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp }
 import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext, getLevelBonuses } from "./level.js";
 import { buffConfig, heroConfig, itemConfig, bulletConfig } from "./config.js";
+import { t } from "./i18n.js";
 let activeHero = null;
 let eventsBound = false;
 function bindEventsOnce() {
@@ -178,17 +179,17 @@ class Hero {
                     break;
                 case "firepower":
                     this.buffs.firepower = buffConfig.firepower.duration;
-                    this._addBuffFloat(itemConfig.types.firepower.label, itemConfig.types.firepower.color);
+                    this._addBuffFloat(t(itemConfig.types.firepower.label), itemConfig.types.firepower.color);
                     playFirepower();
                     break;
                 case "shield":
                     this.buffs.shield = buffConfig.shield.duration;
-                    this._addBuffFloat(itemConfig.types.shield.label, itemConfig.types.shield.color);
+                    this._addBuffFloat(t(itemConfig.types.shield.label), itemConfig.types.shield.color);
                     playShield();
                     break;
                 case "spread":
                     this.buffs.spread = buffConfig.spread.duration;
-                    this._addBuffFloat(itemConfig.types.spread.label, itemConfig.types.spread.color);
+                    this._addBuffFloat(t(itemConfig.types.spread.label), itemConfig.types.spread.color);
                     playSpread();
                     break;
             }
@@ -264,7 +265,7 @@ class Hero {
             ctx.fillStyle = "#fff";
             ctx.font = "bold 8px arial";
             ctx.textAlign = "left";
-            ctx.fillText(cfg.label, baseX + 3, y + barHeight - 1);
+            ctx.fillText(t(cfg.label), baseX + 3, y + barHeight - 1);
         }
     }
     // 属性面板：左下角常驻显示玩家核心属性（子弹伤害、射击间隔、buff 持续倍率）
@@ -313,7 +314,7 @@ class Hero {
         // ATK 伤害：火力 buff 激活时高亮橙色
         ctx.textAlign = "left";
         ctx.fillStyle = hasFirepower ? "#f80" : "#fd0";
-        ctx.fillText("ATK", labelX, lineY);
+        ctx.fillText(t("hud.atk"), labelX, lineY);
         ctx.textAlign = "right";
         ctx.fillStyle = hasFirepower ? "#f80" : "#fff";
         ctx.fillText(currentDamage.toFixed(2), valueX, lineY);
@@ -321,7 +322,7 @@ class Hero {
         // RATE 射击间隔：越小越快
         ctx.textAlign = "left";
         ctx.fillStyle = "#9cf";
-        ctx.fillText("RATE", labelX, lineY);
+        ctx.fillText(t("hud.rate"), labelX, lineY);
         ctx.textAlign = "right";
         ctx.fillStyle = "#fff";
         ctx.fillText(String(bulletInterval), valueX, lineY);
@@ -330,7 +331,7 @@ class Hero {
         if (showBuffLine) {
             ctx.textAlign = "left";
             ctx.fillStyle = "#f6f";
-            ctx.fillText("BUFF", labelX, lineY);
+            ctx.fillText(t("hud.buff"), labelX, lineY);
             ctx.textAlign = "right";
             ctx.fillStyle = "#fff";
             ctx.fillText("×" + buffMul.toFixed(2), valueX, lineY);
@@ -340,7 +341,7 @@ class Hero {
     _drawScore() {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 20px arial";
-        ctx.fillText("SCORE:" + getGameScore(), 10, 30);
+        ctx.fillText(t("hud.score") + getGameScore(), 10, 30);
     }
     _drawLevel() {
         const lv = getLevel();
@@ -351,7 +352,7 @@ class Hero {
         ctx.fillStyle = "#fd0";
         ctx.font = "bold 16px arial";
         ctx.textAlign = "right";
-        ctx.fillText("LV." + lv, width - 10, 20);
+        ctx.fillText(t("hud.level") + lv, width - 10, 20);
         // 经验条
         const barWidth = 100;
         const barHeight = 8;
@@ -370,7 +371,7 @@ class Hero {
         ctx.font = "bold 8px arial";
         ctx.textAlign = "center";
         if (isMaxLevel) {
-            ctx.fillText("MAX", barX + barWidth / 2, barY + barHeight - 1);
+            ctx.fillText(t("hud.max"), barX + barWidth / 2, barY + barHeight - 1);
         }
         else {
             ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - 1);
@@ -423,7 +424,7 @@ class Hero {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 12px arial";
         ctx.textAlign = "center";
-        ctx.fillText("HP " + this.hp + "/" + this.maxHp, x + barWidth / 2, y + barHeight - 1);
+        ctx.fillText(t("hud.hp") + " " + this.hp + "/" + this.maxHp, x + barWidth / 2, y + barHeight - 1);
         ctx.textAlign = "left";
     }
     _drawHealEffect() {
@@ -439,7 +440,7 @@ class Hero {
         ctx.textAlign = "center";
         ctx.shadowColor = "#0f0";
         ctx.shadowBlur = 12;
-        ctx.fillText("+1 HP", heroCx, floatY);
+        ctx.fillText(t("effect.heal"), heroCx, floatY);
         ctx.restore();
         const ringRadius = 20 + progress * 60;
         const ringAlpha = (1 - progress) * 0.5;
@@ -467,7 +468,7 @@ class Hero {
         ctx.textAlign = "center";
         ctx.shadowColor = "#fd0";
         ctx.shadowBlur = 16;
-        ctx.fillText("LEVEL UP! → " + lv, heroCx, floatY);
+        ctx.fillText(t("effect.levelUp") + lv, heroCx, floatY);
         ctx.restore();
         // 金色光环
         const ringRadius = 20 + progress * 80;

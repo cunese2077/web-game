@@ -1,4 +1,6 @@
 // ========== 全局类型定义 ==========
+import type { TextKey } from "./i18n.js";
+
 
 // --- 游戏阶段常量与类型 ---
 export const PHASE_DOWNLOAD = 1 as const;
@@ -112,7 +114,7 @@ export interface BuffEntryConfig {
   duration: number;
   color: string;
   icon: string;
-  label: string;
+  label: TextKey;   // buff 标签的 i18n key（如 "buff.firepower"），绘制时用 t() 转换
 }
 
 export interface FirepowerBuffConfig extends BuffEntryConfig {
@@ -146,7 +148,7 @@ export type ItemType = "heal" | "firepower" | "shield" | "spread";
 export interface ItemTypeConfig {
   color: string;
   glow: string;
-  label: string;
+  label: TextKey;   // 道具浮动文本的 i18n key（如 "item.heal"），绘制时用 t() 转换
 }
 
 export interface ItemConfig {

@@ -293,6 +293,30 @@ damage = (baseDamage + extraDamage) × firepowerMultiplier
 
 **AudioContext 策略**：延迟初始化，用户首次点击画布时 `resumeAudio()` 激活。
 
+### 8. 国际化（i18n）系统
+
+游戏内所有显示文本（HUD、动效、界面）通过 `src/i18n.ts` 统一管理多语言翻译，默认中文（zh），支持切换为英文（en）。
+
+**核心 API**：
+- `t(key: TextKey): string` — 获取当前语言下的翻译文本
+- `getLocale() / setLocale(locale)` — 读取/设置当前语言
+- `TextKey` — 联合类型，所有可翻译文本的唯一标识
+
+**文本分类**（共 22 个 key）：
+
+| 分类 | key 前缀 | 示例 | 使用模块 |
+| ---- | -------- | ---- | -------- |
+| HUD | `hud.*` | `hud.score`（得分:/SCORE:）、`hud.atk`（攻击/ATK）、`hud.hp`（生命/HP） | hero.ts |
+| 动效 | `effect.*` | `effect.heal`（+1 生命/+1 HP）、`effect.levelUp`（升级!→ /LEVEL UP!→ ） | hero.ts |
+| buff 标签 | `buff.*` | `buff.firepower`（火力/FIRE）、`buff.shield`（护盾/SHIELD）、`buff.spread`（散射/SPREAD） | config.ts → hero.ts |
+| 道具拾取 | `item.*` | `item.heal`（+1 生命）、`item.firepower`（火力提升!）、`item.shield`（护盾!）、`item.spread`（散射!） | config.ts → hero.ts |
+| 游戏结束 | `gameOver.*` | `gameOver.title`（游戏结束/GAME OVER）、`gameOver.restart`（点击重新开始/Click to Restart） | ui.ts |
+| HTML | `html.*` | `html.title`（飞机大战） | index.html（静态默认中文） |
+
+**config.ts 中的 label 字段**：`BuffEntryConfig.label` 和 `ItemTypeConfig.label` 类型从 `string` 改为 `TextKey`，存储 i18n key（如 `"buff.firepower"`），绘制时通过 `t(cfg.label)` 转换为当前语言文本。
+
+**不需翻译的内容**：纯数字、符号（+1, -X, ×1.05, 100%, HP 数值、经验数值）直接拼接，不经过 i18n。
+
 ---
 
 ## 三、技术实现

@@ -288,6 +288,24 @@ enemy.ts → config.ts (动态概率函数 + bulletConfig), level.ts (addExp/get
 - 新增导入：bulletConfig（用于 baseDamage）
 - 多模块验证：仅新增绘制方法，未修改任何现有逻辑（hit/collision/level/buff/score），textAlign 末尾恢复 left
 
+#### 第十四轮新增（i18n 多语言系统 - 默认中文）
+- 需求：游戏界面文本全是英语，需要支持多语言，由配置文件控制，默认显示中文
+- 方案：新建 src/i18n.ts 统一管理翻译，所有显示文本通过 t(key) 获取
+- 核心设计：
+  - TextKey 联合类型：22 个 key，按分类命名（hud.*/effect.*/buff.*/item.*/gameOver.*/html.*）
+  - translations 字典：Record<Locale, Record<TextKey, string>>，zh/en 两套翻译
+  - currentLocale 默认 "zh"，t(key) 返回当前语言翻译
+- 改动文件：
+  - 新建 src/i18n.ts：Locale/TextKey 类型、translations 字典、t()/getLocale()/setLocale()
+  - types.ts：BuffEntryConfig.label 和 ItemTypeConfig.label 类型从 string 改为 TextKey（import type 引入）
+  - config.ts：buff label 值改为 TextKey（"FIRE"→"buff.firepower"），item label 同理
+  - hero.ts：所有 fillText 硬编码文本改为 t() 调用（SCORE/LV./MAX/HP/ATK/RATE/BUFF/+1 HP/LEVEL UP!）
+  - hero.ts：_addBuffFloat 调用处加 t() 转换 label，_drawBuffs 中 cfg.label 用 t() 包裹
+  - ui.ts：游戏结束界面 5 处文本改为 t() 调用（GAME OVER/SCORE/LEVEL/TOTAL EXP/Click to Restart）
+  - index.html：title 改为"飞机大战"（默认中文，静态）
+- 不翻译的内容：纯数字/符号（+1, -X, ×1.05, 100%, HP 数值、经验数值）直接拼接
+- 多模块验证：编译通过，所有 .label 使用处均用 t() 包裹，无遗漏英文硬编码（grep fillText("[A-Z] 无匹配），浏览器验证 HUD/buff/道具/动效/游戏结束界面均显示中文，碰撞/死亡/得分/经验/掉落/音效逻辑未受影响
+
 ### 10. TypeScript 开发注意
 
 - **源码目录**：`src/`，编译输出目录：`js/`（勿手动修改）

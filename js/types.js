@@ -1,4 +1,3 @@
-// ========== 全局类型定义 ==========
 // --- 游戏阶段常量与类型 ---
 export const PHASE_DOWNLOAD = 1;
 export const PHASE_READY = 2;
