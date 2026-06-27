@@ -275,6 +275,19 @@ enemy.ts → config.ts (动态概率函数 + bulletConfig), level.ts (addExp/get
 - 配合 ui.ts 的 searchStartY = max(y, 0)，敌机底部在屏幕外时从 y=0 开始搜索空槽
 - 多模块验证：仅改 addDamageEffect 调用参数，防重叠算法、碰撞、死亡等逻辑均未受影响
 
+#### 第十三轮新增（玩家属性面板 - 左下角常驻显示）
+- 需求：给玩家战机增加属性显示，方便玩家掌握成长状态。调研对比"常驻面板"vs"交互弹窗"两个方案
+- 选择常驻面板的理由：画布小(480×650)但左下空闲；成长反馈需持续可见（升级时立刻看到数值变化）；移动端触屏交互弹窗易误触
+- 实现：hero.ts 新增 _drawStats() 方法，draw() 中调用（dying 分支不调用，死亡时自动隐藏）
+- 显示内容（3 行，半透明黑底圆角矩形）：
+  - ATK 子弹伤害：黄色，火力 buff 激活时变橙色高亮，数值实时翻倍
+  - RATE 射击间隔：浅蓝标签 + 白色数值（越小越快）
+  - BUFF 持续倍率：紫色标签，仅 >1 时显示（21 级前隐藏，避免干扰）
+- 动态反馈：升级瞬间（levelUpAnim > 0，60 帧）面板边框变金黄色、背景透明度提高
+- 数值来源：直接读 this.levelBonuses 和 this.buffs，与 enemy.ts hit() 伤害计算逻辑一致，无新状态无副作用
+- 新增导入：bulletConfig（用于 baseDamage）
+- 多模块验证：仅新增绘制方法，未修改任何现有逻辑（hit/collision/level/buff/score），textAlign 末尾恢复 left
+
 ### 10. TypeScript 开发注意
 
 - **源码目录**：`src/`，编译输出目录：`js/`（勿手动修改）

@@ -8,7 +8,7 @@ import Item from "./item.js";
 import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp } from "./audio.js";
 import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext, getLevelBonuses } from "./level.js";
-import { buffConfig, heroConfig, itemConfig } from "./config.js";
+import { buffConfig, heroConfig, itemConfig, bulletConfig } from "./config.js";
 let activeHero = null;
 let eventsBound = false;
 function bindEventsOnce() {
@@ -116,6 +116,7 @@ class Hero {
         this._drawHp();
         this._drawBuffs();
         this._drawBuffFloats();
+        this._drawStats();
         if (!this.dying) {
             const pickedTypes = Item.checkCollision(this.x, this.y, heroImg[0].width, heroImg[0].height);
             this._handleItemPickup(pickedTypes);
@@ -265,6 +266,76 @@ class Hero {
             ctx.textAlign = "left";
             ctx.fillText(cfg.label, baseX + 3, y + barHeight - 1);
         }
+    }
+    // 属性面板：左下角常驻显示玩家核心属性（子弹伤害、射击间隔、buff 持续倍率）
+    // 与右下 HP 条对称，半透明黑底圆角矩形避免遮挡游戏画面
+    // 升级瞬间（levelUpAnim > 0）面板边框高亮，强化成长反馈
+    _drawStats() {
+        // 计算当前属性值（与 enemy.ts hit() 和 draw() 中的逻辑一致）
+        const baseDamage = bulletConfig.baseDamage + this.levelBonuses.extraDamage;
+        const hasFirepower = this.buffs.firepower > 0;
+        const currentDamage = baseDamage * (hasFirepower ? buffConfig.firepower.damageMultiplier : 1);
+        const bulletInterval = Math.max(1, Math.floor(3 - this.levelBonuses.bulletIntervalReduction));
+        const buffMul = this.levelBonuses.buffDurationMultiplier;
+        // 面板布局
+        const padding = 6;
+        const lineH = 14;
+        const panelW = 92;
+        const showBuffLine = buffMul > 1;
+        const lineCount = showBuffLine ? 3 : 2;
+        const panelH = lineCount * lineH + padding * 2;
+        const panelX = 10;
+        const panelY = ctx.canvas.height - panelH - 10;
+        // 升级高亮：边框颜色和透明度
+        const isLevelUp = this.levelUpAnim > 0;
+        const borderColor = isLevelUp ? "#fd0" : "rgba(255,255,255,0.4)";
+        const bgAlpha = isLevelUp ? 0.55 : 0.35;
+        // 半透明黑底圆角矩形
+        ctx.fillStyle = `rgba(0,0,0,${bgAlpha})`;
+        ctx.beginPath();
+        const r = 4;
+        ctx.moveTo(panelX + r, panelY);
+        ctx.arcTo(panelX + panelW, panelY, panelX + panelW, panelY + panelH, r);
+        ctx.arcTo(panelX + panelW, panelY + panelH, panelX, panelY + panelH, r);
+        ctx.arcTo(panelX, panelY + panelH, panelX, panelY, r);
+        ctx.arcTo(panelX, panelY, panelX + panelW, panelY, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // 文字内容
+        ctx.font = "bold 11px arial";
+        ctx.textAlign = "left";
+        let lineY = panelY + padding + 10;
+        const labelX = panelX + padding;
+        const valueX = panelX + panelW - padding;
+        // ATK 伤害：火力 buff 激活时高亮橙色
+        ctx.textAlign = "left";
+        ctx.fillStyle = hasFirepower ? "#f80" : "#fd0";
+        ctx.fillText("ATK", labelX, lineY);
+        ctx.textAlign = "right";
+        ctx.fillStyle = hasFirepower ? "#f80" : "#fff";
+        ctx.fillText(currentDamage.toFixed(2), valueX, lineY);
+        lineY += lineH;
+        // RATE 射击间隔：越小越快
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#9cf";
+        ctx.fillText("RATE", labelX, lineY);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(String(bulletInterval), valueX, lineY);
+        lineY += lineH;
+        // BUFF 持续倍率：仅 > 1 时显示
+        if (showBuffLine) {
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#f6f";
+            ctx.fillText("BUFF", labelX, lineY);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            ctx.fillText("×" + buffMul.toFixed(2), valueX, lineY);
+        }
+        ctx.textAlign = "left";
     }
     _drawScore() {
         ctx.fillStyle = "#fff";

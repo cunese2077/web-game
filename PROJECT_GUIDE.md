@@ -259,6 +259,20 @@ damage = (baseDamage + extraDamage) × firepowerMultiplier
 
 受伤时扣 1 HP，进入无敌状态；HP 归零时进入 dying 状态，播放爆炸动画后 GAME_OVER。
 
+### 7.1 玩家属性面板
+
+左下角常驻显示玩家核心属性（与右下 HP 条对称），实时反映等级成长和 buff 状态，强化成长反馈。
+
+| 行 | 标签 | 数值 | 颜色逻辑 |
+| ---- | ---- | ---- | ---- |
+| 1 | ATK | 子弹伤害 `(baseDamage + extraDamage) × firepower倍率` | 黄色，火力 buff 激活时变橙色高亮 |
+| 2 | RATE | 射击间隔 `max(1, floor(3 - bulletIntervalReduction))` | 浅蓝色标签 + 白色数值（越小越快） |
+| 3 | BUFF | buff 持续倍率 `buffDurationMultiplier` | 紫色标签，**仅 >1 时显示**（21 级前隐藏） |
+
+**视觉设计**：半透明黑底圆角矩形（透明度 0.35），升级瞬间（levelUpAnim > 0，持续 60 帧）边框变金黄色、背景透明度提高至 0.55，强化成长反馈。
+
+**数值来源**：直接读 `this.levelBonuses` 和 `this.buffs`，与 `enemy.ts hit()` 中的伤害计算逻辑一致，无新状态、无副作用。死亡状态下不显示（dying 分支只绘制 Score 和 HP）。
+
 ### 7. 音效系统
 
 使用 Web Audio API 程序化合成，无需外部音频文件：
