@@ -36,6 +36,15 @@ const audioConfig = {
         buzz: { type: "sawtooth", freqStart: 400, freqEnd: 60, volume: 0.3, duration: 0.35 },
         alarm: { type: "square", freq1: 800, freq2: 600, freq3: 800, t1: 0.1, t2: 0.2, volume: 0.15, duration: 0.3 },
     },
+    // 敌机受击音效：轻量短促的"叮"声，与玩家扣血音效（hit）区分
+    // 音量远低于 hit（0.06 vs 0.4~0.5），避免淹没玩家扣血反馈
+    enemyHit: {
+        type: "triangle", // 三角波，音色柔和
+        freqStart: 900, // 起始频率 900Hz
+        freqEnd: 500, // 快速下降到 500Hz
+        duration: 0.04, // 持续仅 40ms，短促清脆
+        volume: 0.06, // 低音量，不干扰其他音效
+    },
     gameOver: {
         type: "triangle",
         notes: [392, 349, 330, 262],
@@ -270,6 +279,22 @@ function playHit() {
     osc3.start(now);
     osc3.stop(now + c.alarm.duration);
 }
+// 敌机受击音效：轻量短促的单音，子弹击中敌机但未击毁时播放
+function playEnemyHit() {
+    const c = audioConfig.enemyHit;
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = c.type;
+    osc.frequency.setValueAtTime(c.freqStart, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(c.freqEnd, ctx.currentTime + c.duration);
+    gain.gain.setValueAtTime(vol(c.volume), ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + c.duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + c.duration);
+}
 function playGameOver() {
     const c = audioConfig.gameOver;
     const ctx = getAudioCtx();
@@ -369,4 +394,4 @@ function playLevelUp() {
         osc.stop(startTime + c.duration);
     });
 }
-export { audioConfig, resumeAudio, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, };
+export { audioConfig, resumeAudio, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, };

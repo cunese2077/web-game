@@ -38,6 +38,37 @@ export interface ZigzagMoveConfig {
 
 export type EnemyMoveConfig = SmallEnemyMoveConfig | SineMoveConfig | ZigzagMoveConfig;
 
+// --- 敌机血量条配置 ---
+export interface HpBarConfig {
+  show: boolean;          // 是否显示血量条
+  showText: boolean;      // 是否显示血量数字（当前HP/最大HP）
+  offsetY: number;        // 距敌机顶部偏移（负数=向上）
+  height: number;         // 血量条高度
+  colorFull: string;      // 满血颜色（ratio > midThreshold）
+  colorMid: string;       // 中等血量颜色（lowThreshold < ratio <= midThreshold）
+  colorLow: string;       // 低血颜色（ratio <= lowThreshold）
+  midThreshold: number;   // 中等血量阈值（比例）
+  lowThreshold: number;   // 低血阈值（比例）
+}
+
+// --- 伤害浮动动效配置 ---
+export interface DamageTextConfig {
+  show: boolean;          // 是否显示伤害数字
+  fontSize: number;       // 字体大小
+  color: string;          // 文字颜色
+  floatDistance: number;  // 上浮距离（像素）
+  frames: number;         // 持续帧数
+  stackOffset: number;    // 堆叠偏移步长（像素）：新动效相对同 x 附近最高现有动效的上方间距
+                          // 动态防重叠：生成时查找同 x 附近（fontSize*2 范围内）现存动效的当前 y，
+                          // 在最高动效之上再偏移 stackOffset，确保不重叠（含单帧多弹 + 跨帧累积场景）
+}
+
+// --- 敌机受击动效配置（全局，所有敌机共用） ---
+export interface HitEffectConfig {
+  soundCoolDown: number;      // 受击音效冷却帧数（防抖）
+  damageText: DamageTextConfig;  // 伤害浮动动效配置
+}
+
 // --- 敌机配置 ---
 export interface SmallEnemyConfig {
   speed: number;
@@ -45,6 +76,7 @@ export interface SmallEnemyConfig {
   score: number;
   spawnWeight: number;
   move: SmallEnemyMoveConfig;
+  hpBar: HpBarConfig;
 }
 
 export interface MediumEnemyConfig {
@@ -53,6 +85,7 @@ export interface MediumEnemyConfig {
   score: number;
   spawnWeight: number;
   move: SineMoveConfig;
+  hpBar: HpBarConfig;
 }
 
 export interface BigEnemyConfig {
@@ -63,6 +96,7 @@ export interface BigEnemyConfig {
   spawnProbMax: number;
   coolDownFrames: number;
   move: ZigzagMoveConfig;
+  hpBar: HpBarConfig;
 }
 
 export interface EnemyConfig {

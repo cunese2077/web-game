@@ -9,6 +9,17 @@ const enemyConfig = {
         move: {
             type: "straight",
         },
+        hpBar: {
+            show: true, // 统一显示（1HP 时血量条瞬间消失）
+            showText: true, // 显示血量数字
+            offsetY: -8, // 距敌机顶部向上 8px
+            height: 4, // 血量条高度
+            colorFull: "#4f4", // 满血：绿色
+            colorMid: "#ff0", // 中等：黄色
+            colorLow: "#f44", // 低血：红色
+            midThreshold: 0.5, // <=50% 转黄
+            lowThreshold: 0.25, // <=25% 转红
+        },
     },
     // 【中型敌机】中等速度，HP提升，得分20，正弦摆动
     medium: {
@@ -20,6 +31,17 @@ const enemyConfig = {
             type: "sine",
             amplitude: 40,
             frequency: 0.03,
+        },
+        hpBar: {
+            show: true,
+            showText: true, // 显示血量数字
+            offsetY: -8,
+            height: 4,
+            colorFull: "#4f4",
+            colorMid: "#ff0",
+            colorLow: "#f44",
+            midThreshold: 0.5,
+            lowThreshold: 0.25,
         },
     },
     // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
@@ -35,6 +57,32 @@ const enemyConfig = {
             amplitude: 60,
             horizontalSpeed: 1,
         },
+        hpBar: {
+            show: true,
+            showText: true, // 显示血量数字
+            offsetY: -8,
+            height: 4,
+            colorFull: "#4f4",
+            colorMid: "#ff0",
+            colorLow: "#f44",
+            midThreshold: 0.5,
+            lowThreshold: 0.25,
+        },
+    },
+};
+// ========== 敌机受击动效配置（全局，所有敌机共用） ==========
+// 控制子弹击中敌机但未击毁时的音效和伤害数字反馈
+const hitEffect = {
+    soundCoolDown: 6, // 受击音效冷却 6 帧（与子弹射击一致，防抖）
+    damageText: {
+        show: true, // 显示伤害浮动数字
+        fontSize: 18, // 字体大小
+        color: "#f44", // 红色文字，醒目
+        floatDistance: 30, // 上浮 30 像素
+        frames: 25, // 持续 25 帧
+        stackOffset: 22, // 堆叠偏移步长 22px（略大于字号 18px，确保不重叠；过大会导致连续命中时频繁跳过显示）
+        // 动态防重叠：生成时查找同 x 附近现存动效的当前 y（含上浮进度），
+        // 找到与所有现存动效距离 >= stackOffset 的空槽；找不到则跳过本次显示（避免重叠）
     },
 };
 // ========== Buff 配置 ==========
@@ -193,4 +241,4 @@ function getDynamicSpreadDropProb(hpRatio) {
 function getDynamicBigEnemySpawnProb(hpRatio) {
     return enemyConfig.big.spawnProbBase + (1 - hpRatio) * (enemyConfig.big.spawnProbMax - enemyConfig.big.spawnProbBase);
 }
-export { enemyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, };
+export { enemyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, hitEffect, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, };

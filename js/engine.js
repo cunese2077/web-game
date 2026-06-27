@@ -8,7 +8,7 @@ import { resetLevel } from "./level.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawScoreEffects, clearScoreEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { resumeAudio, playGameOver } from "./audio.js";
 let curPhase = PHASE_DOWNLOAD;
 let hero = null;
@@ -37,6 +37,7 @@ function start() {
             Enemy.clear();
             Item.clear();
             clearScoreEffects();
+            clearDamageEffects();
             gameOverSoundPlayed = false;
             curPhase = PHASE_READY;
         }
@@ -70,6 +71,7 @@ function gameEngine() {
             if (hero)
                 curPhase = hero.draw(curPhase);
             drawScoreEffects();
+            drawDamageEffects();
             break;
         case PHASE_PAUSE:
             drawPause();

@@ -40,7 +40,7 @@
 - **血量系统**：玩家战机基础 3 HP（随等级增长），受伤后 2 秒无敌时间，底部血条显示
 - **道具系统**：4 种道具（回血、双倍火力、护盾、散弹），击败敌机后概率掉落
 - **Buff 系统**：拾取道具后激活对应 buff，带进度条 UI 和视觉反馈
-- **音效系统**：Web Audio API 程序化合成 10 种音效
+- **音效系统**：Web Audio API 程序化合成 11 种音效
 - **暂停/恢复**：鼠标移出画布自动暂停
 - **滚动背景**：背景图无缝循环滚动，营造飞行感
 
@@ -53,6 +53,41 @@
 | 大型敌机（enemy3） | 2 | 70 | 100 | 6 | 锯齿形（zigzag） | 低（动态 5%~10%） |
 
 **大型敌机冷却机制**：生成一个大型敌机后，40 帧（约 2 秒）内不会再生成大型敌机，避免连续出现多个大型敌机。
+
+#### 2.1 敌机血量条与受击动效
+
+所有敌机配置了血量条和受击动效，配置集中在 `config.ts` 的 `enemyConfig.*.hpBar` 和全局 `hitEffect`：
+
+**血量条配置**（`hpBar` 字段，每种敌机独立配置）：
+
+| 配置项 | 说明 | 当前值 |
+| ------ | ---- | ------ |
+| `show` | 是否显示血量条 | true（三种敌机均显示） |
+| `showText` | 是否显示血量数字（当前HP/最大HP） | true（三种敌机均显示） |
+| `offsetY` | 距敌机顶部偏移（负数=向上） | -8 |
+| `height` | 血量条高度 | 4 |
+| `colorFull` / `colorMid` / `colorLow` | 满血/中等/低血颜色 | 绿 `#4f4` / 黄 `#ff0` / 红 `#f44` |
+| `midThreshold` / `lowThreshold` | 颜色切换阈值（血量比例） | 0.5 / 0.25 |
+
+**受击动效配置**（全局 `hitEffect`，所有敌机共用）：
+
+| 配置项 | 说明 | 当前值 |
+| ------ | ---- | ------ |
+| `soundCoolDown` | 受击音效冷却帧数（防抖） | 6 |
+| `damageText.show` | 是否显示伤害浮动数字 | true |
+| `damageText.fontSize` | 伤害数字字体大小 | 18 |
+| `damageText.color` | 伤害数字颜色 | `#f44`（红色，醒目） |
+| `damageText.floatDistance` | 上浮距离（像素） | 30 |
+| `damageText.frames` | 持续帧数 | 25 |
+| `damageText.stackOffset` | 堆叠偏移步长（像素，略大于字号，确保不重叠；过大会导致连续命中时频繁跳过显示） | 22 |
+
+**受击逻辑**：子弹击中敌机但未击毁时，播放受击音效（6 帧冷却防抖），并在敌机底部位置（`this.y + this.height`）触发 "-X" 红色伤害浮动数字（18px，上浮 30px，25 帧淡出）。用底部而非顶部：大型敌机从屏幕顶部进入时底部先可见，顶部在屏幕外，用底部保证文本始终可见。
+
+**单帧伤害合并**：`enemy.hit()` 在一次调用（单帧）内累积所有命中子弹的伤害，合并为**一个**伤害文本显示总伤害。避免 spread buff 多弹同时命中大型敌机时产生多个动效导致重叠，同时显示更清晰（"-10" 比 5 个 "-2" 更易读）。
+
+**纵向防重叠采用"找空槽 + 跳过兜底"算法**：生成新动效时，`ui.addDamageEffect` 只收集同 x 附近（`fontSize×2` 范围内）且**屏幕内可见**（`curY >= 0`）的现存动效当前 y，从 `max(y, 0)` 开始依次尝试 `y, y-stackOffset, y-2*stackOffset, ...`，找到第一个与所有可见现存动效距离 ≥ `stackOffset` 的空槽作为起始 y（候选位置也限制在 `y >= 0` 屏幕内）。**关键**：若找不到不重叠的空槽（所有可见位置都被占用），**跳过本次伤害文本显示**（return 不产生新动效），彻底避免重叠。此时已有足够的伤害文本在显示，不影响信息传达。
+
+**为何跳过而非兜底**：大型敌机 HP 高、下移慢（2px/帧），子弹间隔 3 帧，连续命中的动效起始 y 间距仅 ~6px，远小于 stackOffset(22px)。向上找空槽很快跑出屏幕顶部，若兜底用原始 y 会与现存动效重叠（间距 6px < 字号 18px）。跳过则保证已有动效不重叠，且 25 帧周期内仍会有足够的新动效产生（敌机下移后空槽重新可用）。血量条颜色随血量比例变化（绿→黄→红），所有敌机血量条上方显示 "当前HP/最大HP" 数字。
 
 ### 3.1 敌机横向移动系统
 
@@ -267,7 +302,8 @@ damage = (baseDamage + extraDamage) × firepowerMultiplier
 | `GamePhase` | 游戏阶段枚举（`1 \| 2 \| 3 \| 4 \| 5 \| 6`，基于 `as const`） |
 | `MoveType` | 移动模式（`"straight" \| "sine" \| "zigzag"`） |
 | `SmallEnemyMoveConfig` / `SineMoveConfig` / `ZigzagMoveConfig` | 三种移动配置（区分联合类型） |
-| `EnemyConfig` | 敌机配置（small/medium/big，move 类型精确对应） |
+| `EnemyConfig` | 敌机配置（small/medium/big，move 类型精确对应，含 hpBar 血量条配置） |
+| `HpBarConfig` / `HitEffectConfig` / `DamageTextConfig` | 敌机血量条配置 / 受击动效配置 / 伤害浮动动效配置 |
 | `BuffConfig` / `BuffState` | Buff 配置与运行时状态 |
 | `FirepowerBuffConfig` / `ShieldBuffConfig` / `SpreadBuffConfig` | 三种 Buff 各自配置接口 |
 | `ItemType` | 道具类型（`"heal" \| "firepower" \| "shield" \| "spread"`） |
@@ -354,7 +390,7 @@ web-game/
 │   ├── enemy.ts                  # 敌机类 + 动态概率生成 + 横向移动 + 道具掉落
 │   ├── item.ts                   # 道具类（4 种类型）+ 碰撞拾取
 │   ├── ui.ts                     # UI 绘制 + 得分动效系统
-│   ├── audio.ts                  # 音效合成模块（10 种音效）
+│   ├── audio.ts                  # 音效合成模块（11 种音效）
 │   └── engine.ts                 # 游戏主引擎入口
 ├── js/                           # 编译输出（自动生成，勿手动修改）
 │   └── *.js
@@ -418,7 +454,8 @@ web-game/
 
 ### 4. [src/config.ts](web-game/src/config.ts)
 集中配置管理模块，导出：
-- `enemyConfig`：敌机属性配置（速度、HP、得分、出现权重、**移动模式配置**）
+- `enemyConfig`：敌机属性配置（速度、HP、得分、出现权重、**移动模式配置**、**血量条配置 hpBar**）
+- `hitEffect`：敌机受击动效全局配置（闪烁帧数、颜色、音效冷却）
 - `buffConfig`：Buff 配置（持续时间、颜色、图标、伤害倍率）
 - `dropConfig`：道具掉落概率配置（base + bonus 动态概率参数）
 - `itemConfig`：道具外观配置（大小、颜色、发光、浮动文字）
@@ -497,14 +534,16 @@ UI 绘制模块，导出：
 - `drawPause()`：居中绘制暂停图标
 - `drawGameOver()`：画布内绘制 GAME OVER + 得分 + 重新开始提示
 - `addScoreEffect()` / `drawScoreEffects()` / `clearScoreEffects()`：得分动效系统
+- `addDamageEffect()` / `drawDamageEffects()` / `clearDamageEffects()`：伤害浮动动效系统（"-X" 上浮淡出）
 
 ### 15. [src/audio.ts](web-game/src/audio.ts)
-音效合成模块，使用 Web Audio API 程序化合成 10 种音效：
+音效合成模块，使用 Web Audio API 程序化合成 11 种音效：
 - `resumeAudio()`：激活 AudioContext
 - `playShoot()`：子弹发射
 - `playEnemyDestroySmall()` / `playEnemyDestroyMedium()` / `playEnemyDestroyBig()`：敌机摧毁
 - `playHeal()` / `playFirepower()` / `playShield()` / `playSpread()`：道具拾取
-- `playHit()`：玩家扣血
+- `playHit()`：玩家扣血（4 层厚重音效：噪音+低频+嗡鸣+警报）
+- `playEnemyHit()`：敌机受击（轻量短促单音，音量 0.06，与玩家扣血区分）
 - `playGameOver()`：游戏结束
 - `playLevelUp()`：升级音效（C5-E5-G5-C6 上行琶音）
 
@@ -576,6 +615,16 @@ enemyConfig.medium.hp = 15;        // 中型敌机 HP
 enemyConfig.medium.move.amplitude = 40;   // 正弦摆动幅度
 enemyConfig.medium.move.frequency = 0.03; // 正弦摆动频率
 enemyConfig.big.move.horizontalSpeed = 1; // 锯齿横向速度
+
+// 敌机血量条（每种敌机独立配置）
+enemyConfig.small.hpBar.show = false;     // 关闭小型敌机血量条
+enemyConfig.big.hpBar.colorFull = "#0f0"; // 修改满血颜色
+enemyConfig.medium.hpBar.lowThreshold = 0.2; // 调整低血阈值
+
+// 敌机受击动效（全局配置）
+hitEffect.soundCoolDown = 8;          // 增加音效冷却
+hitEffect.damageText.show = false;    // 关闭伤害浮动数字
+hitEffect.damageText.fontSize = 18;   // 放大伤害数字
 
 // 关闭横向移动（恢复直线）
 enemyConfig.medium.move.type = "straight";

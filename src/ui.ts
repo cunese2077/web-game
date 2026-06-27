@@ -73,6 +73,141 @@ function clearScoreEffects(): void {
   scoreEffects.length = 0;
 }
 
+// ========== 伤害浮动动效系统 ==========
+// 子弹击中敌机时，在命中位置显示 "-X" 伤害数字，上浮并淡出
+const damageEffects: DamageEffectObj[] = [];
+
+class DamageEffectObj {
+  x: number;
+  y: number;
+  damage: number;
+  fontSize: number;
+  color: string;
+  floatDistance: number;
+  frames: number;
+  frame: number;
+  removable: boolean;
+
+  constructor(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number) {
+    this.x = x;
+    this.y = y;
+    this.damage = damage;
+    this.fontSize = fontSize;
+    this.color = color;
+    this.floatDistance = floatDistance;
+    this.frames = frames;
+    this.frame = frames;
+    this.removable = false;
+  }
+
+  update(): void {
+    this.frame--;
+    if (this.frame <= 0) {
+      this.removable = true;
+    }
+  }
+
+  // 当前实际渲染的 y 位置（含上浮进度），用于动态偏移计算
+  getCurrentY(): number {
+    const progress = 1 - this.frame / this.frames;
+    return this.y - progress * this.floatDistance;
+  }
+
+  draw(): void {
+    const floatY = this.getCurrentY();
+    const alpha = 1 - (1 - this.frame / this.frames) * 0.8;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `bold ${this.fontSize}px arial`;
+    ctx.textAlign = "center";
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = this.color;
+    ctx.fillText("-" + this.damage, this.x, floatY);
+    ctx.restore();
+  }
+}
+
+// 添加伤害浮动动效：动态找空槽，避免与同 x 附近的现存动效重叠
+//
+// 【算法】"找空槽"而非"找最高"：
+//   1. 收集同 x 附近（xRange 内）现存动效的当前 y（含上浮进度）
+//   2. 从传入 y（敌机顶部，最自然位置）开始，依次尝试 y, y-stackOffset, y-2*stackOffset, ...
+//   3. 找到第一个与所有现存动效当前 y 距离 >= stackOffset 的空槽，用作新动效起始 y
+//   4. 优先用最低位置（最接近敌机），只有被占用才向上找
+//
+// 【不重叠的数学保证】所有动效上浮速度相同（每帧 floatDistance/frames），
+//   因此两个动效的相对距离在整个生命周期内恒定 = 起始 y 差值。
+//   只要起始间距 >= stackOffset（>fontSize），整个生命周期永不重叠。
+//
+// 【兜底】找不到不重叠的空槽时，跳过本次伤害文本显示（return），彻底避免重叠。
+//   场景：大型敌机持续受击，连续命中动效起始 y 间距仅 ~6px（敌机下移 2px/帧 × 子弹间隔 3 帧），
+//   远小于 stackOffset，向上找空槽很快跑出屏幕顶部。此时已有足够的伤害文本在显示，跳过不影响信息传达。
+function addDamageEffect(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number, stackOffset: number): void {
+  const xRange = fontSize * 2;        // x 检测范围：字号 2 倍（同 x 附近的动效才需要堆叠）
+  // 【关键】只收集"屏幕内可见"的动效参与堆叠计算（curY >= 0）。
+  // 已跑出屏幕顶部（curY < 0）的动效不可见，不占用空槽，否则会阻挡新动效找空槽导致兜底重叠。
+  // 候选位置也限制在 y >= 0（屏幕内），避免动效堆叠到屏幕外不可见。
+  // 【兜底】若所有可见空槽都被占用（极端情况），用传入 y 保证可见（可能轻微重叠但优先可见）。
+  const visibleCeiling = 0;           // 可见性阈值：curY >= 0 视为可见
+
+  // 收集同 x 附近且可见（curY >= 0）的现存动效当前 y
+  const occupiedY: number[] = [];
+  for (const e of damageEffects) {
+    if (e.removable) continue;
+    const curY = e.getCurrentY();
+    if (curY < visibleCeiling) continue;          // 屏幕外不可见，不占用空槽
+    if (Math.abs(e.x - x) > xRange) continue;     // x 不在附近，不冲突
+    occupiedY.push(curY);
+  }
+
+  // 从传入 y 开始向上找空槽：候选位置与所有可见占用位置距离 >= stackOffset
+  // 候选位置也必须在屏幕内（>= visibleCeiling），避免堆叠到屏幕外
+  // 若传入 y < 0（敌机在屏幕外），从 visibleCeiling 开始向上找
+  const searchStartY = Math.max(y, visibleCeiling);
+  let startY = searchStartY;  // 默认用搜索起始 y（保证可见）
+  let chosenSlot = -1;  // -1 表示兜底
+  for (let i = 0; ; i++) {
+    const candidateY = searchStartY - i * stackOffset;
+    // 候选位置跑出屏幕顶部则停止，使用兜底
+    if (candidateY < visibleCeiling) break;
+    // 检查候选位置是否与任一可见现存动效距离 < stackOffset（冲突）
+    const conflict = occupiedY.some(oy => Math.abs(oy - candidateY) < stackOffset);
+    if (!conflict) {
+      startY = candidateY;
+      chosenSlot = i;
+      break;
+    }
+    // 继续向上找下一个空槽
+  }
+
+  // 【关键】兜底（找不到不重叠的空槽）时跳过本次伤害文本显示，避免重叠。
+  // 场景：大型敌机持续受击，敌机下移速度(2px/帧)远小于 stackOffset，
+  // 连续命中的动效起始 y 间距仅 ~6px，向上找空槽时很快跑出屏幕顶部。
+  // 此时已有足够的伤害文本在显示，跳过本次不会影响信息传达，且彻底避免重叠。
+  if (chosenSlot === -1) {
+    return;  // 不产生新动效，避免重叠
+  }
+
+  damageEffects.push(new DamageEffectObj(x, startY, damage, fontSize, color, floatDistance, frames));
+}
+
+function drawDamageEffects(): void {
+  for (let i = damageEffects.length - 1; i >= 0; i--) {
+    damageEffects[i].update();
+    if (damageEffects[i].removable) {
+      damageEffects.splice(i, 1);
+    } else {
+      damageEffects[i].draw();
+    }
+  }
+}
+
+function clearDamageEffects(): void {
+  damageEffects.length = 0;
+}
+
 // 画滚动背景
 function paintBg(): () => void {
   let y: number = 0;
@@ -132,4 +267,4 @@ function drawGameOver(): void {
   ctx.textAlign = "left";
 }
 
-export { paintBg, paintLogo, loading, drawPause, drawGameOver, addScoreEffect, drawScoreEffects, clearScoreEffects };
+export { paintBg, paintLogo, loading, drawPause, drawGameOver, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects };

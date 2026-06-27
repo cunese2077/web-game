@@ -216,6 +216,65 @@ enemy.ts → config.ts (动态概率函数 + bulletConfig), level.ts (addExp/get
 - 新节奏：10级约4分钟，20级约8分钟，满级约15分钟
 - 线性曲线（exponent=1.0）优势：前期平稳起步，后期不过陡，绝对耗时仍递增
 
+#### 第七轮调整（敌机血量条与受击动效）
+- 问题：敌机已有 lives 属性和扣血逻辑，但缺少血量条 UI 和受击视觉/音效反馈，玩家无法感知是否击中
+- 新增内容：
+  - types.ts 新增 `HpBarConfig`（血量条配置）和 `HitEffectConfig`（受击动效配置）接口
+  - config.ts 三种敌机新增 `hpBar` 配置字段（show/offsetY/height/颜色/阈值），新增全局 `hitEffect` 配置
+  - enemy.ts 新增 `maxLives`/`hitFlash`/`hitSoundCoolDown` 属性和 `_drawHpBar()` 方法
+  - hit() 未死亡分支新增：触发闪烁（hitFlash）+ 播放受击音效（6帧冷却防抖）
+  - draw() 新增：受击闪烁覆盖层、血量条绘制（绿→黄→红三色）、冷却递减
+- 配置化设计：血量条参数每种敌机独立配置，受击动效全局共用，均通过 config.ts 调整
+- 影响验证：碰撞检测、死亡逻辑、得分/经验/掉落、其他模块均未受影响
+
+#### 第八轮调整（敌机受击音效独立化 + 移除白色蒙层）
+- 问题一：受击白色蒙层体验差，移除了 hitFlash 相关代码（属性、draw 闪烁覆盖、config flashFrames/flashColor）
+- 问题二：敌机受击复用了 playHit()（玩家扣血音效，4 层厚重音效），导致敌机击打音效过大，淹没玩家扣血反馈
+- 修复：audio.ts 新增 `enemyHit` 配置（三角波 900→500Hz，40ms，音量 0.06）和 `playEnemyHit()` 函数
+- enemy.ts 将 `playHit()` 替换为 `playEnemyHit()`，player 扣血仍使用 `playHit()`
+- 音效区分：敌机受击=轻量短促"叮"声（0.06 音量），玩家扣血=厚重警报音（0.4~0.5 音量）
+
+#### 第九轮调整（敌机血量数字显示 + 伤害浮动动效）
+- 需求：敌机需要显示具体血量数字，且每次攻击命中需有伤害扣除动效
+- 新增内容：
+  - types.ts 新增 `DamageTextConfig` 接口，`HpBarConfig` 增加 `showText` 字段，`HitEffectConfig` 增加 `damageText` 字段
+  - config.ts 中型/大型敌机 `hpBar.showText = true`（小型 1HP 不显示），`hitEffect.damageText` 配置（14px 白色，上浮 30px，25 帧）
+  - enemy.ts `_drawHpBar()` 新增血量数字绘制（"当前HP/最大HP"，10px 白字带阴影）
+  - enemy.ts `hit()` 未死亡分支新增 `addDamageEffect()` 调用，显示 "-X" 伤害浮动数字
+  - ui.ts 新增 `DamageEffectObj` 类和 `addDamageEffect()`/`drawDamageEffects()`/`clearDamageEffects()` 函数
+  - engine.ts 游戏循环调用 `drawDamageEffects()`，重置时调用 `clearDamageEffects()`
+- 多模块验证：碰撞检测、死亡逻辑、得分/经验/掉落、音效、其他模块均未受影响
+
+#### 第十轮调整（伤害动效防重叠 + 样式调优）
+- 问题：大型敌机 HP 高、移动慢、子弹射速快（3帧/发），伤害动效持续 25 帧导致同时约 8 个动效堆叠重叠
+- 初始方案（已废弃）：添加 15 帧冷却阻止动效生成 → 导致大型敌机只出现一次扣血文本，严重影响体验
+- ~~最终修复：移除冷却机制，改为每次击中均生成伤害动效，通过水平随机偏移（±15px）避免位置重叠~~（已迭代，见第十一轮）
+- 样式调优：伤害数字字号 14→18，颜色白色→红色(#f44)，小型敌机血量数字 showText 从 false 改为 true
+- 多模块验证：音效冷却独立运作不受影响，碰撞/死亡/得分/掉落逻辑无变化
+
+#### 第十一轮调整（伤害动效防重叠 - 运行时调试定位根因）
+- 问题：第十轮的水平随机偏移未解决竖直方向重叠，大型/中型敌机伤害文本仍重叠
+- 迭代过程（水平偏移 → 纵向固定偏移 → 找空槽算法 → 单帧伤害合并 → 找空槽+跳过兜底）
+- 使用 TRAE-debugger 收集运行时证据，定位真正根因：
+  - 根因1（单帧多弹）：spread buff 5 颗子弹同帧命中大型敌机产生 5 个动效 → 修复：单帧伤害合并，累积总伤害显示一个文本
+  - 根因2（屏幕外动效占位）：动效上浮跑出屏幕顶部（curY 负数）后仍占用空槽，新动效找不到空槽兜底重叠 → 修复：只收集 curY >= 0 的可见动效参与堆叠计算
+  - 根因3（连续命中间距过小）：敌机下移 2px/帧，子弹间隔 3 帧，连续命中动效起始 y 间距仅 ~6px << stackOffset，向上找空槽很快跑出屏幕顶部 → 修复：兜底时跳过本次显示（return），不产生新动效
+- 最终方案（ui.ts addDamageEffect）：
+  - visibleCeiling = 0（只收集屏幕内可见动效）
+  - searchStartY = max(y, 0)（敌机在屏幕外时从 0 开始搜索）
+  - 候选位置限制 y >= 0，找到与所有可见动效距离 >= stackOffset 的空槽
+  - 找不到空槽则 return 跳过（不兜底，避免重叠）
+- 配套调整：stackOffset 35→22（略大于字号 18px，过大会导致跳过频繁）
+- DamageTextConfig 移除 offsetRange，新增 stackOffset 字段
+- 多模块验证：碰撞/死亡/得分/经验/掉落/音效均未受影响
+
+#### 第十二轮调整（伤害文本位置 - 顶部改底部）
+- 问题：伤害文本起始位置用敌机顶部 this.y，大型敌机从屏幕顶部进入时顶部在屏幕外，文本被压到屏幕边缘（y=0）而敌机身体在下方，玩家看不到
+- 修复：enemy.ts 中 addDamageEffect 的 y 参数从 this.y 改为 this.y + this.height（敌机底部）
+- 原因：大型敌机从顶部进入时底部先可见，用底部保证文本始终在可见区域；也更符合"子弹从下方射上击中敌机底部"的直觉
+- 配合 ui.ts 的 searchStartY = max(y, 0)，敌机底部在屏幕外时从 y=0 开始搜索空槽
+- 多模块验证：仅改 addDamageEffect 调用参数，防重叠算法、碰撞、死亡等逻辑均未受影响
+
 ### 10. TypeScript 开发注意
 
 - **源码目录**：`src/`，编译输出目录：`js/`（勿手动修改）

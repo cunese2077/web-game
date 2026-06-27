@@ -6,12 +6,13 @@ import { addGameScore } from "./score.js";
 import { addExp, getExpReward, getLevelBonuses } from "./level.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs } from "./hero.js";
 import Item from "./item.js";
-import { addScoreEffect } from "./ui.js";
-import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig } from "./audio.js";
+import { addScoreEffect, addDamageEffect } from "./ui.js";
+import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit } from "./audio.js";
 import {
   enemyConfig,
   buffConfig,
   bulletConfig,
+  hitEffect,
   getDynamicHealDropProb,
   getDynamicShieldDropProb,
   getDynamicBigFirepowerDropProb,
@@ -20,7 +21,7 @@ import {
   getDynamicSpreadDropProb,
   getDynamicBigEnemySpawnProb,
 } from "./config.js";
-import type { MoveType, BuffState } from "./types.js";
+import type { MoveType, BuffState, HpBarConfig } from "./types.js";
 
 const liveEnemy: Enemy[] = [];
 
@@ -41,6 +42,9 @@ class Enemy {
   enemy: HTMLImageElement;
   speed: number;
   lives: number;
+  maxLives: number;          // 初始血量（用于血量条比例计算）
+  hpBarConfig: HpBarConfig;  // 当前敌机的血量条配置
+  hitSoundCoolDown: number;  // 受击音效冷却剩余帧数
   x: number;
   y: number;
   width: number;
@@ -63,20 +67,25 @@ class Enemy {
     this.enemy = new Image();
     this.speed = 0;
     this.lives = 2;
-
+    this.maxLives = 2;
+    this.hpBarConfig = enemyConfig.small.hpBar;
+    this.hitSoundCoolDown = 0;
     if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
       this.enemy = enemy3[0];
       this.speed = enemyConfig.big.speed;
       this.lives = enemyConfig.big.hp;
+      this.hpBarConfig = enemyConfig.big.hpBar;
       bigEnemyCoolDown = enemyConfig.big.coolDownFrames;
     } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
       this.speed = enemyConfig.medium.speed;
       this.lives = enemyConfig.medium.hp;
+      this.hpBarConfig = enemyConfig.medium.hpBar;
     } else {
       this.enemy = enemy1[0];
       this.speed = enemyConfig.small.speed;
     }
+    this.maxLives = this.lives;
 
     this.x = parseInt(String(Math.random() * (ctx.canvas.width - this.enemy.width)));
     this.y = -this.enemy.height;
@@ -156,12 +165,64 @@ class Enemy {
     }
 
     ctx.drawImage(this.enemy, this.x, this.y);
+
+    // 受击音效冷却递减
+    if (this.hitSoundCoolDown > 0) {
+      this.hitSoundCoolDown--;
+    }
+
+    // 血量条绘制（存活且配置显示时）
+    if (!this.die && this.hpBarConfig.show && this.maxLives > 0) {
+      this._drawHpBar();
+    }
+
     this.y += this.speed;
     this._updateHorizontalPosition();
     this.hit();
 
     if (this.y > ctx.canvas.height) {
       this.removable = true;
+    }
+  }
+
+  // 绘制血量条：背景 + 前景按比例填充，颜色随血量比例变化
+  _drawHpBar(): void {
+    const cfg = this.hpBarConfig;
+    const ratio = Math.max(0, this.lives / this.maxLives);
+    const barX = this.x;
+    const barY = this.y + cfg.offsetY;
+    const barWidth = this.width;
+
+    // 背景：半透明黑色底条
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillRect(barX, barY, barWidth, cfg.height);
+
+    // 前景：按比例填充，颜色随血量比例选择
+    let color: string;
+    if (ratio > cfg.midThreshold) {
+      color = cfg.colorFull;
+    } else if (ratio > cfg.lowThreshold) {
+      color = cfg.colorMid;
+    } else {
+      color = cfg.colorLow;
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, barY, barWidth * ratio, cfg.height);
+
+    // 血量数字：在血量条上方显示 "当前HP/最大HP"
+    if (cfg.showText) {
+      ctx.save();
+      ctx.font = "10px arial";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 3;
+      ctx.fillText(
+        `${Math.ceil(this.lives)}/${this.maxLives}`,
+        barX + barWidth / 2,
+        barY - 2
+      );
+      ctx.restore();
     }
   }
 
@@ -174,6 +235,9 @@ class Enemy {
     const baseDamage = bulletConfig.baseDamage + levelBonuses.extraDamage;
     const damageMultiplier = baseDamage * (buffs.firepower > 0 ? buffConfig.firepower.damageMultiplier : 1);
 
+    // 单帧累积命中伤害：合并为一个伤害文本，避免多弹同时命中产生多个动效导致重叠
+    let frameDamage = 0;
+
     for (let i = allBullets.length - 1; i >= 0; i--) {
       const h = allBullets[i];
       if (
@@ -183,6 +247,7 @@ class Enemy {
         this.height + this.y >= h.my
       ) {
         this.lives -= damageMultiplier;
+        frameDamage += damageMultiplier;
         if (this.lives <= 0) {
           this.die = true;
           const score = this.speed === enemyConfig.big.speed ? enemyConfig.big.score
@@ -203,6 +268,27 @@ class Enemy {
           break;
         }
         h.removable = true;
+      }
+    }
+
+    // 单帧命中后未死亡：合并为一个伤害文本（显示总伤害），大幅减少同时存活动效数
+    // 配合 ui.addDamageEffect 的"找空槽"算法，彻底解决大型敌机高频命中导致的文本重叠
+    if (!this.die && frameDamage > 0) {
+      if (this.hitSoundCoolDown === 0) {
+        playEnemyHit();
+        this.hitSoundCoolDown = hitEffect.soundCoolDown;
+      }
+      if (hitEffect.damageText.show) {
+        addDamageEffect(
+          this.x + this.width / 2,
+          this.y + this.height,
+          Math.ceil(frameDamage),
+          hitEffect.damageText.fontSize,
+          hitEffect.damageText.color,
+          hitEffect.damageText.floatDistance,
+          hitEffect.damageText.frames,
+          hitEffect.damageText.stackOffset
+        );
       }
     }
   }
