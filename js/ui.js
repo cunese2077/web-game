@@ -182,7 +182,12 @@ function paintBg() {
     return function () {
         ctx.drawImage(bg, 0, y, width, height);
         ctx.drawImage(bg, 0, y - height, width, height);
-        y++ === height && (y = 0);
+        y++;
+        // 使用 >= 而非 ===：移动端地址栏显示/隐藏、横竖屏切换会导致画布尺寸缩小，
+        // 若 y 已超过新 height，=== 比较永远不成立，y 无限递增使两张 drawImage 都画在画布外，
+        // 画布不被覆盖，产生残影累积（子弹/敌机/战机残影不消失）
+        if (y >= height)
+            y = 0;
     };
 }
 // 画开始 logo（水平+垂直居中，避免大屏设备内容偏上）
