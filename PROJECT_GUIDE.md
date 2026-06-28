@@ -638,7 +638,7 @@ npm run watch      # 监听文件变化，自动编译
 ## 七、项目注意事项
 
 ### 1. 兼容性说明
-- 画布尺寸响应式自适应设备屏幕：触摸设备（手机/平板）使用 `screen.width/height` 铺满全屏，桌面设备限制最大 `480×800` 居中显示
+- 画布尺寸响应式自适应设备可视区域：触摸设备（手机/平板）使用 `visualViewport.width/height`（浏览器实际可见区域，排除状态栏/地址栏/工具栏/安全区，回退到 `innerWidth/innerHeight`），桌面设备限制最大 `480×800` 居中显示。注意：`screen.width/height` 是屏幕物理尺寸，包含状态栏和浏览器 UI，会导致画布超出可视区域被遮挡
 - 通过 `navigator.maxTouchPoints > 0 || "ontouchstart" in window` 检测触摸设备，比 CSS 媒体查询更可靠（iPadOS 13+ 桌面模式下媒体查询失效）
 - 画布宽高使用 `export let`（ES Module live binding），resize 时重新赋值后所有导入模块自动获取最新值
 - 字体与 UI 布局通过 `fontScale = min(width / 480, 2)` 等比缩放，确保平板等大屏设备上字体和 UI 元素比例协调
