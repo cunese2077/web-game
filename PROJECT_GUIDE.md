@@ -376,7 +376,8 @@ requestAnimationFrame(gameLoop)
 
 #### （2）滚动背景
 - `paintBg()` 使用闭包保存 `y` 偏移量
-- 同时绘制两张背景图实现无缝循环滚动
+- 背景图拉伸到画布宽高（`ctx.drawImage(bg, 0, y, width, height)`），确保任意尺寸设备均铺满屏幕
+- 同时绘制两张背景图（`y` 和 `y - height`）实现无缝循环滚动，滚动周期为 `height`
 
 #### （3）ES6 类与模块化
 - `Hero`：玩家战机，负责绘制、子弹生成、碰撞检测、血量管理、Buff 管理
@@ -408,6 +409,13 @@ requestAnimationFrame(gameLoop)
 - 所有游戏数值参数集中在 `config.ts`，包括敌机属性、移动模式、buff 配置、道具掉落概率、外观配置等
 - 动态概率函数统一使用 `base + (1 - hpRatio) * bonus` 公式
 - 修改参数只需调整 `config.ts` 对应字段，业务逻辑自动引用
+
+#### （9）字体与 UI 布局自适应
+- `fontScale = min(width / 480, 2)`：基于画布宽度与设计基准 480px 的比值，上限 2×
+- 所有 `ctx.font` 赋值（18 处，跨 5 个模块）使用 `Math.round(size * fontScale)` 动态计算字号
+- UI 布局值（面板尺寸/位置、HP 条/经验条/Buff 条的宽高和间距、分数/等级文字位置）同样乘以 `fontScale`
+- 伤害动效参数（fontSize/stackOffset/floatDistance）在 `enemy.ts` 调用 `addDamageEffect` 时缩放，保证防重叠算法在大屏上比例正确
+- 相对于英雄/敌机图片定位的效果文字（治疗、升级、Buff 拾取浮动）不需要缩放，因为图片尺寸固定
 
 ---
 
@@ -465,8 +473,9 @@ web-game/
 ### 1. [index.html](web-game/index.html)
 页面入口文件，主要职责：
 - 声明 `<canvas id="canvas">` 作为游戏画布
-- 设置 `viewport` meta，禁用用户缩放（适配移动端）
-- 全屏布局，隐藏溢出内容
+- 设置 `viewport` meta（`viewport-fit=cover` 适配刘海屏），禁用用户缩放
+- 全屏布局（`overflow: hidden`），画布由 JS 控制尺寸（CSS 不设置 width/height，避免移动端 `100vh` 随地址栏变化导致拉伸）
+- `body` 使用 flex 居中，桌面端画布居中显示，移动端铺满无偏移
 - 通过 `<script type="module">` 引入 `js/engine.js` 启动游戏
 
 ### 2. [src/engine.ts](web-game/src/engine.ts)
@@ -506,7 +515,12 @@ web-game/
 游戏阶段常量定义，re-export `types.ts` 中的 6 个阶段常量。
 
 ### 6. [src/canvas.ts](web-game/src/canvas.ts)
-画布初始化模块，导出 `width`/`height`/`canvas`/`ctx`。
+画布初始化模块，导出 `width`/`height`/`fontScale`/`canvas`/`ctx`。
+- 响应式自适应设备屏幕：触摸设备用 `screen.width/height` 铺满全屏，桌面设备限制 `480×800` 居中
+- `width`/`height`/`fontScale` 使用 `export let`（live binding），resize 时自动更新所有导入模块
+- `fontScale = min(width / 480, 2)`：字体缩放系数，桌面 1.0，手机 ~0.86，平板 2.0；所有 `ctx.font` 和 UI 布局值乘以 `fontScale` 实现等比缩放
+- debounce 300ms 避免移动端地址栏变化导致频繁重置
+- 监听 `resize` 和 `orientationChange` 事件自动调整画布
 
 ### 7. [src/resources.ts](web-game/src/resources.ts)
 图片资源加载与管理，导出：
@@ -567,7 +581,7 @@ web-game/
 ### 14. [src/ui.ts](web-game/src/ui.ts)
 UI 绘制模块，导出：
 - `paintBg()`：返回闭包函数，实现无缝滚动背景
-- `paintLogo()`：绘制开始界面 logo
+- `paintLogo()`：绘制开始界面 logo（水平+垂直居中：`((width - startImg.width)/2, (height - startImg.height)/2)`，避免大屏设备内容偏上）
 - `loading()`：返回加载动画函数
 - `drawPause()`：居中绘制暂停图标
 - `drawGameOver()`：画布内绘制 GAME OVER + 得分 + 重新开始提示
@@ -624,7 +638,10 @@ npm run watch      # 监听文件变化，自动编译
 ## 七、项目注意事项
 
 ### 1. 兼容性说明
-- 画布尺寸上限为 `480 × 650`，超过此尺寸的屏幕会留白
+- 画布尺寸响应式自适应设备屏幕：触摸设备（手机/平板）使用 `screen.width/height` 铺满全屏，桌面设备限制最大 `480×800` 居中显示
+- 通过 `navigator.maxTouchPoints > 0 || "ontouchstart" in window` 检测触摸设备，比 CSS 媒体查询更可靠（iPadOS 13+ 桌面模式下媒体查询失效）
+- 画布宽高使用 `export let`（ES Module live binding），resize 时重新赋值后所有导入模块自动获取最新值
+- 字体与 UI 布局通过 `fontScale = min(width / 480, 2)` 等比缩放，确保平板等大屏设备上字体和 UI 元素比例协调
 - 移动端需通过 `e.touches[0].pageX` 获取触摸坐标
 - 不支持 Canvas 的浏览器会显示提示文字
 - Web Audio API 需要用户交互后才能创建 AudioContext

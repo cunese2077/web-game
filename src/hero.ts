@@ -1,5 +1,5 @@
 // 玩家战机类
-import { ctx, canvas, width } from "./canvas.js";
+import { ctx, canvas, width, fontScale } from "./canvas.js";
 import { heroImg } from "./resources.js";
 import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER } from "./constants.js";
 import Bullet from "./bullet.js";
@@ -49,6 +49,21 @@ function bindEventsOnce(): void {
       activeHero._setCurrentPhase(PHASE_PAUSE);
     }
   };
+
+  // 画布尺寸变化时，将战机位置限制在新边界内
+  // 边界规则与 move 处理器一致：左右各留 20px 内缩、上下贴边
+  // 直接读取 canvas.width/height（resize 后已由 canvas.ts 更新）
+  window.addEventListener("resize", (): void => {
+    if (!activeHero) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    const hw = heroImg[0].width;
+    const hh = heroImg[0].height;
+    if (activeHero.x < 20 - hw / 2) activeHero.x = 20 - hw / 2;
+    else if (activeHero.x > w - hw / 2 - 20) activeHero.x = w - hw / 2 - 20;
+    if (activeHero.y < 0) activeHero.y = 0;
+    else if (activeHero.y > h - hh / 2) activeHero.y = h - hh / 2;
+  });
 }
 
 class Hero {
@@ -253,7 +268,7 @@ class Hero {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = bf.color;
-      ctx.font = "bold 24px arial";
+      ctx.font = `bold ${Math.round(24 * fontScale)}px arial`;
       ctx.textAlign = "center";
       ctx.shadowColor = bf.color;
       ctx.shadowBlur = 10;
@@ -281,10 +296,13 @@ class Hero {
   }
 
   _drawBuffs(): void {
-    const barWidth = 150;
-    const barHeight = 8;
-    const baseX = width - barWidth - 10;
-    const baseY = ctx.canvas.height - 12 - 10 - 6;
+    const barWidth = Math.round(150 * fontScale);
+    const barHeight = Math.round(8 * fontScale);
+    const baseX = width - barWidth - Math.round(10 * fontScale);
+    // baseY 是第一个 buff 条的顶部 y 坐标
+    // 计算：画布底部 → 减去 HP 条底部间距(10*fs) → 减去 HP 条高度(12*fs) = HP 条顶部
+    // → 减去 buff 与 HP 条间距(6*fs) → 减去 buff 条高度(8*fs) = 第一个 buff 条顶部
+    const baseY = ctx.canvas.height - Math.round((10 + 12 + 6 + 8) * fontScale);
 
     const activeBuffs: (keyof BuffState)[] = [];
     if (this.buffs.firepower > 0) activeBuffs.push("firepower");
@@ -294,7 +312,7 @@ class Hero {
     for (let i = 0; i < activeBuffs.length; i++) {
       const key = activeBuffs[i];
       const cfg = buffConfig[key];
-      const y = baseY - i * (barHeight + 4);
+      const y = baseY - i * (barHeight + Math.round(4 * fontScale));
       const ratio = this.buffs[key] / cfg.duration;
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
@@ -308,9 +326,9 @@ class Hero {
       ctx.strokeRect(baseX, y, barWidth, barHeight);
 
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 8px arial";
+      ctx.font = `bold ${Math.round(8 * fontScale)}px arial`;
       ctx.textAlign = "left";
-      ctx.fillText(t(cfg.label), baseX + 3, y + barHeight - 1);
+      ctx.fillText(t(cfg.label), baseX + Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
     }
   }
 
@@ -325,15 +343,15 @@ class Hero {
     const bulletInterval = Math.max(1, Math.floor(3 - this.levelBonuses.bulletIntervalReduction));
     const buffMul = this.levelBonuses.buffDurationMultiplier;
 
-    // 面板布局
-    const padding = 6;
-    const lineH = 14;
-    const panelW = 92;
+    // 面板布局（按 fontScale 等比缩放，确保大屏设备上面板和文字比例协调）
+    const padding = Math.round(6 * fontScale);
+    const lineH = Math.round(14 * fontScale);
+    const panelW = Math.round(92 * fontScale);
     const showBuffLine = buffMul > 1;
     const lineCount = showBuffLine ? 3 : 2;
     const panelH = lineCount * lineH + padding * 2;
-    const panelX = 10;
-    const panelY = ctx.canvas.height - panelH - 10;
+    const panelX = Math.round(10 * fontScale);
+    const panelY = ctx.canvas.height - panelH - Math.round(10 * fontScale);
 
     // 升级高亮：边框颜色和透明度
     const isLevelUp = this.levelUpAnim > 0;
@@ -343,7 +361,7 @@ class Hero {
     // 半透明黑底圆角矩形
     ctx.fillStyle = `rgba(0,0,0,${bgAlpha})`;
     ctx.beginPath();
-    const r = 4;
+    const r = Math.round(4 * fontScale);
     ctx.moveTo(panelX + r, panelY);
     ctx.arcTo(panelX + panelW, panelY, panelX + panelW, panelY + panelH, r);
     ctx.arcTo(panelX + panelW, panelY + panelH, panelX, panelY + panelH, r);
@@ -357,10 +375,10 @@ class Hero {
     ctx.stroke();
 
     // 文字内容
-    ctx.font = "bold 11px arial";
+    ctx.font = `bold ${Math.round(11 * fontScale)}px arial`;
     ctx.textAlign = "left";
 
-    let lineY = panelY + padding + 10;
+    let lineY = panelY + padding + Math.round(10 * fontScale);
     const labelX = panelX + padding;
     const valueX = panelX + panelW - padding;
 
@@ -397,8 +415,8 @@ class Hero {
 
   _drawScore(): void {
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 20px arial";
-    ctx.fillText(t("hud.score") + getGameScore(), 10, 30);
+    ctx.font = `bold ${Math.round(20 * fontScale)}px arial`;
+    ctx.fillText(t("hud.score") + getGameScore(), Math.round(10 * fontScale), Math.round(30 * fontScale));
   }
 
   _drawLevel(): void {
@@ -409,15 +427,15 @@ class Hero {
 
     // 等级文字
     ctx.fillStyle = "#fd0";
-    ctx.font = "bold 16px arial";
+    ctx.font = `bold ${Math.round(16 * fontScale)}px arial`;
     ctx.textAlign = "right";
-    ctx.fillText(t("hud.level") + lv, width - 10, 20);
+    ctx.fillText(t("hud.level") + lv, width - Math.round(10 * fontScale), Math.round(20 * fontScale));
 
     // 经验条
-    const barWidth = 100;
-    const barHeight = 8;
-    const barX = width - barWidth - 10;
-    const barY = 26;
+    const barWidth = Math.round(100 * fontScale);
+    const barHeight = Math.round(8 * fontScale);
+    const barX = width - barWidth - Math.round(10 * fontScale);
+    const barY = Math.round(26 * fontScale);
 
     ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
     ctx.fillRect(barX, barY, barWidth, barHeight);
@@ -432,12 +450,12 @@ class Hero {
 
     // 经验数值
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 8px arial";
+    ctx.font = `bold ${Math.round(8 * fontScale)}px arial`;
     ctx.textAlign = "center";
     if (isMaxLevel) {
-      ctx.fillText(t("hud.max"), barX + barWidth / 2, barY + barHeight - 1);
+      ctx.fillText(t("hud.max"), barX + barWidth / 2, barY + barHeight - Math.round(1 * fontScale));
     } else {
-      ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - 1);
+      ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - Math.round(1 * fontScale));
     }
     ctx.textAlign = "left";
   }
@@ -464,10 +482,10 @@ class Hero {
   }
 
   _drawHp(): void {
-    const barWidth = 150;
-    const barHeight = 12;
-    const x = width - barWidth - 10;
-    const y = ctx.canvas.height - barHeight - 10;
+    const barWidth = Math.round(150 * fontScale);
+    const barHeight = Math.round(12 * fontScale);
+    const x = width - barWidth - Math.round(10 * fontScale);
+    const y = ctx.canvas.height - barHeight - Math.round(10 * fontScale);
 
     if (this.hpFlash > 0) {
       this.hpFlash--;
@@ -496,9 +514,9 @@ class Hero {
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px arial";
+    ctx.font = `bold ${Math.round(12 * fontScale)}px arial`;
     ctx.textAlign = "center";
-    ctx.fillText(t("hud.hp") + " " + this.hp + "/" + this.maxHp, x + barWidth / 2, y + barHeight - 1);
+    ctx.fillText(t("hud.hp") + " " + this.hp + "/" + this.maxHp, x + barWidth / 2, y + barHeight - Math.round(1 * fontScale));
     ctx.textAlign = "left";
   }
 
@@ -512,7 +530,7 @@ class Hero {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = "#0f0";
-    ctx.font = "bold 28px arial";
+    ctx.font = `bold ${Math.round(28 * fontScale)}px arial`;
     ctx.textAlign = "center";
     ctx.shadowColor = "#0f0";
     ctx.shadowBlur = 12;
@@ -543,7 +561,7 @@ class Hero {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = "#fd0";
-    ctx.font = "bold 32px arial";
+    ctx.font = `bold ${Math.round(32 * fontScale)}px arial`;
     ctx.textAlign = "center";
     ctx.shadowColor = "#fd0";
     ctx.shadowBlur = 16;

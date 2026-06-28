@@ -1,5 +1,5 @@
 // 图片资源加载与管理
-import { ctx, width, height } from "./canvas.js";
+import { ctx, width, height, fontScale } from "./canvas.js";
 
 // 图片资源名称定义（string[] 嵌套结构）
 const imgName: (string | string[])[] = [
@@ -83,7 +83,7 @@ function imgLoad(): void {
   ctx.clearRect(0, 0, width, height);
   const text = Math.min(Math.round(progress), 100) + "%";
   const tw = ctx.measureText(text).width;
-  ctx.font = "60px arial";
+  ctx.font = `${Math.round(60 * fontScale)}px arial`;
   ctx.fillStyle = "red";
   ctx.lineWidth = 0;
   ctx.strokeStyle = "#888";

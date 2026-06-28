@@ -5,19 +5,32 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, user-scalable=no"
+      content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover"
     />
     <link href="" rel="stylesheet" type="text/css" />
     <script></script>
     <style type="text/css">
-      body {
-        height: 0;
+      html, body {
         margin: 0;
-        text-align: center;
+        padding: 0;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
       }
+      body {
+        /* 桌面端画布居中显示，移动端铺满无偏移 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #000;
+      }
       canvas {
+        display: block;
+        /* 画布尺寸由 JS 控制（canvas.ts），CSS 不设置 width/height
+           避免移动端 100vh/100lvh 随地址栏变化导致的"慢慢拉伸"问题 */
         background-color: #ddd;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none;
       }
     </style>
   </head>

@@ -1,5 +1,5 @@
 // 游戏主引擎
-import { canvas, ctx } from "./canvas.js";
+import { canvas, ctx, fontScale } from "./canvas.js";
 import { download } from "./resources.js";
 import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, } from "./constants.js";
 import { Hero } from "./hero.js";
@@ -43,7 +43,7 @@ function start() {
         }
     };
     ctx.fillStyle = "#963";
-    ctx.font = "24px arial";
+    ctx.font = `${Math.round(24 * fontScale)}px arial`;
     hero = new Hero();
     hero.setPhaseCallbacks(getCurPhase, setCurPhase);
     pBg = paintBg();

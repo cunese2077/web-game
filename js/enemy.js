@@ -1,5 +1,5 @@
 // 敌机类
-import { ctx } from "./canvas.js";
+import { ctx, fontScale } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
@@ -170,7 +170,7 @@ class Enemy {
         // 血量数字：在血量条上方显示 "当前HP/最大HP"
         if (cfg.showText) {
             ctx.save();
-            ctx.font = "10px arial";
+            ctx.font = `${Math.round(10 * fontScale)}px arial`;
             ctx.textAlign = "center";
             ctx.fillStyle = "#fff";
             ctx.shadowColor = "#000";
@@ -229,7 +229,7 @@ class Enemy {
                 this.hitSoundCoolDown = hitEffect.soundCoolDown;
             }
             if (hitEffect.damageText.show) {
-                addDamageEffect(this.x + this.width / 2, this.y + this.height, Math.ceil(frameDamage), hitEffect.damageText.fontSize, hitEffect.damageText.color, hitEffect.damageText.floatDistance, hitEffect.damageText.frames, hitEffect.damageText.stackOffset);
+                addDamageEffect(this.x + this.width / 2, this.y + this.height, Math.ceil(frameDamage), Math.round(hitEffect.damageText.fontSize * fontScale), hitEffect.damageText.color, Math.round(hitEffect.damageText.floatDistance * fontScale), hitEffect.damageText.frames, Math.round(hitEffect.damageText.stackOffset * fontScale));
             }
         }
     }

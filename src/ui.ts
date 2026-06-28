@@ -1,5 +1,5 @@
 // UI 绘制模块：背景、logo、loading、暂停、游戏结束、得分动效
-import { ctx, width, height } from "./canvas.js";
+import { ctx, width, height, fontScale } from "./canvas.js";
 import { bg, startImg, pause, gameLoad } from "./resources.js";
 import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAME_OVER } from "./constants.js";
 import { getGameScore, resetGameScore } from "./score.js";
@@ -44,7 +44,7 @@ class ScoreEffectObj {
     ctx.translate(this.x, floatY);
     ctx.scale(scale, scale);
 
-    ctx.font = "bold 22px arial";
+    ctx.font = `bold ${Math.round(22 * fontScale)}px arial`;
     ctx.textAlign = "center";
     ctx.shadowColor = this.score >= 100 ? "#ff0" : this.score >= 20 ? "#f80" : "#fff";
     ctx.shadowBlur = 8;
@@ -210,18 +210,20 @@ function clearDamageEffects(): void {
 }
 
 // 画滚动背景
+// 背景图拉伸到画布宽高，确保铺满整个屏幕（支持任意尺寸的设备）
+// 使用 height 作为滚动周期，两张图交替滚动实现无缝循环
 function paintBg(): () => void {
   let y: number = 0;
   return function (): void {
-    ctx.drawImage(bg, 0, y);
-    ctx.drawImage(bg, 0, y - 852);
-    y++ === 852 && (y = 0);
+    ctx.drawImage(bg, 0, y, width, height);
+    ctx.drawImage(bg, 0, y - height, width, height);
+    y++ === height && (y = 0);
   };
 }
 
-// 画开始 logo
+// 画开始 logo（水平+垂直居中，避免大屏设备内容偏上）
 function paintLogo(): void {
-  ctx.drawImage(startImg, 40, 0);
+  ctx.drawImage(startImg, (width - startImg.width) / 2, (height - startImg.height) / 2);
 }
 
 // 加载动画
@@ -229,7 +231,7 @@ function loading(): () => GamePhase {
   let index: number = 0;
   return function (): GamePhase {
     index % 1 === 0 &&
-      ctx.drawImage(gameLoad[Math.floor(index)], 0, height - gameLoad[0].height);
+      ctx.drawImage(gameLoad[Math.floor(index)], (width - gameLoad[0].width) / 2, height - gameLoad[0].height);
     index += 0.5;
     if (index > 3) {
       index = 0;
@@ -250,18 +252,18 @@ function drawGameOver(): void {
   ctx.fillRect(0, 0, width, height);
 
   ctx.fillStyle = "#fff";
-  ctx.font = "bold 40px arial";
+  ctx.font = `bold ${Math.round(40 * fontScale)}px arial`;
   ctx.textAlign = "center";
   ctx.fillText(t("gameOver.title"), width / 2, height / 2 - 80);
 
-  ctx.font = "28px arial";
+  ctx.font = `${Math.round(28 * fontScale)}px arial`;
   ctx.fillText(t("gameOver.score") + getGameScore(), width / 2, height / 2 - 30);
 
   ctx.fillStyle = "#fd0";
-  ctx.font = "24px arial";
+  ctx.font = `${Math.round(24 * fontScale)}px arial`;
   ctx.fillText(t("gameOver.level") + getLevel() + t("gameOver.totalExp") + getTotalExp(), width / 2, height / 2 + 10);
 
-  ctx.font = "20px arial";
+  ctx.font = `${Math.round(20 * fontScale)}px arial`;
   ctx.fillStyle = "#ccc";
   ctx.fillText(t("gameOver.restart"), width / 2, height / 2 + 60);
 
