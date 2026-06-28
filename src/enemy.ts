@@ -64,7 +64,6 @@ class Enemy {
     const midEnemyThreshold = bigEnemyThreshold + enemyConfig.medium.spawnWeight;
 
     this.n = Math.random() * 20;
-    this.enemy = new Image();
     this.speed = 0;
     this.lives = 2;
     this.maxLives = 2;

@@ -103,6 +103,15 @@ function resumeAudio() {
 function vol(v) {
     return v * audioConfig.masterVolume;
 }
+// 自动断开：音源节点（振荡器/噪声源）播放结束后断开自身和关联节点，
+// 避免 stop() 后节点仍留在音频图中无法被 GC，长时间游戏后孤儿节点累积导致内存泄漏和性能下降（移动端尤其严重）
+function autoDisconnect(source, ...nodes) {
+    source.onended = () => {
+        source.disconnect();
+        for (const n of nodes)
+            n.disconnect();
+    };
+}
 // ========== 辅助：创建噪声缓冲 ==========
 function createNoiseBuffer(audioCtx, duration, amplitude) {
     const bufferSize = Math.floor(audioCtx.sampleRate * duration);
@@ -123,6 +132,7 @@ function playShoot() {
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
     osc.type = c.type;
     osc.frequency.setValueAtTime(c.freqStart, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(c.freqEnd, ctx.currentTime + c.duration);
@@ -139,12 +149,14 @@ function playEnemyDestroySmall() {
     const noiseGain = ctx.createGain();
     noise.connect(noiseGain);
     noiseGain.connect(ctx.destination);
+    autoDisconnect(noise, noiseGain);
     noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
     osc.type = c.tone.type;
     osc.frequency.setValueAtTime(c.tone.freqStart, now);
     osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
@@ -163,12 +175,14 @@ function playEnemyDestroyMedium() {
     const noiseGain = ctx.createGain();
     noise.connect(noiseGain);
     noiseGain.connect(ctx.destination);
+    autoDisconnect(noise, noiseGain);
     noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
     osc.type = c.tone.type;
     osc.frequency.setValueAtTime(c.tone.freqStart, now);
     osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
@@ -187,12 +201,14 @@ function playEnemyDestroyBig() {
     const noiseGain = ctx.createGain();
     noise.connect(noiseGain);
     noiseGain.connect(ctx.destination);
+    autoDisconnect(noise, noiseGain);
     noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
     osc.type = c.tone1.type;
     osc.frequency.setValueAtTime(c.tone1.freqStart, now);
     osc.frequency.exponentialRampToValueAtTime(c.tone1.freqEnd, now + c.tone1.duration);
@@ -202,6 +218,7 @@ function playEnemyDestroyBig() {
     const gain2 = ctx.createGain();
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
+    autoDisconnect(osc2, gain2);
     osc2.type = c.tone2.type;
     osc2.frequency.setValueAtTime(c.tone2.freqStart, now);
     osc2.frequency.exponentialRampToValueAtTime(c.tone2.freqEnd, now + c.tone2.duration);
@@ -222,6 +239,7 @@ function playHeal() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
         osc.type = c.type;
         const startTime = ctx.currentTime + i * c.noteInterval;
         osc.frequency.setValueAtTime(freq, startTime);
@@ -240,12 +258,14 @@ function playHit() {
     const noiseGain = ctx.createGain();
     noise.connect(noiseGain);
     noiseGain.connect(ctx.destination);
+    autoDisconnect(noise, noiseGain);
     noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
     osc.type = c.subBass.type;
     osc.frequency.setValueAtTime(c.subBass.freqStart, now);
     osc.frequency.exponentialRampToValueAtTime(c.subBass.freqEnd, now + c.subBass.duration);
@@ -255,6 +275,7 @@ function playHit() {
     const gain2 = ctx.createGain();
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
+    autoDisconnect(osc2, gain2);
     osc2.type = c.buzz.type;
     osc2.frequency.setValueAtTime(c.buzz.freqStart, now);
     osc2.frequency.exponentialRampToValueAtTime(c.buzz.freqEnd, now + c.buzz.duration);
@@ -264,6 +285,7 @@ function playHit() {
     const gain3 = ctx.createGain();
     osc3.connect(gain3);
     gain3.connect(ctx.destination);
+    autoDisconnect(osc3, gain3);
     osc3.type = c.alarm.type;
     osc3.frequency.setValueAtTime(c.alarm.freq1, now);
     osc3.frequency.setValueAtTime(c.alarm.freq2, now + c.alarm.t1);
@@ -287,6 +309,7 @@ function playEnemyHit() {
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
     osc.type = c.type;
     osc.frequency.setValueAtTime(c.freqStart, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(c.freqEnd, ctx.currentTime + c.duration);
@@ -303,6 +326,7 @@ function playGameOver() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
         osc.type = c.type;
         const startTime = ctx.currentTime + i * c.noteInterval;
         osc.frequency.setValueAtTime(freq, startTime);
@@ -322,6 +346,7 @@ function playFirepower() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
         osc.type = c.type;
         const startTime = now + i * c.noteInterval;
         osc.frequency.setValueAtTime(freq, startTime);
@@ -335,6 +360,7 @@ function playFirepower() {
     const noiseGain = ctx.createGain();
     noise.connect(noiseGain);
     noiseGain.connect(ctx.destination);
+    autoDisconnect(noise, noiseGain);
     noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
     noise.start(now);
@@ -348,6 +374,7 @@ function playShield() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
         osc.type = c.type;
         const startTime = ctx.currentTime + i * c.noteInterval;
         osc.frequency.setValueAtTime(freq, startTime);
@@ -366,6 +393,7 @@ function playSpread() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
         osc.type = c.type;
         const startTime = ctx.currentTime + i * c.noteInterval;
         osc.frequency.setValueAtTime(freq, startTime);
@@ -384,6 +412,7 @@ function playLevelUp() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
         osc.type = c.type;
         const startTime = ctx.currentTime + i * c.noteInterval;
         osc.frequency.setValueAtTime(freq, startTime);
