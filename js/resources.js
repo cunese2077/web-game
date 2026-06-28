@@ -83,7 +83,12 @@ function imgLoad() {
     ctx.strokeStyle = "#888";
     ctx.fillText(text, (width - tw) / 2, height / 2);
     if (progress >= 100 && onLoadComplete) {
-        onLoadComplete();
+        // 置空回调确保只触发一次：图片 onload 可能在浏览器缓存校验(304)、
+        // 内存压力下重新解码、标签页后台/前台切换等罕见场景被重复触发，
+        // 若不置空会导致 start() 被再次调用，游戏在运行中突然回到初始界面。
+        const cb = onLoadComplete;
+        onLoadComplete = null;
+        cb();
     }
 }
 // 加载所有图片资源

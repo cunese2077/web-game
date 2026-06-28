@@ -739,6 +739,19 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - 增加中型敌机俯冲行为
 - 增加小型敌机编队出现
 
+### 6. 已知问题与待验证修复
+
+#### [待验证] 游戏运行中偶现自动回到初始界面
+
+- **现象**：游戏正常进行过程中，极低频率下会突然打断并回到开始界面（PHASE_READY，显示 logo + "点击开始游戏"），等同于游戏被重置。
+- **根因分析**：`src/resources.ts` 的 `imgLoad()` 中，`onLoadComplete`（即 `start` 回调）在被调用后**从未置空**，而模块级变量 `progress` 只增不减，永久满足 `>= 100`。全部 33 张图片共享同一个 `imgLoad` 作为 `onload` 处理器。当浏览器因缓存重新校验（304）、内存压力下重新解码、标签页后台/前台切换等罕见场景重新触发某张图片的 `onload` 时，`imgLoad` 再次执行 → `start()` 被再次调用 → `curPhase` 重置为 `PHASE_READY`。这是从 PHASE_PLAY 回到 PHASE_READY 的唯一代码路径（已排查全部 `curPhase` 赋值点：事件处理器只在 PLAY/PAUSE 切换、`hero.draw()` 只返回 PLAY/GAME_OVER、`onclick` 只处理 READY/GAME_OVER、index.html 无 reload/error 处理器）。
+- **修复位置**：[src/resources.ts](web-game/src/resources.ts) 的 `imgLoad()` 函数，将回调改为一次性调用——调用后立即置空 `onLoadComplete`。
+- **状态**：**待验证**。因 bug 偶现且触发条件依赖浏览器内部行为，无法立即确认修复是否彻底解决问题。
+- **复现后定位指引**：
+  1. 确认 `src/resources.ts` 的 `imgLoad()` 中 `onLoadComplete = null` 是否存在（未被后续改动回退）
+  2. 若仍复现，在浏览器控制台检查是否有图片 `onload` 重复触发的迹象，或在 `imgLoad` 内添加日志 `console.log('imgLoad', progress)` 观察是否在游戏运行期间被调用
+  3. 排查是否有其他代码路径调用了 `start()`（全局搜索 `start(` 和 `curPhase = PHASE_READY`）
+
 ---
 
 ## 八、版本信息
