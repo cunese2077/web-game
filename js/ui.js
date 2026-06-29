@@ -33,9 +33,9 @@ class ScoreEffectObj {
         ctx.scale(scale, scale);
         ctx.font = `bold ${Math.round(22 * fontScale)}px arial`;
         ctx.textAlign = "center";
-        ctx.shadowColor = this.score >= 100 ? "#ff0" : this.score >= 20 ? "#f80" : "#fff";
+        ctx.shadowColor = "#fff";
         ctx.shadowBlur = 8;
-        ctx.fillStyle = this.score >= 100 ? "#ff0" : this.score >= 20 ? "#f80" : "#fff";
+        ctx.fillStyle = "#fff";
         ctx.fillText("+" + this.score, 0, 0);
         ctx.restore();
     }

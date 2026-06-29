@@ -203,7 +203,7 @@ class Enemy {
                             : enemyConfig.small.score;
                     addGameScore(score);
                     addExp(getExpReward(this.speed));
-                    addScoreEffect(this.x + this.width / 2, this.y + this.height / 2, score);
+                    addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), score);
                     if (this.speed === enemyConfig.big.speed) {
                         playEnemyDestroyBig();
                     }
