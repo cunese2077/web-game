@@ -1,5 +1,5 @@
 // 玩家战机类
-import { ctx, canvas, width, fontScale } from "./canvas.js";
+import { ctx, canvas, width, height, fontScale } from "./canvas.js";
 import { heroImg } from "./resources.js";
 import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER } from "./constants.js";
 import Bullet from "./bullet.js";
@@ -30,12 +30,12 @@ function bindEventsOnce() {
             let ny = offsetY - h / 2;
             if (nx < 20 - w / 2)
                 nx = 20 - w / 2;
-            else if (nx > canvas.width - w / 2 - 20)
-                nx = canvas.width - w / 2 - 20;
+            else if (nx > width - w / 2 - 20)
+                nx = width - w / 2 - 20;
             if (ny < 0)
                 ny = 0;
-            else if (ny > canvas.height - h / 2)
-                ny = canvas.height - h / 2;
+            else if (ny > height - h / 2)
+                ny = height - h / 2;
             activeHero.x = nx;
             activeHero.y = ny;
             activeHero.count = 2;
@@ -56,8 +56,8 @@ function bindEventsOnce() {
     window.addEventListener("resize", () => {
         if (!activeHero)
             return;
-        const w = canvas.width;
-        const h = canvas.height;
+        const w = width;
+        const h = height;
         const hw = heroImg[0].width;
         const hh = heroImg[0].height;
         if (activeHero.x < 20 - hw / 2)
@@ -73,7 +73,7 @@ function bindEventsOnce() {
 class Hero {
     constructor() {
         this.x = (width - heroImg[0].width) / 2;
-        this.y = ctx.canvas.height - heroImg[0].height;
+        this.y = height - heroImg[0].height;
         this.index = 0;
         this.count = 0;
         this.hCount = 0;
@@ -264,7 +264,7 @@ class Hero {
         // baseY 是第一个 buff 条的顶部 y 坐标
         // 计算：画布底部 → 减去 HP 条底部间距(10*fs) → 减去 HP 条高度(12*fs) = HP 条顶部
         // → 减去 buff 与 HP 条间距(6*fs) → 减去 buff 条高度(8*fs) = 第一个 buff 条顶部
-        const baseY = ctx.canvas.height - Math.round((10 + 12 + 6 + 8) * fontScale);
+        const baseY = height - Math.round((10 + 12 + 6 + 8) * fontScale);
         const activeBuffs = [];
         if (this.buffs.firepower > 0)
             activeBuffs.push("firepower");
@@ -288,7 +288,11 @@ class Hero {
             ctx.font = `bold ${Math.round(8 * fontScale)}px arial`;
             ctx.textAlign = "left";
             ctx.fillText(t(cfg.label), baseX + Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
+            // 剩余时间：帧数 ÷ 20fps = 秒数，显示一位小数
+            ctx.textAlign = "right";
+            ctx.fillText((this.buffs[key] / 20).toFixed(1) + "s", baseX + barWidth - Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
         }
+        ctx.textAlign = "left";
     }
     // 属性面板：左下角常驻显示玩家核心属性（子弹伤害、射击间隔、buff 持续倍率）
     // 与右下 HP 条对称，半透明黑底圆角矩形避免遮挡游戏画面
@@ -308,7 +312,7 @@ class Hero {
         const lineCount = showBuffLine ? 3 : 2;
         const panelH = lineCount * lineH + padding * 2;
         const panelX = Math.round(10 * fontScale);
-        const panelY = ctx.canvas.height - panelH - Math.round(10 * fontScale);
+        const panelY = height - panelH - Math.round(10 * fontScale);
         // 升级高亮：边框颜色和透明度
         const isLevelUp = this.levelUpAnim > 0;
         const borderColor = isLevelUp ? "#fd0" : "rgba(255,255,255,0.4)";
@@ -376,8 +380,8 @@ class Hero {
         ctx.textAlign = "right";
         ctx.fillText(t("hud.level") + lv, width - Math.round(10 * fontScale), Math.round(20 * fontScale));
         // 经验条
-        const barWidth = Math.round(100 * fontScale);
-        const barHeight = Math.round(8 * fontScale);
+        const barWidth = Math.round(110 * fontScale);
+        const barHeight = Math.round(10 * fontScale);
         const barX = width - barWidth - Math.round(10 * fontScale);
         const barY = Math.round(26 * fontScale);
         ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
@@ -390,7 +394,7 @@ class Hero {
         ctx.strokeRect(barX, barY, barWidth, barHeight);
         // 经验数值
         ctx.fillStyle = "#fff";
-        ctx.font = `bold ${Math.round(8 * fontScale)}px arial`;
+        ctx.font = `bold ${Math.round(9 * fontScale)}px arial`;
         ctx.textAlign = "center";
         if (isMaxLevel) {
             ctx.fillText(t("hud.max"), barX + barWidth / 2, barY + barHeight - Math.round(1 * fontScale));
@@ -421,7 +425,7 @@ class Hero {
         const barWidth = Math.round(150 * fontScale);
         const barHeight = Math.round(12 * fontScale);
         const x = width - barWidth - Math.round(10 * fontScale);
-        const y = ctx.canvas.height - barHeight - Math.round(10 * fontScale);
+        const y = height - barHeight - Math.round(10 * fontScale);
         if (this.hpFlash > 0) {
             this.hpFlash--;
         }

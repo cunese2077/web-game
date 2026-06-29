@@ -786,11 +786,30 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - **分数颜色统一**：击败敌机后的 `+分数` 浮动文字颜色从三档分色（白/橙/黄）统一为 `#fff`（白色），与左上角 HUD 分数显示颜色一致。修改位置：`src/ui.ts` 的 `ScoreEffectObj.draw()`。
 - **分数动效可见性**：大型敌机在屏幕顶部被击败时，分数动效出现在画布外不可见。修复方式与伤害文本一致——在调用侧对 Y 坐标做 `Math.max` 下限约束：`Math.max(this.y + this.height / 2, Math.round(30 * fontScale))`，确保动效始终在可视区域内。修改位置：`src/enemy.ts` 的 `hit()` 方法。
 
+#### [已修复] 移动端 DPR 高清渲染 + 字体优化 + Buff 时间显示
+
+- **问题 1：移动端文字模糊**：Canvas 未适配设备像素比（devicePixelRatio），2x 手机上每个逻辑像素被拉伸为 2×2 物理像素，导致文字和线条模糊。
+- **修复**：`src/canvas.ts` 的 `applyCanvasSize()` 中增加 DPR 适配：
+  - 缓冲区尺寸设为 `逻辑尺寸 × dpr`（高分辨率渲染）
+  - CSS 显示尺寸设为逻辑像素（`canvas.style.width/height`）
+  - `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)` 使绘图命令继续使用逻辑坐标
+  - `width`/`height` 导出保持逻辑尺寸不变，绘图代码无需改动
+- **配套改动**：所有模块中 `canvas.width/height` 和 `ctx.canvas.width/height` 引用替换为从 canvas.ts 导入的 `width`/`height`（因为 `canvas.width/height` 现在是物理像素尺寸），涉及 `src/hero.ts`（6 处）、`src/enemy.ts`（3 处）、`src/item.ts`（1 处）。
+
+- **问题 2：移动端字体太小**：手机宽度 360-414px，`fontScale = width/480 ≈ 0.75-0.86`，8px 基础字号缩小到 6px。
+- **修复**：触摸设备 fontScale 下限设为 1.0：`isTouchDevice() ? Math.max(w / 480, 1) : Math.min(w / 480, 2)`。
+
+- **问题 3：经验条字体偏小**：基础字号 8px 在经验条内难以阅读。
+- **修复**：经验条高度 8→10 fontScale，宽度 100→110 fontScale，字号 8→9 fontScale。
+
+- **问题 4：Buff 持续时间不可见**：玩家无法看到 Buff 的具体剩余秒数。
+- **修复**：`src/hero.ts` 的 `_drawBuffs()` 中每个 Buff 条右侧新增剩余时间显示（如 `8.5s`），计算方式：帧数 ÷ 20fps，`toFixed(1)` 保留一位小数。
+
 ---
 
 ## 八、版本信息
 
-- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化）
+- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化）
 - **架构**：TypeScript + ES Module
 - **源码模块数量**：14 个（src/ 目录）
 - **类型定义**：22+ 接口/类型（types.ts）

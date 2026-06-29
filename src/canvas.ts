@@ -1,11 +1,12 @@
 // 画布初始化 - 响应式自适应设备宽高
-// 纯 JS 控制画布尺寸（不依赖 CSS width/height），避免移动端地址栏变化导致的"拉伸"问题
+// 纯 JS 控制画布尺寸，支持高 DPI 设备（devicePixelRatio）渲染清晰文字
 // 导出 fontScale 供所有模块统一字体缩放（基于画布宽度与设计基准 480px 的比值）
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-// 画布宽高（live binding：resize 时重新赋值，导入方自动获取最新值）
+// 画布逻辑宽高（live binding：resize 时重新赋值，导入方自动获取最新值）
 // 注意：必须用 let 而非 const，否则导入方拿到的是初始化时的快照，不会随 resize 更新
+// 绘图代码应使用此逻辑宽高，而非 canvas.width/height（后者是缓冲区物理像素尺寸）
 export let width: number = 0;
 export let height: number = 0;
 
@@ -47,15 +48,25 @@ function computeCanvasSize(): { w: number; h: number } {
   }
 }
 
-// 应用画布尺寸：设置绘图缓冲区（canvas.width/height）
-// canvas 元素会按 width/height 属性自动 1:1 显示，无需设置 CSS style
+// 应用画布尺寸：设置绘图缓冲区（canvas.width/height）和 CSS 显示尺寸
+// 高 DPI 适配：缓冲区尺寸 = 逻辑尺寸 × devicePixelRatio，CSS 尺寸 = 逻辑尺寸
+// ctx.scale(dpr) 后所有绘图命令使用逻辑坐标，文字在高 DPI 屏幕上清晰不模糊
 function applyCanvasSize(w: number, h: number): void {
-  if (canvas.width === w && canvas.height === h) return;
-  canvas.width = w;
-  canvas.height = h;
+  const dpr = window.devicePixelRatio || 1;
+  const bufW = Math.round(w * dpr);
+  const bufH = Math.round(h * dpr);
+  if (canvas.width === bufW && canvas.height === bufH) return;
+  canvas.width = bufW;
+  canvas.height = bufH;
+  // CSS 显示尺寸设为逻辑像素，canvas 缓冲区按 dpr 倍率渲染
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   width = w;
   height = h;
-  fontScale = Math.min(w / 480, 2);
+  // 触摸设备 fontScale 下限 1.0：手机宽度通常 360-414px，不设下限则 fontScale≈0.75-0.86，
+  // 导致 8px 基础字号缩小到 6px 几乎无法阅读；设 1.0 下限确保手机字体不小于桌面端
+  fontScale = isTouchDevice() ? Math.max(w / 480, 1) : Math.min(w / 480, 2);
 }
 
 // debounce：避免移动端地址栏变化导致的频繁 resize 重置 canvas

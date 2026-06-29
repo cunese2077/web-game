@@ -1,5 +1,5 @@
 // 道具模块 - 支持多种道具类型：回血、双倍火力、护盾、散弹
-import { ctx } from "./canvas.js";
+import { ctx, height } from "./canvas.js";
 import { itemConfig } from "./config.js";
 import type { ItemType } from "./types.js";
 
@@ -24,7 +24,7 @@ class Item {
     this.animCount++;
     this.y += itemConfig.speed;
 
-    if (this.y > ctx.canvas.height + itemConfig.size) {
+    if (this.y > height + itemConfig.size) {
       this.removable = true;
       return;
     }

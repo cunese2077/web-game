@@ -1,5 +1,5 @@
 // 敌机类
-import { ctx, fontScale } from "./canvas.js";
+import { ctx, width, height, fontScale } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
@@ -86,7 +86,7 @@ class Enemy {
     }
     this.maxLives = this.lives;
 
-    this.x = parseInt(String(Math.random() * (ctx.canvas.width - this.enemy.width)));
+    this.x = parseInt(String(Math.random() * (width - this.enemy.width)));
     this.y = -this.enemy.height;
     this.width = this.enemy.width;
     this.height = this.enemy.height;
@@ -112,7 +112,7 @@ class Enemy {
   _updateHorizontalPosition(): void {
     if (this.die) return;
 
-    const canvasWidth = ctx.canvas.width;
+    const canvasWidth = width;
 
     if (this.moveType === "sine") {
       // 正弦摆动只对中型敌机生效，直接使用中型敌机配置
@@ -179,7 +179,7 @@ class Enemy {
     this._updateHorizontalPosition();
     this.hit();
 
-    if (this.y > ctx.canvas.height) {
+    if (this.y > height) {
       this.removable = true;
     }
   }

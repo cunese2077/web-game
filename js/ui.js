@@ -203,7 +203,7 @@ function paintLogo() {
     // ===== 飞机装饰：漂移 + 摇晃 + 蓝色发光底（置于顶部） =====
     const heroW = heroImg[0].width;
     const heroH = heroImg[0].height;
-    const heroBaseY = cy - Math.round(150 * fontScale);
+    const heroBaseY = cy - Math.round(120 * fontScale);
     const heroDriftX = Math.sin(logoFrame * 0.05) * Math.round(12 * fontScale);
     const heroDriftY = Math.cos(logoFrame * 0.02) * Math.round(8 * fontScale);
     ctx.save();
