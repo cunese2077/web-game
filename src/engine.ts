@@ -15,8 +15,9 @@ import { resetLevel } from "./level.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { resumeAudio, playGameOver } from "./audio.js";
+import { loadSettings, isSettingsOpen, openSettings, closeSettings } from "./settings.js";
 import type { GamePhase } from "./types.js";
 
 let curPhase: GamePhase = PHASE_DOWNLOAD;
@@ -35,9 +36,25 @@ function setCurPhase(phase: GamePhase): void {
 
 function start(): void {
   curPhase = PHASE_READY;
-  canvas.onclick = function (): void {
+  canvas.onclick = function (e: MouseEvent): void {
     resumeAudio();
     if (curPhase === PHASE_READY) {
+      const clickY = e.offsetY;
+      // 设置界面打开时：处理设置项点击或返回
+      if (isSettingsOpen()) {
+        const result = handleSettingsClick(clickY);
+        if (result === "back") {
+          closeSettings();
+        }
+        return;
+      }
+      // 检查是否点击了设置按钮
+      const btnArea = getSettingsBtnArea();
+      if (clickY >= btnArea.y && clickY < btnArea.y + btnArea.h) {
+        openSettings();
+        return;
+      }
+      // 否则进入加载阶段
       curPhase = PHASE_LOADING;
     } else if (curPhase === PHASE_GAME_OVER) {
       resetGameScore();
@@ -65,7 +82,11 @@ function gameEngine(): void {
   switch (curPhase) {
     case PHASE_READY:
       if (pBg) pBg();
-      paintLogo();
+      if (isSettingsOpen()) {
+        drawSettings();
+      } else {
+        paintLogo();
+      }
       break;
     case PHASE_LOADING:
       if (pBg) pBg();
@@ -94,6 +115,7 @@ function gameEngine(): void {
   }
 }
 
+loadSettings();
 download(start);
 
 const TARGET_DELTA: number = 50;

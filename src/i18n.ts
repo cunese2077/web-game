@@ -8,7 +8,7 @@
 // - 新增文本时在 TextKey 联合类型和 translations 字典中同步添加
 
 // ========== 支持的语言 ==========
-export type Locale = "zh" | "en";
+export type Locale = "zh" | "en" | "ja";
 
 // ========== 文本 key（所有可翻译文本的唯一标识） ==========
 export type TextKey =
@@ -41,6 +41,14 @@ export type TextKey =
   // 开始界面（ui.ts paintLogo）
   | "start.title"        // "飞机大战" / "PLANE WAR"
   | "start.clickToStart" // "点击开始游戏" / "Click to Start"
+  | "start.settings"     // "设置" / "SETTINGS"
+  // 设置界面（ui.ts drawSettings）
+  | "settings.title"     // "游戏设置" / "SETTINGS"
+  | "settings.language"  // "语言" / "LANGUAGE"
+  | "settings.lang.zh"   // "中文" / "Chinese"
+  | "settings.lang.en"   // "English" / "English"
+  | "settings.lang.ja"   // "日本語" / "Japanese"
+  | "settings.back"      // "返回" / "BACK"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"
@@ -71,6 +79,13 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.restart": "点击重新开始",
     "start.title": "飞机大战",
     "start.clickToStart": "点击开始游戏",
+    "start.settings": "设置",
+    "settings.title": "游戏设置",
+    "settings.language": "语言",
+    "settings.lang.zh": "中文",
+    "settings.lang.en": "English",
+    "settings.lang.ja": "日本語",
+    "settings.back": "返回",
     "html.title": "飞机大战网页版",
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
   },
@@ -98,8 +113,49 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.restart": "Click to Restart",
     "start.title": "PLANE WAR",
     "start.clickToStart": "Click to Start",
+    "start.settings": "SETTINGS",
+    "settings.title": "SETTINGS",
+    "settings.language": "LANGUAGE",
+    "settings.lang.zh": "Chinese",
+    "settings.lang.en": "English",
+    "settings.lang.ja": "Japanese",
+    "settings.back": "BACK",
     "html.title": "Plane War Web",
     "html.unsupported": "Your browser does not support canvas!!!",
+  },
+  ja: {
+    "hud.score": "得点:",
+    "hud.level": "レベル.",
+    "hud.max": "MAX",
+    "hud.hp": "HP",
+    "hud.atk": "攻撃",
+    "hud.rate": "射速",
+    "hud.buff": "バフ",
+    "effect.heal": "+1 HP",
+    "effect.levelUp": "レベルアップ! → ",
+    "buff.firepower": "火力",
+    "buff.shield": "シールド",
+    "buff.spread": "拡散",
+    "item.heal": "+1 HP",
+    "item.firepower": "火力アップ!",
+    "item.shield": "シールド!",
+    "item.spread": "拡散!",
+    "gameOver.title": "ゲームオーバー",
+    "gameOver.score": "得点: ",
+    "gameOver.level": "レベル: ",
+    "gameOver.totalExp": "  |  総経験値: ",
+    "gameOver.restart": "クリックでリスタート",
+    "start.title": "エアバトル",
+    "start.clickToStart": "クリックでスタート",
+    "start.settings": "設定",
+    "settings.title": "設定",
+    "settings.language": "言語",
+    "settings.lang.zh": "中国語",
+    "settings.lang.en": "英語",
+    "settings.lang.ja": "日本語",
+    "settings.back": "戻る",
+    "html.title": "エアバトル Web",
+    "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",
   },
 };
 

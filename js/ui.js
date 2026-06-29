@@ -239,7 +239,136 @@ function paintLogo() {
     ctx.shadowColor = "#000";
     ctx.shadowBlur = 6;
     ctx.fillText(t("start.clickToStart"), cx, cy + Math.round(75 * fontScale));
+    // ===== 设置按钮：底部居中 =====
+    ctx.globalAlpha = 0.7;
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = "#000";
+    ctx.fillStyle = "#ccc";
+    ctx.font = `${Math.round(18 * fontScale)}px arial`;
+    settingsBtnY = height - Math.round(40 * fontScale);
+    ctx.fillText(t("start.settings"), cx, settingsBtnY);
+    settingsBtnHitH = Math.round(30 * fontScale);
     ctx.restore();
+}
+// 设置按钮点击区域（供 engine.ts 判断点击）
+let settingsBtnY = 0;
+let settingsBtnHitH = 0;
+function getSettingsBtnArea() {
+    return { y: settingsBtnY - settingsBtnHitH, h: settingsBtnHitH };
+}
+// ========== 设置界面绘制 ==========
+import { getSettingItems } from "./settings.js";
+let settingHitAreas = [];
+// 当前展开的设置项索引（-1 表示全部收起）
+let expandedItem = -1;
+function drawSettings() {
+    const cx = width / 2;
+    const items = getSettingItems();
+    ctx.save();
+    ctx.textAlign = "center";
+    // 半透明遮罩
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(0, 0, width, height);
+    // 标题
+    ctx.fillStyle = "#ffd700";
+    ctx.font = `bold ${Math.round(32 * fontScale)}px arial`;
+    ctx.shadowColor = "#ff8c00";
+    ctx.shadowBlur = 10;
+    ctx.fillText(t("settings.title"), cx, Math.round(60 * fontScale));
+    ctx.shadowBlur = 0;
+    // 设置项列表
+    const itemFontSize = Math.round(20 * fontScale);
+    const optionFontSize = Math.round(18 * fontScale);
+    const lineH = Math.round(50 * fontScale);
+    const optionLineH = Math.round(38 * fontScale);
+    settingHitAreas = [];
+    let curY = Math.round(110 * fontScale);
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        // 标签（左侧）
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#fff";
+        ctx.font = `${itemFontSize}px arial`;
+        ctx.fillText(t(item.label), Math.round(30 * fontScale), curY);
+        // 当前选项 + ▼/▲ 指示（右侧），点击展开/收起
+        const currentIdx = item.current();
+        const isExpanded = expandedItem === i;
+        const arrow = isExpanded ? " ▲" : " ▼";
+        const optionText = t(item.optionLabels[currentIdx]) + arrow;
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#ffd700";
+        ctx.font = `bold ${optionFontSize}px arial`;
+        ctx.fillText(optionText, width - Math.round(30 * fontScale), curY);
+        // 记录当前行的点击区域（点击展开/收起）
+        settingHitAreas.push({
+            y: curY - lineH * 0.7,
+            h: lineH * 0.9,
+            type: "toggle",
+            itemIndex: i,
+            optionIndex: -1,
+        });
+        curY += lineH * 0.3;
+        // 展开时绘制下拉选项列表
+        if (isExpanded) {
+            for (let j = 0; j < item.optionLabels.length; j++) {
+                curY += optionLineH;
+                const isSelected = j === currentIdx;
+                const prefix = isSelected ? "● " : "  ";
+                ctx.textAlign = "right";
+                ctx.fillStyle = isSelected ? "#ffd700" : "#aaa";
+                ctx.font = `${optionFontSize}px arial`;
+                ctx.fillText(prefix + t(item.optionLabels[j]), width - Math.round(30 * fontScale), curY);
+                settingHitAreas.push({
+                    y: curY - optionLineH * 0.7,
+                    h: optionLineH * 0.9,
+                    type: "option",
+                    itemIndex: i,
+                    optionIndex: j,
+                });
+            }
+        }
+        curY += lineH * 0.7;
+    }
+    // 返回按钮
+    const backY = curY + Math.round(20 * fontScale);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#aaa";
+    ctx.font = `${Math.round(18 * fontScale)}px arial`;
+    ctx.fillText(t("settings.back"), cx, backY);
+    settingHitAreas.push({
+        y: backY - Math.round(25 * fontScale),
+        h: Math.round(30 * fontScale),
+        type: "back",
+        itemIndex: -1,
+        optionIndex: -1,
+    });
+    ctx.restore();
+}
+// 处理设置界面点击
+function handleSettingsClick(clickY) {
+    for (const area of settingHitAreas) {
+        if (clickY >= area.y && clickY < area.y + area.h) {
+            if (area.type === "back") {
+                expandedItem = -1;
+                return "back";
+            }
+            if (area.type === "toggle") {
+                // 点击已展开的项则收起，否则展开
+                expandedItem = expandedItem === area.itemIndex ? -1 : area.itemIndex;
+                return "option";
+            }
+            if (area.type === "option") {
+                // 选中某选项
+                const item = getSettingItems()[area.itemIndex];
+                item.select(area.optionIndex);
+                expandedItem = -1;
+                return "option";
+            }
+        }
+    }
+    // 点击空白区域收起
+    expandedItem = -1;
+    return null;
 }
 // 加载动画
 function loading() {
@@ -277,4 +406,4 @@ function drawGameOver() {
     ctx.fillText(t("gameOver.restart"), width / 2, height / 2 + 60);
     ctx.textAlign = "left";
 }
-export { paintBg, paintLogo, loading, drawPause, drawGameOver, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects };
+export { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects };

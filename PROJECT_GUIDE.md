@@ -805,13 +805,38 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - **问题 4：Buff 持续时间不可见**：玩家无法看到 Buff 的具体剩余秒数。
 - **修复**：`src/hero.ts` 的 `_drawBuffs()` 中每个 Buff 条右侧新增剩余时间显示（如 `8.5s`），计算方式：帧数 ÷ 20fps，`toFixed(1)` 保留一位小数。
 
+#### [已修复] 移动端画布残影累积（paintBg 滚动重置 bug）
+
+- **问题**：手机上游戏运行一段时间后，子弹在底部累积、敌机疯狂渲染、玩家战机重复渲染之前位置不消失。
+- **根因**：`src/ui.ts` 的 `paintBg()` 中滚动偏移 `y` 的重置逻辑用严格相等 `y++ === height && (y = 0)`。当移动端画布高度缩小（地址栏显示/隐藏、横竖屏切换），若当前 `y` 已超过新 `height`，`y` 永远不再等于 `height`，无限递增后两张 `drawImage(bg)` 都画在画布外，画布完全不被背景覆盖。
+- **修复**：`y++; if (y >= height) y = 0;` — `>=` 确保 `height` 缩小时 `y` 立即重置。
+
+#### [新增] 游戏设置系统 + 日语语言支持
+
+- **游戏设置**：新增 `src/settings.ts` 模块，提供数据驱动的可扩展设置系统：
+  - `GameSettings` 接口定义可配置项（当前仅 `locale`，未来可扩展难度等）
+  - `SettingItem` 接口描述每个设置项（key/label/optionLabels/current/select）
+  - `loadSettings()`/`saveSettings()` 通过 localStorage 持久化
+  - `isSettingsOpen()`/`openSettings()`/`closeSettings()` 控制设置界面状态
+- **设置界面**：`src/ui.ts` 的 `drawSettings()` 绘制半透明遮罩 + 设置面板：
+  - 下拉展开选择交互：点击设置项展开选项列表，点击选项选中并收起
+  - 当前选中项前有 `●` 金色标记，未选中项灰色
+  - 设置按钮位于开始界面底部（PHASE_READY）
+- **语言切换**：支持中文/English/日本語 三语言切换，即时生效：
+  - `src/i18n.ts` 的 `Locale` 类型扩展为 `"zh" | "en" | "ja"`
+  - 新增完整日语翻译（30 个 TextKey）
+  - `src/settings.ts` 的 `LOCALE_OPTIONS` 和 `optionLabels` 注册三个语言选项
+- **新增 TextKey**：`start.settings`、`settings.title`、`settings.language`、`settings.lang.zh`、`settings.lang.en`、`settings.lang.ja`、`settings.back`
+- **新增文件**：`src/settings.ts`
+- **改动文件**：`src/i18n.ts`、`src/ui.ts`、`src/engine.ts`
+
 ---
 
 ## 八、版本信息
 
-- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化）
+- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化 + 游戏设置系统 + 多语言切换）
 - **架构**：TypeScript + ES Module
-- **源码模块数量**：14 个（src/ 目录）
+- **源码模块数量**：15 个（src/ 目录，新增 settings.ts）
 - **类型定义**：22+ 接口/类型（types.ts）
 - **构建方式**：`tsc` 编译到 js/
 - **最后更新**：见 Git 提交历史
