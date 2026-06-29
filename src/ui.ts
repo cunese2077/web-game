@@ -1,6 +1,6 @@
 // UI 绘制模块：背景、logo、loading、暂停、游戏结束、得分动效
 import { ctx, width, height, fontScale } from "./canvas.js";
-import { bg, startImg, pause, gameLoad } from "./resources.js";
+import { bg, pause, gameLoad, heroImg } from "./resources.js";
 import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAME_OVER } from "./constants.js";
 import { getGameScore, resetGameScore } from "./score.js";
 import { getLevel, getTotalExp } from "./level.js";
@@ -225,9 +225,62 @@ function paintBg(): () => void {
   };
 }
 
-// 画开始 logo（水平+垂直居中，避免大屏设备内容偏上）
+// 开始界面动画帧计数器（用于标题浮动、飞机摆动、提示闪烁）
+let logoFrame: number = 0;
+
+// 画开始界面（飞机装饰 + 标题 + 提示文本，支持多语言，带动画）
+// 水平+垂直居中，避免大屏设备内容偏上
 function paintLogo(): void {
-  ctx.drawImage(startImg, (width - startImg.width) / 2, (height - startImg.height) / 2);
+  logoFrame = (logoFrame + 1) % 10000; // 用取模限制增长，解决精度丢失问题
+  const cx = width / 2;
+  const cy = height / 2;
+
+  ctx.save();
+  ctx.textAlign = "center";
+
+  // ===== 飞机装饰：漂移 + 摇晃 + 蓝色发光底（置于顶部） =====
+  const heroW = heroImg[0].width;
+  const heroH = heroImg[0].height;
+  const heroBaseY = cy - Math.round(150 * fontScale);
+  const heroDriftX = Math.sin(logoFrame * 0.05) * Math.round(12 * fontScale);
+  const heroDriftY = Math.cos(logoFrame * 0.02) * Math.round(8 * fontScale);
+  ctx.save();
+  ctx.translate(cx + heroDriftX, heroBaseY + heroDriftY);
+  ctx.rotate(Math.sin(logoFrame * 0.04) * 0.12);
+  ctx.shadowColor = "#4af";
+  ctx.shadowBlur = 15;
+  ctx.drawImage(heroImg[0], -heroW / 2, -heroH / 2);
+  ctx.restore();
+
+  // ===== 标题：金色渐变 + 描边 + 发光 + 轻微浮动 =====
+  const titleFloat = Math.sin(logoFrame * 0.03) * Math.round(3 * fontScale);
+  const titleY = cy + Math.round(5 * fontScale) + titleFloat;
+  const titleFontSize = Math.round(48 * fontScale);
+  ctx.font = `bold ${titleFontSize}px arial`;
+  ctx.shadowColor = "#ff8c00";
+  ctx.shadowBlur = 20;
+  // 描边
+  ctx.strokeStyle = "#3a1a00";
+  ctx.lineWidth = Math.max(1, Math.round(2 * fontScale));
+  ctx.strokeText(t("start.title"), cx, titleY);
+  // 渐变填充
+  const gradient = ctx.createLinearGradient(0, titleY - titleFontSize, 0, titleY);
+  gradient.addColorStop(0, "#ffe066");
+  gradient.addColorStop(0.5, "#ffd700");
+  gradient.addColorStop(1, "#ff8c00");
+  ctx.fillStyle = gradient;
+  ctx.fillText(t("start.title"), cx, titleY);
+
+  // ===== 提示文字：闪烁效果 =====
+  const blinkAlpha = 0.5 + 0.5 * Math.sin(logoFrame * 0.08);
+  ctx.globalAlpha = blinkAlpha;
+  ctx.fillStyle = "#fff";
+  ctx.font = `${Math.round(20 * fontScale)}px arial`;
+  ctx.shadowColor = "#000";
+  ctx.shadowBlur = 6;
+  ctx.fillText(t("start.clickToStart"), cx, cy + Math.round(75 * fontScale));
+
+  ctx.restore();
 }
 
 // 加载动画
