@@ -814,27 +814,30 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 #### [新增] 游戏设置系统 + 日语语言支持
 
 - **游戏设置**：新增 `src/settings.ts` 模块，提供数据驱动的可扩展设置系统：
-  - `GameSettings` 接口定义可配置项（当前仅 `locale`，未来可扩展难度等）
-  - `SettingItem` 接口描述每个设置项（key/label/optionLabels/current/select）
+  - `GameSettings` 接口定义可配置项（当前 `locale` + `soundEnabled`，未来可扩展难度等）
+  - `SettingItem` 接口描述每个设置项（支持下拉选择型和布尔开关型）
   - `loadSettings()`/`saveSettings()` 通过 localStorage 持久化
   - `isSettingsOpen()`/`openSettings()`/`closeSettings()` 控制设置界面状态
+  - `isSoundEnabled()`/`toggleSound()` 供 HUD 音效图标使用
 - **设置界面**：`src/ui.ts` 的 `drawSettings()` 绘制半透明遮罩 + 设置面板：
-  - 下拉展开选择交互：点击设置项展开选项列表，点击选项选中并收起
-  - 当前选中项前有 `●` 金色标记，未选中项灰色
+  - 下拉选择型：点击展开选项列表，`●` 金色标记当前选中项
+  - 布尔开关型：radio 样式 `○ 关  ● 开`，点击即切换
   - 设置按钮位于开始界面底部（PHASE_READY）
-- **语言切换**：支持中文/English/日本語 三语言切换，即时生效：
-  - `src/i18n.ts` 的 `Locale` 类型扩展为 `"zh" | "en" | "ja"`
-  - 新增完整日语翻译（30 个 TextKey）
-  - `src/settings.ts` 的 `LOCALE_OPTIONS` 和 `optionLabels` 注册三个语言选项
-- **新增 TextKey**：`start.settings`、`settings.title`、`settings.language`、`settings.lang.zh`、`settings.lang.en`、`settings.lang.ja`、`settings.back`
+- **语言切换**：支持中文/English/日本語 三语言切换，即时生效
+- **音效控制**：
+  - 设置界面："音效" radio 开关，绿色开/红色关
+  - 游戏 HUD：右上角经验条左侧 `♪` 图标，开启白色/关闭灰色+红色斜线
+  - `src/audio.ts` 12 个 play 函数入口加 `if (!soundEnabled) return;` early return
+  - 点击 HUD 图标圆形碰撞检测，命中调用 `toggleSound()`
+- **新增 TextKey**：`start.settings`、`settings.title`、`settings.language`、`settings.lang.zh`、`settings.lang.en`、`settings.lang.ja`、`settings.sound`、`settings.sound.on`、`settings.sound.off`、`settings.back`
 - **新增文件**：`src/settings.ts`
-- **改动文件**：`src/i18n.ts`、`src/ui.ts`、`src/engine.ts`
+- **改动文件**：`src/i18n.ts`、`src/ui.ts`、`src/engine.ts`、`src/audio.ts`、`src/hero.ts`
 
 ---
 
 ## 八、版本信息
 
-- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化 + 游戏设置系统 + 多语言切换）
+- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化 + 游戏设置系统 + 多语言切换 + 音效控制）
 - **架构**：TypeScript + ES Module
 - **源码模块数量**：15 个（src/ 目录，新增 settings.ts）
 - **类型定义**：22+ 接口/类型（types.ts）
