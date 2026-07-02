@@ -1,24 +1,31 @@
 // 游戏设置模块 - 集中管理可配置项，支持持久化和扩展
 import { setLocale } from "./i18n.js";
 import type { Locale, TextKey } from "./i18n.js";
+import { setSoundEnabled } from "./audio.js";
 
 // ========== 设置数据结构 ==========
 interface GameSettings {
   locale: Locale;
+  soundEnabled: boolean;
 }
 
 // ========== 设置项描述（数据驱动，便于扩展） ==========
 export interface SettingItem {
   key: keyof GameSettings;     // settings 中的字段名
   label: TextKey;              // 设置项标题 i18n key
-  optionLabels: TextKey[];     // 各选项显示文本 i18n key
-  current: () => number;       // 获取当前选中索引
-  select: (index: number) => void;  // 选中某项的回调
+  // 下拉选择型（如语言）
+  optionLabels?: TextKey[];    // 各选项显示文本 i18n key
+  current?: () => number;      // 获取当前选中索引
+  select?: (index: number) => void;  // 选中某项的回调
+  // 布尔开关型（如音效）
+  toggle?: () => boolean;      // 获取当前开关状态
+  onToggle?: () => void;       // 切换回调
 }
 
 // ========== 默认设置 ==========
 const DEFAULT_SETTINGS: GameSettings = {
   locale: "zh",
+  soundEnabled: true,
 };
 
 // ========== 当前设置 ==========
@@ -35,12 +42,16 @@ function loadSettings(): void {
       if (parsed.locale) {
         settings.locale = parsed.locale;
       }
+      if (typeof parsed.soundEnabled === "boolean") {
+        settings.soundEnabled = parsed.soundEnabled;
+      }
     }
   } catch {
     // localStorage 不可用或数据损坏，使用默认值
   }
-  // 同步到 i18n 模块
+  // 同步到各模块
   setLocale(settings.locale);
+  setSoundEnabled(settings.soundEnabled);
 }
 
 function saveSettings(): void {
@@ -67,6 +78,16 @@ const settingItems: SettingItem[] = [
       saveSettings();
     },
   },
+  {
+    key: "soundEnabled",
+    label: "settings.sound",
+    toggle: (): boolean => settings.soundEnabled,
+    onToggle: (): void => {
+      settings.soundEnabled = !settings.soundEnabled;
+      setSoundEnabled(settings.soundEnabled);
+      saveSettings();
+    },
+  },
 ];
 
 function getSettingItems(): SettingItem[] {
@@ -87,6 +108,16 @@ function closeSettings(): void {
   settingsOpen = false;
 }
 
+function isSoundEnabled(): boolean {
+  return settings.soundEnabled;
+}
+
+function toggleSound(): void {
+  settings.soundEnabled = !settings.soundEnabled;
+  setSoundEnabled(settings.soundEnabled);
+  saveSettings();
+}
+
 // 导出供 engine.ts 使用
 export {
   loadSettings,
@@ -94,4 +125,6 @@ export {
   isSettingsOpen,
   openSettings,
   closeSettings,
+  isSoundEnabled,
+  toggleSound,
 };

@@ -9,7 +9,7 @@ import {
   PHASE_PAUSE,
   PHASE_GAME_OVER,
 } from "./constants.js";
-import { Hero } from "./hero.js";
+import { Hero, getSoundIconArea } from "./hero.js";
 import { resetGameScore } from "./score.js";
 import { resetLevel } from "./level.js";
 import Bullet from "./bullet.js";
@@ -17,7 +17,7 @@ import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { resumeAudio, playGameOver } from "./audio.js";
-import { loadSettings, isSettingsOpen, openSettings, closeSettings } from "./settings.js";
+import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 import type { GamePhase } from "./types.js";
 
 let curPhase: GamePhase = PHASE_DOWNLOAD;
@@ -38,8 +38,10 @@ function start(): void {
   curPhase = PHASE_READY;
   canvas.onclick = function (e: MouseEvent): void {
     resumeAudio();
+    const clickX = e.offsetX;
+    const clickY = e.offsetY;
+
     if (curPhase === PHASE_READY) {
-      const clickY = e.offsetY;
       // 设置界面打开时：处理设置项点击或返回
       if (isSettingsOpen()) {
         const result = handleSettingsClick(clickY);
@@ -56,6 +58,14 @@ function start(): void {
       }
       // 否则进入加载阶段
       curPhase = PHASE_LOADING;
+    } else if (curPhase === PHASE_PLAY) {
+      // 检查是否点击了音效图标
+      const sndArea = getSoundIconArea();
+      const dx = clickX - sndArea.x;
+      const dy = clickY - sndArea.y;
+      if (dx * dx + dy * dy <= sndArea.r * sndArea.r) {
+        toggleSound();
+      }
     } else if (curPhase === PHASE_GAME_OVER) {
       resetGameScore();
       resetLevel();

@@ -48,6 +48,9 @@ export type TextKey =
   | "settings.lang.zh"   // "中文" / "Chinese"
   | "settings.lang.en"   // "English" / "English"
   | "settings.lang.ja"   // "日本語" / "Japanese"
+  | "settings.sound"     // "音效" / "SOUND"
+  | "settings.sound.on"  // "开" / "ON"
+  | "settings.sound.off" // "关" / "OFF"
   | "settings.back"      // "返回" / "BACK"
   // HTML
   | "html.title"         // "飞机大战网页版"
@@ -85,6 +88,9 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "settings.lang.zh": "中文",
     "settings.lang.en": "English",
     "settings.lang.ja": "日本語",
+    "settings.sound": "音效",
+    "settings.sound.on": "开",
+    "settings.sound.off": "关",
     "settings.back": "返回",
     "html.title": "飞机大战网页版",
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
@@ -119,6 +125,9 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "settings.lang.zh": "Chinese",
     "settings.lang.en": "English",
     "settings.lang.ja": "Japanese",
+    "settings.sound": "SOUND",
+    "settings.sound.on": "ON",
+    "settings.sound.off": "OFF",
     "settings.back": "BACK",
     "html.title": "Plane War Web",
     "html.unsupported": "Your browser does not support canvas!!!",
@@ -153,6 +162,9 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "settings.lang.zh": "中国語",
     "settings.lang.en": "英語",
     "settings.lang.ja": "日本語",
+    "settings.sound": "サウンド",
+    "settings.sound.on": "オン",
+    "settings.sound.off": "オフ",
     "settings.back": "戻る",
     "html.title": "エアバトル Web",
     "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",

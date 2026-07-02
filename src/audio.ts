@@ -176,6 +176,17 @@ const audioConfig: AudioConfig = {
 
 let audioCtx: AudioContext | null = null;
 
+// 音效开关状态（由 settings.ts 控制）
+let soundEnabled: boolean = true;
+
+function setSoundEnabled(enabled: boolean): void {
+  soundEnabled = enabled;
+}
+
+function isSoundEnabled(): boolean {
+  return soundEnabled;
+}
+
 function getAudioCtx(): AudioContext {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -219,6 +230,7 @@ function createNoiseBuffer(audioCtx: AudioContext, duration: number, amplitude: 
 // ========== 音效合成函数 ==========
 
 function playShoot(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.shoot;
   const ctx = getAudioCtx();
   const osc = ctx.createOscillator();
@@ -236,6 +248,7 @@ function playShoot(): void {
 }
 
 function playEnemyDestroySmall(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.enemyDestroySmall;
   const ctx = getAudioCtx();
   const now = ctx.currentTime;
@@ -266,6 +279,7 @@ function playEnemyDestroySmall(): void {
 }
 
 function playEnemyDestroyMedium(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.enemyDestroyMedium;
   const ctx = getAudioCtx();
   const now = ctx.currentTime;
@@ -296,6 +310,7 @@ function playEnemyDestroyMedium(): void {
 }
 
 function playEnemyDestroyBig(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.enemyDestroyBig;
   const ctx = getAudioCtx();
   const now = ctx.currentTime;
@@ -339,6 +354,7 @@ function playEnemyDestroyBig(): void {
 }
 
 function playHeal(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.heal;
   const ctx = getAudioCtx();
   c.notes.forEach((freq: number, i: number) => {
@@ -359,6 +375,7 @@ function playHeal(): void {
 }
 
 function playHit(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.hit;
   const ctx = getAudioCtx();
   const now = ctx.currentTime;
@@ -417,6 +434,7 @@ function playHit(): void {
 
 // 敌机受击音效：轻量短促的单音，子弹击中敌机但未击毁时播放
 function playEnemyHit(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.enemyHit;
   const ctx = getAudioCtx();
   const osc = ctx.createOscillator();
@@ -434,6 +452,7 @@ function playEnemyHit(): void {
 }
 
 function playGameOver(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.gameOver;
   const ctx = getAudioCtx();
   c.notes.forEach((freq: number, i: number) => {
@@ -454,6 +473,7 @@ function playGameOver(): void {
 }
 
 function playFirepower(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.firepower;
   const ctx = getAudioCtx();
   const now = ctx.currentTime;
@@ -486,6 +506,7 @@ function playFirepower(): void {
 }
 
 function playShield(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.shield;
   const ctx = getAudioCtx();
   c.notes.forEach((freq: number, i: number) => {
@@ -506,6 +527,7 @@ function playShield(): void {
 }
 
 function playSpread(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.spread;
   const ctx = getAudioCtx();
   c.notes.forEach((freq: number, i: number) => {
@@ -526,6 +548,7 @@ function playSpread(): void {
 }
 
 function playLevelUp(): void {
+  if (!soundEnabled) return;
   const c = audioConfig.levelUp;
   const ctx = getAudioCtx();
   c.notes.forEach((freq: number, i: number) => {
@@ -548,6 +571,8 @@ function playLevelUp(): void {
 export {
   audioConfig,
   resumeAudio,
+  setSoundEnabled,
+  isSoundEnabled,
   playShoot,
   playEnemyDestroySmall,
   playEnemyDestroyMedium,

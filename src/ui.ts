@@ -347,6 +347,7 @@ function drawSettings(): void {
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
+    const isToggleType = item.toggle !== undefined;
 
     // 标签（左侧）
     ctx.textAlign = "left";
@@ -354,49 +355,78 @@ function drawSettings(): void {
     ctx.font = `${itemFontSize}px arial`;
     ctx.fillText(t(item.label), Math.round(30 * fontScale), curY);
 
-    // 当前选项 + ▼/▲ 指示（右侧），点击展开/收起
-    const currentIdx = item.current();
-    const isExpanded = expandedItem === i;
-    const arrow = isExpanded ? " ▲" : " ▼";
-    const optionText = t(item.optionLabels[currentIdx]) + arrow;
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#ffd700";
-    ctx.font = `bold ${optionFontSize}px arial`;
-    ctx.fillText(optionText, width - Math.round(30 * fontScale), curY);
+    if (isToggleType) {
+      // 开关型设置项：radio 样式 ○ 关  ● 开
+      const isOn = item.toggle!();
+      const radioFontSize = Math.round(16 * fontScale);
+      const rightX = width - Math.round(30 * fontScale);
 
-    // 记录当前行的点击区域（点击展开/收起）
-    settingHitAreas.push({
-      y: curY - lineH * 0.7,
-      h: lineH * 0.9,
-      type: "toggle",
-      itemIndex: i,
-      optionIndex: -1,
-    });
+      // "关" 选项（左侧）
+      ctx.font = `${radioFontSize}px arial`;
+      ctx.textAlign = "right";
+      const offX = rightX - Math.round(55 * fontScale);
+      ctx.fillStyle = !isOn ? "#f44" : "#888";
+      ctx.fillText((!isOn ? "● " : "○ ") + t("settings.sound.off"), offX, curY);
 
-    curY += lineH * 0.3;
+      // "开" 选项（右侧）
+      ctx.textAlign = "right";
+      ctx.fillStyle = isOn ? "#4f4" : "#888";
+      ctx.fillText((isOn ? "● " : "○ ") + t("settings.sound.on"), rightX, curY);
 
-    // 展开时绘制下拉选项列表
-    if (isExpanded) {
-      for (let j = 0; j < item.optionLabels.length; j++) {
-        curY += optionLineH;
-        const isSelected = j === currentIdx;
-        const prefix = isSelected ? "● " : "  ";
-        ctx.textAlign = "right";
-        ctx.fillStyle = isSelected ? "#ffd700" : "#aaa";
-        ctx.font = `${optionFontSize}px arial`;
-        ctx.fillText(prefix + t(item.optionLabels[j]), width - Math.round(30 * fontScale), curY);
+      // 记录点击区域
+      settingHitAreas.push({
+        y: curY - lineH * 0.7,
+        h: lineH * 0.9,
+        type: "toggle",
+        itemIndex: i,
+        optionIndex: -1,
+      });
 
-        settingHitAreas.push({
-          y: curY - optionLineH * 0.7,
-          h: optionLineH * 0.9,
-          type: "option",
-          itemIndex: i,
-          optionIndex: j,
-        });
+      curY += lineH;
+    } else {
+      // 下拉选择型设置项
+      const currentIdx = item.current ? item.current() : 0;
+      const isExpanded = expandedItem === i;
+      const arrow = isExpanded ? " ▲" : " ▼";
+      const optionText = (item.optionLabels ? t(item.optionLabels[currentIdx]) : "") + arrow;
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#ffd700";
+      ctx.font = `bold ${optionFontSize}px arial`;
+      ctx.fillText(optionText, width - Math.round(30 * fontScale), curY);
+
+      settingHitAreas.push({
+        y: curY - lineH * 0.7,
+        h: lineH * 0.9,
+        type: "toggle",
+        itemIndex: i,
+        optionIndex: -1,
+      });
+
+      curY += lineH * 0.3;
+
+      // 展开时绘制下拉选项列表
+      if (isExpanded && item.optionLabels) {
+        for (let j = 0; j < item.optionLabels.length; j++) {
+          curY += optionLineH;
+          const isSelected = j === currentIdx;
+          const prefix = isSelected ? "● " : "  ";
+          ctx.textAlign = "right";
+          ctx.fillStyle = isSelected ? "#ffd700" : "#aaa";
+          ctx.font = `${optionFontSize}px arial`;
+          ctx.fillText(prefix + t(item.optionLabels[j]), width - Math.round(30 * fontScale), curY);
+
+          settingHitAreas.push({
+            y: curY - optionLineH * 0.7,
+            h: optionLineH * 0.9,
+            type: "option",
+            itemIndex: i,
+            optionIndex: j,
+          });
+        }
       }
-    }
 
-    curY += lineH * 0.7;
+      curY += lineH * 0.7;
+    }
   }
 
   // 返回按钮
@@ -425,14 +455,20 @@ function handleSettingsClick(clickY: number): "option" | "back" | null {
         return "back";
       }
       if (area.type === "toggle") {
-        // 点击已展开的项则收起，否则展开
-        expandedItem = expandedItem === area.itemIndex ? -1 : area.itemIndex;
+        const item = getSettingItems()[area.itemIndex];
+        if (item.toggle !== undefined) {
+          // 开关型：直接切换
+          item.onToggle!();
+        } else {
+          // 下拉型：点击已展开的项则收起，否则展开
+          expandedItem = expandedItem === area.itemIndex ? -1 : area.itemIndex;
+        }
         return "option";
       }
       if (area.type === "option") {
         // 选中某选项
         const item = getSettingItems()[area.itemIndex];
-        item.select(area.optionIndex);
+        item.select!(area.optionIndex);
         expandedItem = -1;
         return "option";
       }

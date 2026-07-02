@@ -88,6 +88,14 @@ const audioConfig = {
     },
 };
 let audioCtx = null;
+// 音效开关状态（由 settings.ts 控制）
+let soundEnabled = true;
+function setSoundEnabled(enabled) {
+    soundEnabled = enabled;
+}
+function isSoundEnabled() {
+    return soundEnabled;
+}
 function getAudioCtx() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -126,6 +134,8 @@ function createNoiseBuffer(audioCtx, duration, amplitude) {
 }
 // ========== 音效合成函数 ==========
 function playShoot() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.shoot;
     const ctx = getAudioCtx();
     const osc = ctx.createOscillator();
@@ -142,6 +152,8 @@ function playShoot() {
     osc.stop(ctx.currentTime + c.duration);
 }
 function playEnemyDestroySmall() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.enemyDestroySmall;
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
@@ -168,6 +180,8 @@ function playEnemyDestroySmall() {
     osc.stop(now + c.tone.duration);
 }
 function playEnemyDestroyMedium() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.enemyDestroyMedium;
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
@@ -194,6 +208,8 @@ function playEnemyDestroyMedium() {
     osc.stop(now + c.tone.duration);
 }
 function playEnemyDestroyBig() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.enemyDestroyBig;
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
@@ -232,6 +248,8 @@ function playEnemyDestroyBig() {
     osc2.stop(now + c.tone2.duration);
 }
 function playHeal() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.heal;
     const ctx = getAudioCtx();
     c.notes.forEach((freq, i) => {
@@ -251,6 +269,8 @@ function playHeal() {
     });
 }
 function playHit() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.hit;
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
@@ -303,6 +323,8 @@ function playHit() {
 }
 // 敌机受击音效：轻量短促的单音，子弹击中敌机但未击毁时播放
 function playEnemyHit() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.enemyHit;
     const ctx = getAudioCtx();
     const osc = ctx.createOscillator();
@@ -319,6 +341,8 @@ function playEnemyHit() {
     osc.stop(ctx.currentTime + c.duration);
 }
 function playGameOver() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.gameOver;
     const ctx = getAudioCtx();
     c.notes.forEach((freq, i) => {
@@ -338,6 +362,8 @@ function playGameOver() {
     });
 }
 function playFirepower() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.firepower;
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
@@ -367,6 +393,8 @@ function playFirepower() {
     noise.stop(now + c.noise.duration);
 }
 function playShield() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.shield;
     const ctx = getAudioCtx();
     c.notes.forEach((freq, i) => {
@@ -386,6 +414,8 @@ function playShield() {
     });
 }
 function playSpread() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.spread;
     const ctx = getAudioCtx();
     c.notes.forEach((freq, i) => {
@@ -405,6 +435,8 @@ function playSpread() {
     });
 }
 function playLevelUp() {
+    if (!soundEnabled)
+        return;
     const c = audioConfig.levelUp;
     const ctx = getAudioCtx();
     c.notes.forEach((freq, i) => {
@@ -423,4 +455,4 @@ function playLevelUp() {
         osc.stop(startTime + c.duration);
     });
 }
-export { audioConfig, resumeAudio, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, };
+export { audioConfig, resumeAudio, setSoundEnabled, isSoundEnabled, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, };

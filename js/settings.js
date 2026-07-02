@@ -1,8 +1,10 @@
 // 游戏设置模块 - 集中管理可配置项，支持持久化和扩展
 import { setLocale } from "./i18n.js";
+import { setSoundEnabled } from "./audio.js";
 // ========== 默认设置 ==========
 const DEFAULT_SETTINGS = {
     locale: "zh",
+    soundEnabled: true,
 };
 // ========== 当前设置 ==========
 let settings = { ...DEFAULT_SETTINGS };
@@ -16,13 +18,17 @@ function loadSettings() {
             if (parsed.locale) {
                 settings.locale = parsed.locale;
             }
+            if (typeof parsed.soundEnabled === "boolean") {
+                settings.soundEnabled = parsed.soundEnabled;
+            }
         }
     }
     catch {
         // localStorage 不可用或数据损坏，使用默认值
     }
-    // 同步到 i18n 模块
+    // 同步到各模块
     setLocale(settings.locale);
+    setSoundEnabled(settings.soundEnabled);
 }
 function saveSettings() {
     try {
@@ -47,6 +53,16 @@ const settingItems = [
             saveSettings();
         },
     },
+    {
+        key: "soundEnabled",
+        label: "settings.sound",
+        toggle: () => settings.soundEnabled,
+        onToggle: () => {
+            settings.soundEnabled = !settings.soundEnabled;
+            setSoundEnabled(settings.soundEnabled);
+            saveSettings();
+        },
+    },
 ];
 function getSettingItems() {
     return settingItems;
@@ -61,5 +77,13 @@ function openSettings() {
 function closeSettings() {
     settingsOpen = false;
 }
+function isSoundEnabled() {
+    return settings.soundEnabled;
+}
+function toggleSound() {
+    settings.soundEnabled = !settings.soundEnabled;
+    setSoundEnabled(settings.soundEnabled);
+    saveSettings();
+}
 // 导出供 engine.ts 使用
-export { loadSettings, getSettingItems, isSettingsOpen, openSettings, closeSettings, };
+export { loadSettings, getSettingItems, isSettingsOpen, openSettings, closeSettings, isSoundEnabled, toggleSound, };

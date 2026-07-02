@@ -6,6 +6,7 @@ import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp } from "./audio.js";
+import { isSoundEnabled } from "./settings.js";
 import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext, getLevelBonuses } from "./level.js";
 import { buffConfig, heroConfig, itemConfig, bulletConfig } from "./config.js";
@@ -402,6 +403,28 @@ class Hero {
         else {
             ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - Math.round(1 * fontScale));
         }
+        // 音效开关图标：绘制在经验条左侧
+        const sndIconSize = Math.round(22 * fontScale);
+        const sndIconR = sndIconSize / 2;
+        const sndIconX = barX - sndIconSize - Math.round(4 * fontScale);
+        const sndIconY = barY + barHeight / 2;
+        ctx.save();
+        ctx.font = `bold ${sndIconSize}px arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const sndEnabled = isSoundEnabled();
+        ctx.fillStyle = sndEnabled ? "#fff" : "#666";
+        ctx.fillText("♪", sndIconX, sndIconY);
+        if (!sndEnabled) {
+            // 红色斜线表示静音
+            ctx.strokeStyle = "#f44";
+            ctx.lineWidth = Math.round(2 * fontScale);
+            ctx.beginPath();
+            ctx.moveTo(sndIconX - sndIconR * 0.6, sndIconY - sndIconR * 0.6);
+            ctx.lineTo(sndIconX + sndIconR * 0.6, sndIconY + sndIconR * 0.6);
+            ctx.stroke();
+        }
+        ctx.restore();
         ctx.textAlign = "left";
     }
     _checkLevelUp() {
@@ -561,5 +584,16 @@ function getHeroMaxHp() {
 function getHeroBuffs() {
     return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
 }
-export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs };
+function getSoundIconArea() {
+    // 音效图标位置：经验条左侧（与 _drawLevel 一致）
+    const barWidth = Math.round(110 * fontScale);
+    const barHeight = Math.round(10 * fontScale);
+    const barX = width - barWidth - Math.round(10 * fontScale);
+    const barY = Math.round(26 * fontScale);
+    const sndIconSize = Math.round(22 * fontScale);
+    const sndIconX = barX - sndIconSize - Math.round(4 * fontScale);
+    const sndIconY = barY + barHeight / 2;
+    return { x: sndIconX, y: sndIconY, r: sndIconSize / 2 };
+}
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getSoundIconArea };
 export default Hero;
