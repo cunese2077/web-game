@@ -25,6 +25,12 @@ function bindEventsOnce() {
             activeHero._setCurrentPhase(PHASE_PLAY);
             const offsetX = e instanceof MouseEvent ? e.offsetX : e.touches[0].pageX;
             const offsetY = e instanceof MouseEvent ? e.offsetY : e.touches[0].pageY;
+            // 排除音效按钮区域：点击按钮时不应移动战机
+            const sndArea = getSoundIconArea();
+            if (offsetX >= sndArea.x && offsetX < sndArea.x + sndArea.w &&
+                offsetY >= sndArea.y && offsetY < sndArea.y + sndArea.h) {
+                return;
+            }
             const w = heroImg[0].width;
             const h = heroImg[0].height;
             let nx = offsetX - w / 2;
@@ -403,25 +409,45 @@ class Hero {
         else {
             ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - Math.round(1 * fontScale));
         }
-        // 音效开关图标：绘制在经验条左侧
+        // 音效开关图标：♫（开启）/ ♫+斜杠（静音）
         const sndIconSize = Math.round(22 * fontScale);
-        const sndIconR = sndIconSize / 2;
-        const sndIconX = barX - sndIconSize - Math.round(4 * fontScale);
+        const sndIconX = barX - sndIconSize - Math.round(6 * fontScale);
         const sndIconY = barY + barHeight / 2;
+        const sndEnabled = isSoundEnabled();
+        // 按钮背景
+        const btnW = Math.round(28 * fontScale);
+        const btnH = Math.round(22 * fontScale);
+        const btnR = Math.round(5 * fontScale);
+        const btnX = sndIconX - btnW / 2;
+        const btnY = sndIconY - btnH / 2;
         ctx.save();
-        ctx.font = `bold ${sndIconSize}px arial`;
+        ctx.fillStyle = sndEnabled ? "rgba(255,255,255,0.1)" : "rgba(255,60,60,0.08)";
+        ctx.beginPath();
+        ctx.moveTo(btnX + btnR, btnY);
+        ctx.lineTo(btnX + btnW - btnR, btnY);
+        ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + btnR, btnR);
+        ctx.lineTo(btnX + btnW, btnY + btnH - btnR);
+        ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - btnR, btnY + btnH, btnR);
+        ctx.lineTo(btnX + btnR, btnY + btnH);
+        ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - btnR, btnR);
+        ctx.lineTo(btnX, btnY + btnR);
+        ctx.arcTo(btnX, btnY, btnX + btnR, btnY, btnR);
+        ctx.closePath();
+        ctx.fill();
+        // ♫ 音符符号
+        ctx.font = `${Math.round(16 * fontScale)}px serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        const sndEnabled = isSoundEnabled();
-        ctx.fillStyle = sndEnabled ? "#fff" : "#666";
-        ctx.fillText("♪", sndIconX, sndIconY);
+        ctx.fillStyle = sndEnabled ? "#fff" : "#aaa";
+        ctx.fillText("♫", sndIconX, sndIconY + Math.round(1 * fontScale));
+        // 静音时叠加红色斜杠
         if (!sndEnabled) {
-            // 红色斜线表示静音
             ctx.strokeStyle = "#f44";
             ctx.lineWidth = Math.round(2 * fontScale);
+            ctx.lineCap = "round";
             ctx.beginPath();
-            ctx.moveTo(sndIconX - sndIconR * 0.6, sndIconY - sndIconR * 0.6);
-            ctx.lineTo(sndIconX + sndIconR * 0.6, sndIconY + sndIconR * 0.6);
+            ctx.moveTo(btnX + Math.round(3 * fontScale), btnY + Math.round(3 * fontScale));
+            ctx.lineTo(btnX + btnW - Math.round(3 * fontScale), btnY + btnH - Math.round(3 * fontScale));
             ctx.stroke();
         }
         ctx.restore();
@@ -585,15 +611,17 @@ function getHeroBuffs() {
     return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
 }
 function getSoundIconArea() {
-    // 音效图标位置：经验条左侧（与 _drawLevel 一致）
+    // 音效按钮位置：经验条左侧（与 _drawLevel 一致）
     const barWidth = Math.round(110 * fontScale);
     const barHeight = Math.round(10 * fontScale);
     const barX = width - barWidth - Math.round(10 * fontScale);
     const barY = Math.round(26 * fontScale);
     const sndIconSize = Math.round(22 * fontScale);
-    const sndIconX = barX - sndIconSize - Math.round(4 * fontScale);
+    const sndIconX = barX - sndIconSize - Math.round(6 * fontScale);
     const sndIconY = barY + barHeight / 2;
-    return { x: sndIconX, y: sndIconY, r: sndIconSize / 2 };
+    const btnW = Math.round(28 * fontScale);
+    const btnH = Math.round(22 * fontScale);
+    return { x: sndIconX - btnW / 2, y: sndIconY - btnH / 2, w: btnW, h: btnH };
 }
 export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getSoundIconArea };
 export default Hero;

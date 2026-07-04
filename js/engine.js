@@ -47,11 +47,10 @@ function start() {
             curPhase = PHASE_LOADING;
         }
         else if (curPhase === PHASE_PLAY) {
-            // 检查是否点击了音效图标
+            // 检查是否点击了音效按钮
             const sndArea = getSoundIconArea();
-            const dx = clickX - sndArea.x;
-            const dy = clickY - sndArea.y;
-            if (dx * dx + dy * dy <= sndArea.r * sndArea.r) {
+            if (clickX >= sndArea.x && clickX < sndArea.x + sndArea.w &&
+                clickY >= sndArea.y && clickY < sndArea.y + sndArea.h) {
                 toggleSound();
             }
         }

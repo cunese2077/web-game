@@ -826,12 +826,19 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - **语言切换**：支持中文/English/日本語 三语言切换，即时生效
 - **音效控制**：
   - 设置界面："音效" radio 开关，绿色开/红色关
-  - 游戏 HUD：右上角经验条左侧 `♪` 图标，开启白色/关闭灰色+红色斜线
+  - 游戏 HUD：右上角经验条左侧 `♫` 音符图标（圆角按钮背景），开启时白色音符、关闭时灰色音符+红色斜杠
   - `src/audio.ts` 12 个 play 函数入口加 `if (!soundEnabled) return;` early return
-  - 点击 HUD 图标圆形碰撞检测，命中调用 `toggleSound()`
+  - 点击 HUD 图标矩形碰撞检测，命中调用 `toggleSound()`
 - **新增 TextKey**：`start.settings`、`settings.title`、`settings.language`、`settings.lang.zh`、`settings.lang.en`、`settings.lang.ja`、`settings.sound`、`settings.sound.on`、`settings.sound.off`、`settings.back`
 - **新增文件**：`src/settings.ts`
 - **改动文件**：`src/i18n.ts`、`src/ui.ts`、`src/engine.ts`、`src/audio.ts`、`src/hero.ts`
+
+#### [已修复] 音效图标优化 + 点击导致战机移动 + 冗余变量清理
+
+- **问题 1：音效图标样式不佳**：HUD 音效图标从 Canvas 路径绘制的喇叭形状改为 `♫` 文字符号 + 圆角按钮背景，静音时在按钮上叠加红色斜杠。图标位于右上角经验条左侧，尺寸 22*fontScale。用户调研了多种游戏音效图标方案后选择了此方案。
+- **问题 2：点击音效图标导致战机移动**：hero 的 `mousemove`/`touchmove` 事件处理器监听全局移动事件，点击音效按钮时事件也会触发，导致战机瞬移到按钮位置。修复方式：在 move 处理器中增加音效按钮区域排除检测，点击落在按钮矩形区域内时 `return` 不移动战机。`getSoundIconArea()` 返回矩形 `{x, y, w, h}`，与 engine.ts 中点击检测使用的区域一致。
+- **问题 3：冗余全局变量**：移除了 `soundIconY`/`soundIconR` 两个模块级全局变量。`_drawLevel()` 改用局部变量计算图标位置，`getSoundIconArea()` 独立重新计算位置（两处计算逻辑相同但参数来源不同，保持各自独立避免耦合）。
+- **修改文件**：`src/hero.ts`（图标绘制+move 排除+变量清理）、`src/engine.ts`（矩形碰撞检测替代圆形）
 
 ---
 
