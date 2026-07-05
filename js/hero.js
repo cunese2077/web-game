@@ -621,7 +621,15 @@ function getSoundIconArea() {
     const sndIconY = barY + barHeight / 2;
     const btnW = Math.round(28 * fontScale);
     const btnH = Math.round(22 * fontScale);
-    return { x: sndIconX - btnW / 2, y: sndIconY - btnH / 2, w: btnW, h: btnH };
+    // 触控设备扩大热区：视觉不变，仅增大隐形触控范围，避免手指偏移导致战机移动
+    const isTouch = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+    const pad = isTouch ? Math.round(10 * fontScale) : 0;
+    return {
+        x: sndIconX - btnW / 2 - pad,
+        y: sndIconY - btnH / 2 - pad,
+        w: btnW + pad * 2,
+        h: btnH + pad * 2,
+    };
 }
 export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getSoundIconArea };
 export default Hero;
