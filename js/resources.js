@@ -5,7 +5,6 @@ const imgName = [
     "background.png",
     "game_pause_nor.png",
     "m1.png",
-    "start.png",
     // 敌机1
     [
         "enemy1.png",
@@ -55,7 +54,6 @@ const imgName = [
 let bg = new Image();
 let pause = new Image();
 let m = new Image();
-let startImg = new Image();
 let enemy1 = [];
 let enemy2 = [];
 let enemy3 = [];
@@ -97,12 +95,11 @@ function download(callback) {
     bg = nImg(imgName[0]);
     pause = nImg(imgName[1]);
     m = nImg(imgName[2]);
-    startImg = nImg(imgName[3]);
-    const e1 = imgName[4];
-    const e2 = imgName[5];
-    const e3 = imgName[6];
-    const gl = imgName[7];
-    const hi = imgName[8];
+    const e1 = imgName[3];
+    const e2 = imgName[4];
+    const e3 = imgName[5];
+    const gl = imgName[6];
+    const hi = imgName[7];
     for (let i = 0; i < e1.length; i++) {
         enemy1[i] = nImg(e1[i]);
     }
@@ -119,4 +116,4 @@ function download(callback) {
         heroImg[i] = nImg(hi[i]);
     }
 }
-export { download, bg, pause, m, startImg, enemy1, enemy2, enemy3, gameLoad, heroImg, };
+export { download, bg, pause, m, enemy1, enemy2, enemy3, gameLoad, heroImg, };

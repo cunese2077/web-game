@@ -6,7 +6,6 @@ const imgName: (string | string[])[] = [
   "background.png",
   "game_pause_nor.png",
   "m1.png",
-  "start.png",
   // 敌机1
   [
     "enemy1.png",
@@ -57,7 +56,6 @@ const imgName: (string | string[])[] = [
 let bg: HTMLImageElement = new Image();
 let pause: HTMLImageElement = new Image();
 let m: HTMLImageElement = new Image();
-let startImg: HTMLImageElement = new Image();
 let enemy1: HTMLImageElement[] = [];
 let enemy2: HTMLImageElement[] = [];
 let enemy3: HTMLImageElement[] = [];
@@ -105,13 +103,12 @@ function download(callback: () => void): void {
   bg = nImg(imgName[0] as string);
   pause = nImg(imgName[1] as string);
   m = nImg(imgName[2] as string);
-  startImg = nImg(imgName[3] as string);
 
-  const e1 = imgName[4] as string[];
-  const e2 = imgName[5] as string[];
-  const e3 = imgName[6] as string[];
-  const gl = imgName[7] as string[];
-  const hi = imgName[8] as string[];
+  const e1 = imgName[3] as string[];
+  const e2 = imgName[4] as string[];
+  const e3 = imgName[5] as string[];
+  const gl = imgName[6] as string[];
+  const hi = imgName[7] as string[];
 
   for (let i = 0; i < e1.length; i++) {
     enemy1[i] = nImg(e1[i]);
@@ -135,7 +132,6 @@ export {
   bg,
   pause,
   m,
-  startImg,
   enemy1,
   enemy2,
   enemy3,
