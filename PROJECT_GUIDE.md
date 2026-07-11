@@ -841,6 +841,12 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - **问题 4：移动端音效按钮热区太小**：触控设备上按钮视觉尺寸仅 28×22 像素，手指触摸容易偏移到热区外导致战机移动。修复方式：`getSoundIconArea()` 在触控设备上自动扩大热区（每侧加 10*fontScale 像素 padding），视觉不变，仅增大隐形触控检测范围。移动端热区约 48×42 像素，桌面端不受影响。
 - **修改文件**：`src/hero.ts`（图标绘制+move 排除+变量清理+热区扩大）、`src/engine.ts`（矩形碰撞检测替代圆形）
 
+#### [已修复] 移除未使用资源加载
+
+- **问题**：`start.png`（48KB）在 `resources.ts` 中被加载赋给 `startImg` 变量并导出，但开始界面已改为 Canvas 绘制文本（i18n 多语言支持），`startImg` 无任何模块 import，属于加载了但从未使用的资源，白占一个 HTTP 请求和加载时间。
+- **修复**：从 `imgName` 数组移除 `"start.png"`，移除 `startImg` 变量声明和赋值，移除 `export { startImg }`，同步调整 `imgName` 后续索引（e1 从 index 4→3，e2 从 5→4，以此类推）。图片总数从 33 减少到 32。
+- **修改文件**：`src/resources.ts`
+
 ---
 
 ## 八、版本信息
