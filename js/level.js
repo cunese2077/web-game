@@ -79,10 +79,10 @@ function getLevelBonuses() {
     };
 }
 // 获取敌机经验奖励
-function getExpReward(enemySpeed) {
-    if (enemySpeed === 2)
+function getExpReward(enemyType) {
+    if (enemyType === "big")
         return levelConfig.expRewards.big;
-    if (enemySpeed === 4)
+    if (enemyType === "medium")
         return levelConfig.expRewards.medium;
     return levelConfig.expRewards.small;
 }

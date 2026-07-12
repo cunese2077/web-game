@@ -1,6 +1,6 @@
 // 等级管理模块（独立于 hero.ts，避免循环依赖）
 import { levelConfig } from "./config.js";
-import type { LevelBonuses } from "./types.js";
+import type { LevelBonuses, EnemyType } from "./types.js";
 
 let level: number = 1;
 let exp: number = 0;
@@ -96,9 +96,9 @@ function getLevelBonuses(): LevelBonuses {
 }
 
 // 获取敌机经验奖励
-function getExpReward(enemySpeed: number): number {
-  if (enemySpeed === 2) return levelConfig.expRewards.big;
-  if (enemySpeed === 4) return levelConfig.expRewards.medium;
+function getExpReward(enemyType: EnemyType): number {
+  if (enemyType === "big") return levelConfig.expRewards.big;
+  if (enemyType === "medium") return levelConfig.expRewards.medium;
   return levelConfig.expRewards.small;
 }
 

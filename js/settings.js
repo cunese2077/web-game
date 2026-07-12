@@ -5,6 +5,7 @@ import { setSoundEnabled } from "./audio.js";
 const DEFAULT_SETTINGS = {
     locale: "zh",
     soundEnabled: true,
+    difficulty: "normal",
 };
 // ========== 当前设置 ==========
 let settings = { ...DEFAULT_SETTINGS };
@@ -20,6 +21,9 @@ function loadSettings() {
             }
             if (typeof parsed.soundEnabled === "boolean") {
                 settings.soundEnabled = parsed.soundEnabled;
+            }
+            if (parsed.difficulty === "normal" || parsed.difficulty === "medium" || parsed.difficulty === "hard") {
+                settings.difficulty = parsed.difficulty;
             }
         }
     }
@@ -40,6 +44,8 @@ function saveSettings() {
 }
 // ========== 语言选项 ==========
 const LOCALE_OPTIONS = ["zh", "en", "ja"];
+// ========== 难度选项 ==========
+const DIFFICULTY_OPTIONS = ["normal", "medium", "hard"];
 // ========== 设置项数组（数据驱动，新增设置只需在此添加） ==========
 const settingItems = [
     {
@@ -60,6 +66,16 @@ const settingItems = [
         onToggle: () => {
             settings.soundEnabled = !settings.soundEnabled;
             setSoundEnabled(settings.soundEnabled);
+            saveSettings();
+        },
+    },
+    {
+        key: "difficulty",
+        label: "settings.difficulty",
+        optionLabels: ["difficulty.normal", "difficulty.medium", "difficulty.hard"],
+        current: () => DIFFICULTY_OPTIONS.indexOf(settings.difficulty),
+        select: (index) => {
+            settings.difficulty = DIFFICULTY_OPTIONS[index];
             saveSettings();
         },
     },
@@ -85,5 +101,8 @@ function toggleSound() {
     setSoundEnabled(settings.soundEnabled);
     saveSettings();
 }
+function getDifficulty() {
+    return settings.difficulty;
+}
 // 导出供 engine.ts 使用
-export { loadSettings, getSettingItems, isSettingsOpen, openSettings, closeSettings, isSoundEnabled, toggleSound, };
+export { loadSettings, getSettingItems, isSettingsOpen, openSettings, closeSettings, isSoundEnabled, toggleSound, getDifficulty, };

@@ -6,10 +6,10 @@ import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp } from "./audio.js";
-import { isSoundEnabled } from "./settings.js";
+import { isSoundEnabled, getDifficulty } from "./settings.js";
 import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext, getLevelBonuses, addExp, resetLevel } from "./level.js";
-import { buffConfig, heroConfig, itemConfig, bulletConfig } from "./config.js";
+import { buffConfig, heroConfig, itemConfig, bulletConfig, getDifficultyConfig } from "./config.js";
 import { t } from "./i18n.js";
 import type { GamePhase, BuffState, BuffFloat, ItemType, LevelBonuses } from "./types.js";
 
@@ -207,7 +207,9 @@ class Hero {
     }
 
     this.eCount++;
-    if (this.eCount % 8 === 0) {
+    const diffConfig = getDifficultyConfig(getDifficulty());
+    const spawnInterval = Math.max(1, Math.round(heroConfig.enemySpawnInterval * diffConfig.enemySpawnRateMultiplier));
+    if (this.eCount % spawnInterval === 0) {
       Enemy.add(new Enemy());
       this.eCount = 0;
     }
@@ -347,7 +349,7 @@ class Hero {
   // 与右下 HP 条对称，半透明黑底圆角矩形避免遮挡游戏画面
   // 升级瞬间（levelUpAnim > 0）面板边框高亮，强化成长反馈
   _drawStats(): void {
-    // 计算当前属性值（与 enemy.ts hit() 和 draw() 中的逻辑一致）
+    // 计算当前属性值（与 enemy.ts hit() 中的逻辑一致）
     const baseDamage = bulletConfig.baseDamage + this.levelBonuses.extraDamage;
     const hasFirepower = this.buffs.firepower > 0;
     const currentDamage = baseDamage * (hasFirepower ? buffConfig.firepower.damageMultiplier : 1);

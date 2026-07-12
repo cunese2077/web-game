@@ -52,6 +52,11 @@ export type TextKey =
   | "settings.sound.on"  // "开" / "ON"
   | "settings.sound.off" // "关" / "OFF"
   | "settings.back"      // "返回" / "BACK"
+  // 难度
+  | "settings.difficulty"    // "难度" / "DIFFICULTY"
+  | "difficulty.normal"      // "普通" / "NORMAL"
+  | "difficulty.medium"      // "中等" / "MEDIUM"
+  | "difficulty.hard"        // "困难" / "HARD"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"
@@ -92,6 +97,10 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "settings.sound.on": "开",
     "settings.sound.off": "关",
     "settings.back": "返回",
+    "settings.difficulty": "难度",
+    "difficulty.normal": "普通",
+    "difficulty.medium": "中等",
+    "difficulty.hard": "困难",
     "html.title": "飞机大战网页版",
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
   },
@@ -129,6 +138,10 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "settings.sound.on": "ON",
     "settings.sound.off": "OFF",
     "settings.back": "BACK",
+    "settings.difficulty": "DIFFICULTY",
+    "difficulty.normal": "NORMAL",
+    "difficulty.medium": "MEDIUM",
+    "difficulty.hard": "HARD",
     "html.title": "Plane War Web",
     "html.unsupported": "Your browser does not support canvas!!!",
   },
@@ -166,6 +179,10 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "settings.sound.on": "オン",
     "settings.sound.off": "オフ",
     "settings.back": "戻る",
+    "settings.difficulty": "難易度",
+    "difficulty.normal": "普通",
+    "difficulty.medium": "中級",
+    "difficulty.hard": "ハード",
     "html.title": "エアバトル Web",
     "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",
   },

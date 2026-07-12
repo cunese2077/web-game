@@ -3,16 +3,19 @@ import { ctx, width, height, fontScale } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
-import { addExp, getExpReward, getLevelBonuses } from "./level.js";
+import { addExp, getExpReward, getLevelBonuses, getLevel } from "./level.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs } from "./hero.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit } from "./audio.js";
 import {
   enemyConfig,
+  enemySpawnScaling,
   buffConfig,
   bulletConfig,
   hitEffect,
+  getScaledEnemyStat,
+  getDifficultyConfig,
   getDynamicHealDropProb,
   getDynamicShieldDropProb,
   getDynamicBigFirepowerDropProb,
@@ -21,7 +24,8 @@ import {
   getDynamicSpreadDropProb,
   getDynamicBigEnemySpawnProb,
 } from "./config.js";
-import type { MoveType, BuffState, HpBarConfig } from "./types.js";
+import { getDifficulty } from "./settings.js";
+import type { MoveType, BuffState, HpBarConfig, EnemyType } from "./types.js";
 
 const liveEnemy: Enemy[] = [];
 
@@ -40,9 +44,11 @@ function getHpRatio(): number {
 class Enemy {
   n: number;
   enemy: HTMLImageElement;
+  type: EnemyType;            // 敌机类型标识（替代 speed 判断）
   speed: number;
   lives: number;
   maxLives: number;          // 初始血量（用于血量条比例计算）
+  score: number;             // 击毁得分（经过等级缩放）
   hpBarConfig: HpBarConfig;  // 当前敌机的血量条配置
   hitSoundCoolDown: number;  // 受击音效冷却剩余帧数
   x: number;
@@ -59,31 +65,52 @@ class Enemy {
 
   constructor() {
     const hpRatio = getHpRatio();
-    const bigEnemyProb = getDynamicBigEnemySpawnProb(hpRatio);
+    const level = getLevel();
+    const diffConfig = getDifficultyConfig(getDifficulty());
+
+    // 根据等级调整生成权重和大型敌机概率
+    const scaledSmallWeight = Math.max(1, enemyConfig.small.spawnWeight * (1 - enemySpawnScaling.smallWeightDecay * (level - 1)));
+    const scaledMediumWeight = enemyConfig.medium.spawnWeight * (1 + enemySpawnScaling.mediumWeightGrowth * (level - 1));
+    const scaledBigProbBase = enemyConfig.big.spawnProbBase + enemySpawnScaling.bigProbGrowth * (level - 1);
+    const scaledBigProbMax = Math.min(0.2, enemyConfig.big.spawnProbMax + enemySpawnScaling.bigProbGrowth * (level - 1));
+    const bigEnemyProb = scaledBigProbBase + (1 - hpRatio) * (scaledBigProbMax - scaledBigProbBase);
     const bigEnemyThreshold = bigEnemyProb * 20;
-    const midEnemyThreshold = bigEnemyThreshold + enemyConfig.medium.spawnWeight;
+    const midEnemyThreshold = bigEnemyThreshold + scaledMediumWeight;
 
     this.n = Math.random() * 20;
     this.speed = 0;
     this.lives = 2;
     this.maxLives = 2;
+    this.score = 0;
     this.hpBarConfig = enemyConfig.small.hpBar;
+    this.type = "small";
     this.hitSoundCoolDown = 0;
+
     if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
       this.enemy = enemy3[0];
-      this.speed = enemyConfig.big.speed;
-      this.lives = enemyConfig.big.hp;
+      this.type = "big";
+      // 难度乘数：speed × 速度乘数，HP × HP乘数，成长系数 × scaling乘数，分数 × HP乘数（与 HP 同比例）
+      this.speed = getScaledEnemyStat(enemyConfig.big.speed, enemyConfig.big.scaling.speedScale, level, true) * diffConfig.enemySpeedMultiplier;
+      this.lives = getScaledEnemyStat(enemyConfig.big.hp, enemyConfig.big.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
+      this.score = Math.ceil(getScaledEnemyStat(enemyConfig.big.score, enemyConfig.big.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
       this.hpBarConfig = enemyConfig.big.hpBar;
       bigEnemyCoolDown = enemyConfig.big.coolDownFrames;
     } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
-      this.speed = enemyConfig.medium.speed;
-      this.lives = enemyConfig.medium.hp;
+      this.type = "medium";
+      this.speed = getScaledEnemyStat(enemyConfig.medium.speed, enemyConfig.medium.scaling.speedScale, level, true) * diffConfig.enemySpeedMultiplier;
+      this.lives = getScaledEnemyStat(enemyConfig.medium.hp, enemyConfig.medium.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
+      this.score = Math.ceil(getScaledEnemyStat(enemyConfig.medium.score, enemyConfig.medium.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
       this.hpBarConfig = enemyConfig.medium.hpBar;
     } else {
       this.enemy = enemy1[0];
-      this.speed = enemyConfig.small.speed;
+      this.type = "small";
+      this.speed = getScaledEnemyStat(enemyConfig.small.speed, enemyConfig.small.scaling.speedScale, level, true) * diffConfig.enemySpeedMultiplier;
+      this.lives = getScaledEnemyStat(enemyConfig.small.hp, enemyConfig.small.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
+      this.score = Math.ceil(getScaledEnemyStat(enemyConfig.small.score, enemyConfig.small.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
     }
+    // HP 取整：确保血量条显示的整数与实际值一致
+    this.lives = Math.max(1, Math.ceil(this.lives));
     this.maxLives = this.lives;
 
     this.x = parseInt(String(Math.random() * (width - this.enemy.width)));
@@ -101,9 +128,9 @@ class Enemy {
   }
 
   _getMoveType(): MoveType {
-    if (this.speed === enemyConfig.big.speed) {
+    if (this.type === "big") {
       return enemyConfig.big.move.type;
-    } else if (this.speed === enemyConfig.medium.speed) {
+    } else if (this.type === "medium") {
       return enemyConfig.medium.move.type;
     }
     return enemyConfig.small.move.type;
@@ -137,7 +164,7 @@ class Enemy {
   }
 
   draw(): void {
-    if (this.speed === enemyConfig.big.speed) {
+    if (this.type === "big") {
       if (this.die) {
         if (this.index < 2) {
           this.index = 3;
@@ -153,7 +180,7 @@ class Enemy {
       }
     } else if (this.die) {
       if (this.index < enemy1.length) {
-        if (this.speed === enemyConfig.small.speed) {
+        if (this.type === "small") {
           this.enemy = enemy1[this.index++];
         } else {
           this.enemy = enemy2[this.index++];
@@ -249,15 +276,12 @@ class Enemy {
         frameDamage += damageMultiplier;
         if (this.lives <= 0) {
           this.die = true;
-          const score = this.speed === enemyConfig.big.speed ? enemyConfig.big.score
-                       : this.speed === enemyConfig.medium.speed ? enemyConfig.medium.score
-                       : enemyConfig.small.score;
-          addGameScore(score);
-          addExp(getExpReward(this.speed));
-          addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), score);
-          if (this.speed === enemyConfig.big.speed) {
+          addGameScore(this.score);
+          addExp(getExpReward(this.type));
+          addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), this.score);
+          if (this.type === "big") {
             playEnemyDestroyBig();
-          } else if (this.speed === enemyConfig.medium.speed) {
+          } else if (this.type === "medium") {
             playEnemyDestroyMedium();
           } else {
             playEnemyDestroySmall();
@@ -298,7 +322,7 @@ class Enemy {
 
     const hpRatio = getHpRatio();
 
-    if (this.speed === enemyConfig.big.speed) {
+    if (this.type === "big") {
       const shieldProb = getDynamicShieldDropProb(hpRatio);
       const healProb = getDynamicHealDropProb(hpRatio);
       const firepowerProb = getDynamicBigFirepowerDropProb(hpRatio);
@@ -312,7 +336,7 @@ class Enemy {
         Item.add(cx, cy, "firepower");
       }
 
-    } else if (this.speed === enemyConfig.medium.speed) {
+    } else if (this.type === "medium") {
       const shieldProb = getDynamicMediumShieldDropProb(hpRatio);
       const firepowerProb = getDynamicMediumFirepowerDropProb(hpRatio);
       const spreadProb = getDynamicSpreadDropProb(hpRatio);

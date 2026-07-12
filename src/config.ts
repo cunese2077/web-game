@@ -1,6 +1,8 @@
 // 游戏配置模块 - 集中管理所有游戏参数，方便调优
 import type {
   EnemyConfig,
+  EnemySpawnScalingConfig,
+  DifficultyConfig,
   BuffConfig,
   DropConfig,
   ItemConfig,
@@ -10,6 +12,8 @@ import type {
   MoveType,
   HitEffectConfig,
 } from "./types.js";
+
+import type { Difficulty } from "./types.js";
 
 // ========== 敌机配置 ==========
 const enemyConfig: EnemyConfig = {
@@ -32,6 +36,12 @@ const enemyConfig: EnemyConfig = {
       colorLow: "#f44",    // 低血：红色
       midThreshold: 0.5,   // <=50% 转黄
       lowThreshold: 0.25,  // <=25% 转红
+    },
+    // 成长配置：小型敌机保持炮灰定位，不涨HP，略微加速增加躲避难度
+    scaling: {
+      hpScale: 0,           // 不涨 HP（保持一击即杀）
+      speedScale: 0.01,     // 每级速度 +1%（30级时 6→7.74）
+      scoreScale: 0.025,    // 每级分数 +2.5%（30级时 10→23）
     },
   },
 
@@ -56,6 +66,12 @@ const enemyConfig: EnemyConfig = {
       colorLow: "#f44",
       midThreshold: 0.5,
       lowThreshold: 0.25,
+    },
+    // 成长配置：中型敌机HP和分数稳步增长，保持中期挑战
+    scaling: {
+      hpScale: 0.035,       // 30级时 HP ≈ 36（2.4倍）
+      speedScale: 0.006,    // 每级速度 +0.6%（30级时 4→4.70）
+      scoreScale: 0.035,    // 30级时分数 ≈ 48（2.4倍）
     },
   },
 
@@ -83,6 +99,12 @@ const enemyConfig: EnemyConfig = {
       midThreshold: 0.5,
       lowThreshold: 0.25,
     },
+    // 成长配置：大型敌机HP增长最快，后期保持压迫感
+    scaling: {
+      hpScale: 0.045,       // 30级时 HP ≈ 198（2.8倍）
+      speedScale: 0.004,    // 每级速度 +0.4%（30级时 2→2.23）
+      scoreScale: 0.04,     // 30级时分数 ≈ 264（2.6倍）
+    },
   },
 };
 
@@ -101,6 +123,72 @@ const hitEffect: HitEffectConfig = {
                                // 找到与所有现存动效距离 >= stackOffset 的空槽；找不到则跳过本次显示（避免重叠）
   },
 };
+
+// ========== 敌机等级成长配置 ==========
+// 幂函数指数：控制属性增长曲线的加速程度
+// 1.0=线性，1.1=温和加速（推荐，适合30级满级的游戏），1.3=较快加速
+const ENEMY_SCALING_EXPONENT: number = 1.1;
+
+// 敌机生成比例随等级缩放配置
+// 后期小型敌机减少、中型增多，游戏节奏从"躲避大量弱敌"过渡到"对抗少量强敌"
+const enemySpawnScaling: EnemySpawnScalingConfig = {
+  smallWeightDecay: 0.025,    // 小型敌机出现权重每级 -2.5%（30级时权重从15→4）
+  mediumWeightGrowth: 0.02,   // 中型敌机出现权重每级 +2%（30级时权重从5→8）
+  bigProbGrowth: 0.001,       // 大型敌机基础出现概率每级 +0.1%（30级时基础概率从5%→7.9%）
+};
+
+// 敌机属性缩放辅助函数
+// HP/分数使用幂函数增长：base × (1 + scaleFactor × (level-1)^exponent)
+// 速度使用线性增长：base × (1 + speedScale × (level-1))
+function getScaledEnemyStat(base: number, scaleFactor: number, level: number, linear: boolean = false): number {
+  if (scaleFactor === 0 || level <= 1) return base;
+  const multiplier = linear ? (level - 1) : Math.pow(level - 1, ENEMY_SCALING_EXPONENT);
+  return base * (1 + scaleFactor * multiplier);
+}
+
+// ========== 难度配置 ==========
+// 难度只影响敌机强度和道具掉落，玩家属性不变
+// 难度越高 → 敌机越强（HP/速度/成长/生成频率），道具越少
+// 新增难度只需在此添加一个配置对象 + 对应 i18n 翻译
+const difficultyConfig: Record<Difficulty, DifficultyConfig> = {
+  // 【普通】标准难度，敌机属性无加成
+  normal: {
+    label: "difficulty.normal",
+    enemyHpMultiplier: 1.0,
+    enemySpeedMultiplier: 1.0,
+    enemyScalingMultiplier: 1.0,
+    enemySpawnRateMultiplier: 1.0,
+    heroHpBonus: 0,
+    damageMultiplier: 1.0,
+    dropRateMultiplier: 1.0,
+  },
+  // 【中等】敌机 HP +60%、速度 +10%、成长系数 ×1.4、生成更频繁、道具略少
+  medium: {
+    label: "difficulty.medium",
+    enemyHpMultiplier: 1.6,
+    enemySpeedMultiplier: 1.1,
+    enemyScalingMultiplier: 1.4,
+    enemySpawnRateMultiplier: 0.85,
+    heroHpBonus: 0,
+    damageMultiplier: 1.0,
+    dropRateMultiplier: 0.85,
+  },
+  // 【困难】敌机 HP +120%、速度 +20%、成长系数 ×1.8、生成大幅加快、道具显著减少
+  hard: {
+    label: "difficulty.hard",
+    enemyHpMultiplier: 2.2,
+    enemySpeedMultiplier: 1.2,
+    enemyScalingMultiplier: 1.8,
+    enemySpawnRateMultiplier: 0.65,
+    heroHpBonus: 0,
+    damageMultiplier: 1.0,
+    dropRateMultiplier: 0.65,
+  },
+};
+
+function getDifficultyConfig(difficulty: Difficulty): DifficultyConfig {
+  return difficultyConfig[difficulty];
+}
 
 // ========== Buff 配置 ==========
 const buffConfig: BuffConfig = {
@@ -274,6 +362,8 @@ function getDynamicBigEnemySpawnProb(hpRatio: number): number {
 
 export {
   enemyConfig,
+  enemySpawnScaling,
+  difficultyConfig,
   buffConfig,
   dropConfig,
   itemConfig,
@@ -281,6 +371,8 @@ export {
   bulletConfig,
   levelConfig,
   hitEffect,
+  getScaledEnemyStat,
+  getDifficultyConfig,
   getDynamicHealDropProb,
   getDynamicShieldDropProb,
   getDynamicBigFirepowerDropProb,

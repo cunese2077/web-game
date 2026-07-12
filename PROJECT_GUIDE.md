@@ -54,6 +54,62 @@
 
 **大型敌机冷却机制**：生成一个大型敌机后，40 帧（约 2 秒）内不会再生成大型敌机，避免连续出现多个大型敌机。
 
+#### 3.2 敌机等级成长
+
+敌机属性随玩家等级动态缩放，避免后期玩家属性大幅增长后敌机毫无威胁。成长公式和参数集中在 `config.ts`。
+
+**成长公式**：
+- HP/分数（幂函数）：`base × (1 + scaleFactor × (level - 1)^1.1)`
+- 速度（线性）：`base × (1 + speedScale × (level - 1))`
+
+**缩放参数**（`enemyConfig.*.scaling` 字段）：
+
+| 敌机 | hpScale | speedScale | scoreScale | 设计意图 |
+| ---- | ------- | ---------- | ---------- | -------- |
+| 小型 | 0 | 0.012 | 0.03 | 不涨HP（保持一击即杀），略微加速，分数微增 |
+| 中型 | 0.045 | 0.008 | 0.04 | HP/分数温和增长，加速适中 |
+| 大型 | 0.05 | 0.005 | 0.045 | HP/分数显著增长，速度微增 |
+
+**30 级时实际效果**（normal 难度）：
+
+| 敌机 | 1级 HP | 30级 HP | 1级 速度 | 30级 速度 | 增长倍数 |
+| ---- | ------ | ------- | -------- | --------- | -------- |
+| 小型 | 1 | 1 | 6 | 7.0 | 1×/1.17× |
+| 中型 | 15 | 36 | 4 | 4.9 | 2.4×/1.23× |
+| 大型 | 70 | 198 | 2 | 2.3 | 2.83×/1.15× |
+
+**生成比例调整**（`enemySpawnScaling`）：随等级调整敌机出现比例，后期从"大量弱敌"过渡到"少量强敌"：
+- 小型出现权重每级 -3%（30级时从 70% → ~20%）
+- 中型出现权重每级 +2.5%（30级时从 25% → ~60%）
+- 大型出现概率每级 +0.2%
+
+**辅助函数**：`getScaledEnemyStat(base, scaleFactor, level, linear?)` 在 `config.ts` 中统一计算缩放后的属性值，敌机构造函数调用此函数获取实际属性。
+
+#### 3.3 难度系统
+
+难度通过配置乘数叠加在敌机属性和成长系数上，玩家属性不受影响。三档难度配置集中在 `config.ts` 的 `difficultyConfig`。
+
+**设计原则**：难度越高 → 敌机越强（HP/速度/成长/生成频率），道具越少。玩家属性不变。
+
+**三档配置**：
+
+| 乘数 | 普通 (normal) | 中等 (medium) | 困难 (hard) |
+| ---- | ------------- | ------------- | ----------- |
+| 敌机 HP | ×1.0 | ×1.6 | ×2.2 |
+| 敌机速度 | ×1.0 | ×1.1 | ×1.2 |
+| 敌机成长系数 | ×1.0 | ×1.4 | ×1.8 |
+| 敌机生成间隔 | ×1.0 | ×0.85 | ×0.65 |
+| 道具掉落概率 | ×1.0 | ×0.85 | ×0.65 |
+
+**难度乘数应用方式**（enemy.ts 构造函数）：
+```
+实际HP = getScaledEnemyStat(base, hpScale × scalingMul, level) × hpMul
+实际速度 = getScaledEnemyStat(base, speedScale, level, true) × speedMul
+实际分数 = ceil(getScaledEnemyStat(base, scoreScale × scalingMul, level) × hpMul)
+```
+
+**设置 UI**：游戏设置中的难度选项为下拉选择型（复用语言切换的交互模式），选择后即时保存到 localStorage。新增难度只需在 `difficultyConfig` 中添加配置对象 + 对应 i18n 翻译，无需改代码逻辑。
+
 #### 2.1 敌机血量条与受击动效
 
 所有敌机配置了血量条和受击动效，配置集中在 `config.ts` 的 `enemyConfig.*.hpBar` 和全局 `hitEffect`：
@@ -734,7 +790,7 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - ~~迁移到 TypeScript~~ ✅ 已完成（strict 模式，禁止 any）
 - ~~敌机横向移动~~ ✅ 已完成（sine/zigzag/straight 三种模式）
 - ~~玩家战机等级系统~~ ✅ 已完成（经验/升级/属性加成/30级满级）
-- 增加难度递增机制
+- ~~增加难度递增机制~~ ✅ 已完成（敌机等级成长 + 三档难度系统）
 - 增加敌机射击（向下发射敌弹）
 - 增加中型敌机俯冲行为
 - 增加小型敌机编队出现
@@ -847,11 +903,27 @@ levelConfig.bonuses.buffDuration.multiplier = 1.05;
 - **修复**：从 `imgName` 数组移除 `"start.png"`，移除 `startImg` 变量声明和赋值，移除 `export { startImg }`，同步调整 `imgName` 后续索引（e1 从 index 4→3，e2 从 5→4，以此类推）。图片总数从 33 减少到 32。
 - **修改文件**：`src/resources.ts`
 
+#### [新增] 敌机等级成长系统
+
+- **问题**：玩家 30 级满级时属性大幅增长（+10HP、+1.5伤害、射速提升），但敌机属性固定不变，后期游戏难度大幅降低，缺乏挑战。
+- **方案**：敌机属性随玩家等级按幂函数增长，公式 `base × (1 + scaleFactor × (level-1)^1.1)`。小型敌机不涨 HP（保持一击即杀），中型/大型 HP 温和增长（30级时 2.4×/2.83×），速度缓慢增长增加闪避难度。敌机生成比例随等级调整：小型减少、中型增多，后期从"大量弱敌"过渡到"少量强敌"。
+- **配置集中**：`config.ts` 中 `enemyConfig.*.scaling` 字段（hpScale/speedScale/scoreScale）和 `enemySpawnScaling` 配置，`getScaledEnemyStat()` 辅助函数统一计算。
+- **改动文件**：`src/types.ts`（EnemyType/EnemyScalingConfig/EnemySpawnScalingConfig 类型）、`src/config.ts`（scaling 配置+spawnScaling+辅助函数）、`src/level.ts`（getExpReward 参数改为 enemyType）、`src/enemy.ts`（构造函数计算缩放属性、type/score 字段）
+
+#### [新增] 游戏难度系统
+
+- **问题**：需要支持不同游戏难度，且后期可扩展（如新增"地狱"难度）。
+- **方案**：难度通过配置乘数叠加在敌机属性和成长系数上，玩家属性不变。三档难度：普通/中等/困难。
+- **核心设计**：难度只影响敌机强度（HP/速度/成长系数/生成频率）和道具掉落，不削弱玩家。中等难度敌机 HP ×1.6、困难 HP ×2.2。
+- **配置集中**：`config.ts` 中 `difficultyConfig` 三档配置 + `getDifficultyConfig()` 函数。新增难度只需添加配置对象 + i18n 翻译，零代码改动。
+- **设置集成**：`settings.ts` 新增 `difficulty` 字段和下拉选择项，`getDifficulty()` 导出供 enemy.ts/hero.ts 读取。
+- **改动文件**：`src/types.ts`（Difficulty/DifficultyConfig 类型）、`src/config.ts`（difficultyConfig+getDifficultyConfig）、`src/i18n.ts`（difficulty TextKey+三语翻译）、`src/settings.ts`（difficulty 字段+选项+getDifficulty）、`src/enemy.ts`（构造函数应用难度乘数）、`src/hero.ts`（敌机生成间隔应用难度乘数）
+
 ---
 
 ## 八、版本信息
 
-- **当前版本**：v4（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化 + 游戏设置系统 + 多语言切换 + 音效控制）
+- **当前版本**：v5（TypeScript 重构版 + 道具/Buff 系统 + 敌机横向移动 + 等级系统 + 开始界面动画重构 + 分数动效优化 + DPR 高清渲染 + 移动端字体优化 + 游戏设置系统 + 多语言切换 + 音效控制 + 敌机等级成长 + 难度系统）
 - **架构**：TypeScript + ES Module
 - **源码模块数量**：15 个（src/ 目录，新增 settings.ts）
 - **类型定义**：22+ 接口/类型（types.ts）

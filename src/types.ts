@@ -18,6 +18,24 @@ export type GamePhase =
   | typeof PHASE_PAUSE
   | typeof PHASE_GAME_OVER;
 
+// --- 敌机类型 ---
+export type EnemyType = "small" | "medium" | "big";
+
+// --- 游戏难度 ---
+export type Difficulty = "normal" | "medium" | "hard";
+
+// --- 难度配置 ---
+export interface DifficultyConfig {
+  label: TextKey;                   // 难度名称 i18n key
+  enemyHpMultiplier: number;        // 敌机 HP 乘数（1.0=标准）
+  enemySpeedMultiplier: number;     // 敌机速度乘数
+  enemyScalingMultiplier: number;   // 敌机成长系数乘数（影响后期 HP/分数增长速度）
+  enemySpawnRateMultiplier: number;  // 敌机生成间隔乘数（<1=更频繁，>1=更稀疏）
+  heroHpBonus: number;              // 玩家额外 HP（负数=减少）
+  damageMultiplier: number;         // 玩家伤害乘数（<1=削弱）
+  dropRateMultiplier: number;       // 道具掉落概率乘数
+}
+
 // --- 移动模式 ---
 export type MoveType = "straight" | "sine" | "zigzag";
 
@@ -71,6 +89,22 @@ export interface HitEffectConfig {
   damageText: DamageTextConfig;  // 伤害浮动动效配置
 }
 
+// --- 敌机成长配置 ---
+// scaleFactor 控制属性随等级的增长速率，公式：base × (1 + scaleFactor × (level-1)^exponent)
+// speed 使用线性增长：base × (1 + speedScale × (level-1))
+export interface EnemyScalingConfig {
+  hpScale: number;     // HP 成长系数（0=不增长）
+  speedScale: number;  // 速度成长系数（0=不增长，线性）
+  scoreScale: number;  // 分数成长系数（0=不增长）
+}
+
+// --- 敌机生成缩放配置 ---
+export interface EnemySpawnScalingConfig {
+  smallWeightDecay: number;    // 小型敌机出现权重每级衰减率
+  mediumWeightGrowth: number;  // 中型敌机出现权重每级增长率
+  bigProbGrowth: number;       // 大型敌机基础出现概率每级增长值
+}
+
 // --- 敌机配置 ---
 export interface SmallEnemyConfig {
   speed: number;
@@ -79,6 +113,7 @@ export interface SmallEnemyConfig {
   spawnWeight: number;
   move: SmallEnemyMoveConfig;
   hpBar: HpBarConfig;
+  scaling: EnemyScalingConfig;
 }
 
 export interface MediumEnemyConfig {
@@ -88,6 +123,7 @@ export interface MediumEnemyConfig {
   spawnWeight: number;
   move: SineMoveConfig;
   hpBar: HpBarConfig;
+  scaling: EnemyScalingConfig;
 }
 
 export interface BigEnemyConfig {
@@ -99,6 +135,7 @@ export interface BigEnemyConfig {
   coolDownFrames: number;
   move: ZigzagMoveConfig;
   hpBar: HpBarConfig;
+  scaling: EnemyScalingConfig;
 }
 
 export interface EnemyConfig {

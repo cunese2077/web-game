@@ -2,11 +2,13 @@
 import { setLocale } from "./i18n.js";
 import type { Locale, TextKey } from "./i18n.js";
 import { setSoundEnabled } from "./audio.js";
+import type { Difficulty } from "./types.js";
 
 // ========== 设置数据结构 ==========
 interface GameSettings {
   locale: Locale;
   soundEnabled: boolean;
+  difficulty: Difficulty;
 }
 
 // ========== 设置项描述（数据驱动，便于扩展） ==========
@@ -26,6 +28,7 @@ export interface SettingItem {
 const DEFAULT_SETTINGS: GameSettings = {
   locale: "zh",
   soundEnabled: true,
+  difficulty: "normal",
 };
 
 // ========== 当前设置 ==========
@@ -44,6 +47,9 @@ function loadSettings(): void {
       }
       if (typeof parsed.soundEnabled === "boolean") {
         settings.soundEnabled = parsed.soundEnabled;
+      }
+      if (parsed.difficulty === "normal" || parsed.difficulty === "medium" || parsed.difficulty === "hard") {
+        settings.difficulty = parsed.difficulty;
       }
     }
   } catch {
@@ -65,6 +71,9 @@ function saveSettings(): void {
 // ========== 语言选项 ==========
 const LOCALE_OPTIONS: Locale[] = ["zh", "en", "ja"];
 
+// ========== 难度选项 ==========
+const DIFFICULTY_OPTIONS: Difficulty[] = ["normal", "medium", "hard"];
+
 // ========== 设置项数组（数据驱动，新增设置只需在此添加） ==========
 const settingItems: SettingItem[] = [
   {
@@ -85,6 +94,16 @@ const settingItems: SettingItem[] = [
     onToggle: (): void => {
       settings.soundEnabled = !settings.soundEnabled;
       setSoundEnabled(settings.soundEnabled);
+      saveSettings();
+    },
+  },
+  {
+    key: "difficulty",
+    label: "settings.difficulty",
+    optionLabels: ["difficulty.normal", "difficulty.medium", "difficulty.hard"],
+    current: (): number => DIFFICULTY_OPTIONS.indexOf(settings.difficulty),
+    select: (index: number): void => {
+      settings.difficulty = DIFFICULTY_OPTIONS[index];
       saveSettings();
     },
   },
@@ -118,6 +137,10 @@ function toggleSound(): void {
   saveSettings();
 }
 
+function getDifficulty(): Difficulty {
+  return settings.difficulty;
+}
+
 // 导出供 engine.ts 使用
 export {
   loadSettings,
@@ -127,4 +150,5 @@ export {
   closeSettings,
   isSoundEnabled,
   toggleSound,
+  getDifficulty,
 };
