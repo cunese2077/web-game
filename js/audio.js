@@ -86,6 +86,15 @@ const audioConfig = {
         volume: 0.18,
         duration: 0.35,
     },
+    // 升级选择确认音效：短促清脆的双音上行
+    upgradeSelect: {
+        type: "sine",
+        notes: [880, 1320],
+        noteInterval: 0.06,
+        attackTime: 0.02,
+        volume: 0.15,
+        duration: 0.2,
+    },
 };
 let audioCtx = null;
 // 音效开关状态（由 settings.ts 控制）
@@ -455,4 +464,26 @@ function playLevelUp() {
         osc.stop(startTime + c.duration);
     });
 }
-export { audioConfig, resumeAudio, setSoundEnabled, isSoundEnabled, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, };
+// 升级选择确认音效
+function playUpgradeSelect() {
+    if (!soundEnabled)
+        return;
+    const c = audioConfig.upgradeSelect;
+    const ctx = getAudioCtx();
+    c.notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
+        osc.type = c.type;
+        const startTime = ctx.currentTime + i * c.noteInterval;
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(vol(c.volume), startTime + c.attackTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.duration);
+        osc.start(startTime);
+        osc.stop(startTime + c.duration);
+    });
+}
+export { audioConfig, resumeAudio, setSoundEnabled, isSoundEnabled, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, playUpgradeSelect, };

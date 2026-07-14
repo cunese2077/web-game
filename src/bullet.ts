@@ -11,15 +11,19 @@ let shootSoundCoolDown: number = 0;
 class Bullet {
   n: number;
   isDiagonal: boolean;
+  piercing: boolean;
+  hitEnemyIds: Set<number>;
   mx: number;
   my: number;
   width: number;
   height: number;
   removable: boolean;
 
-  constructor(n: number, heroX: number, heroY: number, heroW: number, heroH: number, isDiagonal: boolean = false) {
+  constructor(n: number, heroX: number, heroY: number, heroW: number, heroH: number, isDiagonal: boolean = false, piercing: boolean = false) {
     this.n = n;
     this.isDiagonal = isDiagonal;
+    this.piercing = piercing;
+    this.hitEnemyIds = new Set();
     this.mx = heroX + (heroW - m.width) / 2 + this.n;
     this.my = this.n === 0 ? heroY - m.height : heroY + m.height;
     this.width = m.width;

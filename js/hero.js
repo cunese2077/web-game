@@ -1,16 +1,17 @@
 // 玩家战机类
 import { ctx, canvas, width, height, fontScale } from "./canvas.js";
 import { heroImg } from "./resources.js";
-import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER } from "./constants.js";
+import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP } from "./constants.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp } from "./audio.js";
 import { isSoundEnabled, getDifficulty } from "./settings.js";
 import { getGameScore } from "./score.js";
-import { getLevel, getExp, getExpToNext, getLevelBonuses } from "./level.js";
-import { buffConfig, heroConfig, itemConfig, bulletConfig, getDifficultyConfig } from "./config.js";
+import { getLevel, getExp, getExpToNext } from "./level.js";
+import { buffConfig, heroConfig, itemConfig, getDifficultyConfig } from "./config.js";
 import { t } from "./i18n.js";
+import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getShieldExtendMultiplier, } from "./upgrade.js";
 let activeHero = null;
 let eventsBound = false;
 function bindEventsOnce() {
@@ -33,6 +34,7 @@ function bindEventsOnce() {
             }
             const w = heroImg[0].width;
             const h = heroImg[0].height;
+            const speedMul = 1 + getMoveSpeedBonus();
             let nx = offsetX - w / 2;
             let ny = offsetY - h / 2;
             if (nx < 20 - w / 2)
@@ -58,8 +60,6 @@ function bindEventsOnce() {
         }
     };
     // 画布尺寸变化时，将战机位置限制在新边界内
-    // 边界规则与 move 处理器一致：左右各留 20px 内缩、上下贴边
-    // 直接读取 canvas.width/height（resize 后已由 canvas.ts 更新）
     window.addEventListener("resize", () => {
         if (!activeHero)
             return;
@@ -85,9 +85,7 @@ class Hero {
         this.count = 0;
         this.hCount = 0;
         this.eCount = 0;
-        this.n = 0;
-        this.levelBonuses = getLevelBonuses();
-        this.maxHp = heroConfig.maxHp + this.levelBonuses.extraHp;
+        this.maxHp = getMaxHp();
         this.hp = this.maxHp;
         this.invincible = 0;
         this.dying = false;
@@ -111,20 +109,27 @@ class Hero {
         if (this.dying) {
             this.index++;
             if (this.index >= heroImg.length) {
-                curPhase = PHASE_GAME_OVER;
+                this._setCurrentPhase(PHASE_GAME_OVER);
                 this.index = heroImg.length - 1;
             }
             ctx.drawImage(heroImg[this.index], this.x, this.y);
             this._drawScore();
             this._drawHp();
-            return curPhase;
+            return this._getCurrentPhase();
         }
         if (this.invincible > 0) {
             this.invincible--;
         }
-        this._tickBuffs();
-        this._checkLevelUp();
-        this.hit();
+        // 更新 maxHp（升级选择可能改变了被动层数）
+        this.maxHp = getMaxHp();
+        // 确保 hp 不超过 maxHp
+        if (this.hp > this.maxHp)
+            this.hp = this.maxHp;
+        if (curPhase !== PHASE_LEVEL_UP) {
+            this._tickBuffs();
+            this._checkLevelUp();
+            this.hit();
+        }
         if (this.count % 3 === 0 && this.index <= 1) {
             this.index = this.index === 0 ? 1 : 0;
             this.count = 0;
@@ -156,35 +161,50 @@ class Hero {
             this._drawLevelUpEffect();
             this.levelUpAnim--;
         }
-        this.hCount++;
-        const bulletInterval = Math.max(1, Math.floor(3 - this.levelBonuses.bulletIntervalReduction));
-        if (this.hCount % bulletInterval === 0) {
-            const isSpread = this.buffs.spread > 0;
-            if (isSpread) {
-                Bullet.add(new Bullet(-48, this.x, this.y, heroImg[0].width, heroImg[0].height, true));
-                Bullet.add(new Bullet(-24, this.x, this.y, heroImg[0].width, heroImg[0].height));
-                Bullet.add(new Bullet(0, this.x, this.y, heroImg[0].width, heroImg[0].height));
-                Bullet.add(new Bullet(24, this.x, this.y, heroImg[0].width, heroImg[0].height));
-                Bullet.add(new Bullet(48, this.x, this.y, heroImg[0].width, heroImg[0].height, true));
+        // 射击逻辑：由升级状态驱动，升级选择时暂停
+        if (curPhase === PHASE_PLAY) {
+            this.hCount++;
+            const bulletInterval = getBulletInterval();
+            if (this.hCount % bulletInterval === 0) {
+                this._shoot();
+                this.hCount = 0;
             }
-            else {
-                this.n === 32 && (this.n = 0);
-                Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
-                this.n === 0 && (this.n = -32);
-                Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
-                this.n === -32 && (this.n = 32);
-                Bullet.add(new Bullet(this.n, this.x, this.y, heroImg[0].width, heroImg[0].height));
+            this.eCount++;
+            const diffConfig = getDifficultyConfig(getDifficulty());
+            const spawnInterval = Math.max(1, Math.round(heroConfig.enemySpawnInterval * diffConfig.enemySpawnRateMultiplier));
+            if (this.eCount % spawnInterval === 0) {
+                Enemy.add(new Enemy());
+                this.eCount = 0;
             }
-            this.hCount = 0;
         }
-        this.eCount++;
-        const diffConfig = getDifficultyConfig(getDifficulty());
-        const spawnInterval = Math.max(1, Math.round(heroConfig.enemySpawnInterval * diffConfig.enemySpawnRateMultiplier));
-        if (this.eCount % spawnInterval === 0) {
-            Enemy.add(new Enemy());
-            this.eCount = 0;
+        return this._getCurrentPhase();
+    }
+    // 射击：根据当前武器等级生成子弹
+    _shoot() {
+        const bulletCount = getBulletCount();
+        const isSpread = this.buffs.spread > 0;
+        const heroW = heroImg[0].width;
+        const heroH = heroImg[0].height;
+        const piercing = hasPiercing();
+        if (isSpread) {
+            // 散弹 buff：固定 5 路扇形
+            Bullet.add(new Bullet(-48, this.x, this.y, heroW, heroH, true, piercing));
+            Bullet.add(new Bullet(-24, this.x, this.y, heroW, heroH, false, piercing));
+            Bullet.add(new Bullet(0, this.x, this.y, heroW, heroH, false, piercing));
+            Bullet.add(new Bullet(24, this.x, this.y, heroW, heroH, false, piercing));
+            Bullet.add(new Bullet(48, this.x, this.y, heroW, heroH, true, piercing));
         }
-        return curPhase;
+        else {
+            // 正常射击：根据武器等级决定子弹数和间距
+            const spreadWidth = 32; // 最外侧子弹距中心的像素偏移
+            const step = bulletCount > 1 ? (spreadWidth * 2) / (bulletCount - 1) : 0;
+            const startOffset = -spreadWidth;
+            for (let i = 0; i < bulletCount; i++) {
+                const offset = bulletCount === 1 ? 0 : startOffset + step * i;
+                const isDiagonal = i === 0 || i === bulletCount - 1;
+                Bullet.add(new Bullet(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
+            }
+        }
     }
     _tickBuffs() {
         const keys = ["firepower", "shield", "spread"];
@@ -211,7 +231,7 @@ class Hero {
                     playFirepower();
                     break;
                 case "shield":
-                    this.buffs.shield = buffConfig.shield.duration;
+                    this.buffs.shield = Math.round(buffConfig.shield.duration * getShieldExtendMultiplier());
                     this._addBuffFloat(t(itemConfig.types.shield.label), itemConfig.types.shield.color);
                     playShield();
                     break;
@@ -270,9 +290,6 @@ class Hero {
         const barWidth = Math.round(150 * fontScale);
         const barHeight = Math.round(8 * fontScale);
         const baseX = width - barWidth - Math.round(10 * fontScale);
-        // baseY 是第一个 buff 条的顶部 y 坐标
-        // 计算：画布底部 → 减去 HP 条底部间距(10*fs) → 减去 HP 条高度(12*fs) = HP 条顶部
-        // → 减去 buff 与 HP 条间距(6*fs) → 减去 buff 条高度(8*fs) = 第一个 buff 条顶部
         const baseY = height - Math.round((10 + 12 + 6 + 8) * fontScale);
         const activeBuffs = [];
         if (this.buffs.firepower > 0)
@@ -297,36 +314,27 @@ class Hero {
             ctx.font = `bold ${Math.round(8 * fontScale)}px arial`;
             ctx.textAlign = "left";
             ctx.fillText(t(cfg.label), baseX + Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
-            // 剩余时间：帧数 ÷ 20fps = 秒数，显示一位小数
             ctx.textAlign = "right";
             ctx.fillText((this.buffs[key] / 20).toFixed(1) + "s", baseX + barWidth - Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
         }
         ctx.textAlign = "left";
     }
-    // 属性面板：左下角常驻显示玩家核心属性（子弹伤害、射击间隔、buff 持续倍率）
-    // 与右下 HP 条对称，半透明黑底圆角矩形避免遮挡游戏画面
-    // 升级瞬间（levelUpAnim > 0）面板边框高亮，强化成长反馈
+    // 属性面板
     _drawStats() {
-        // 计算当前属性值（与 enemy.ts hit() 中的逻辑一致）
-        const baseDamage = bulletConfig.baseDamage + this.levelBonuses.extraDamage;
+        const currentDamage = getBulletDamage();
         const hasFirepower = this.buffs.firepower > 0;
-        const currentDamage = baseDamage * (hasFirepower ? buffConfig.firepower.damageMultiplier : 1);
-        const bulletInterval = Math.max(1, Math.floor(3 - this.levelBonuses.bulletIntervalReduction));
-        const buffMul = this.levelBonuses.buffDurationMultiplier;
-        // 面板布局（按 fontScale 等比缩放，确保大屏设备上面板和文字比例协调）
+        const displayDamage = currentDamage * (hasFirepower ? buffConfig.firepower.damageMultiplier : 1);
+        const bulletInterval = getBulletInterval();
         const padding = Math.round(6 * fontScale);
         const lineH = Math.round(14 * fontScale);
         const panelW = Math.round(92 * fontScale);
-        const showBuffLine = buffMul > 1;
-        const lineCount = showBuffLine ? 3 : 2;
+        const lineCount = 2;
         const panelH = lineCount * lineH + padding * 2;
         const panelX = Math.round(10 * fontScale);
         const panelY = height - panelH - Math.round(10 * fontScale);
-        // 升级高亮：边框颜色和透明度
         const isLevelUp = this.levelUpAnim > 0;
         const borderColor = isLevelUp ? "#fd0" : "rgba(255,255,255,0.4)";
         const bgAlpha = isLevelUp ? 0.55 : 0.35;
-        // 半透明黑底圆角矩形
         ctx.fillStyle = `rgba(0,0,0,${bgAlpha})`;
         ctx.beginPath();
         const r = Math.round(4 * fontScale);
@@ -340,37 +348,26 @@ class Hero {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1;
         ctx.stroke();
-        // 文字内容
         ctx.font = `bold ${Math.round(11 * fontScale)}px arial`;
         ctx.textAlign = "left";
         let lineY = panelY + padding + Math.round(10 * fontScale);
         const labelX = panelX + padding;
         const valueX = panelX + panelW - padding;
-        // ATK 伤害：火力 buff 激活时高亮橙色
+        // ATK
         ctx.textAlign = "left";
         ctx.fillStyle = hasFirepower ? "#f80" : "#fd0";
         ctx.fillText(t("hud.atk"), labelX, lineY);
         ctx.textAlign = "right";
         ctx.fillStyle = hasFirepower ? "#f80" : "#fff";
-        ctx.fillText(currentDamage.toFixed(2), valueX, lineY);
+        ctx.fillText(displayDamage.toFixed(2), valueX, lineY);
         lineY += lineH;
-        // RATE 射击间隔：越小越快
+        // RATE
         ctx.textAlign = "left";
         ctx.fillStyle = "#9cf";
         ctx.fillText(t("hud.rate"), labelX, lineY);
         ctx.textAlign = "right";
         ctx.fillStyle = "#fff";
         ctx.fillText(String(bulletInterval), valueX, lineY);
-        lineY += lineH;
-        // BUFF 持续倍率：仅 > 1 时显示
-        if (showBuffLine) {
-            ctx.textAlign = "left";
-            ctx.fillStyle = "#f6f";
-            ctx.fillText(t("hud.buff"), labelX, lineY);
-            ctx.textAlign = "right";
-            ctx.fillStyle = "#fff";
-            ctx.fillText("×" + buffMul.toFixed(2), valueX, lineY);
-        }
         ctx.textAlign = "left";
     }
     _drawScore() {
@@ -382,7 +379,7 @@ class Hero {
         const lv = getLevel();
         const exp = getExp();
         const expNext = getExpToNext();
-        const isMaxLevel = lv >= 30;
+        const isMaxLevel = lv >= 50;
         // 等级文字
         ctx.fillStyle = "#fd0";
         ctx.font = `bold ${Math.round(16 * fontScale)}px arial`;
@@ -411,12 +408,11 @@ class Hero {
         else {
             ctx.fillText(exp + "/" + expNext, barX + barWidth / 2, barY + barHeight - Math.round(1 * fontScale));
         }
-        // 音效开关图标：♫（开启）/ ♫+斜杠（静音）
+        // 音效开关图标
         const sndIconSize = Math.round(22 * fontScale);
         const sndIconX = barX - sndIconSize - Math.round(6 * fontScale);
         const sndIconY = barY + barHeight / 2;
         const sndEnabled = isSoundEnabled();
-        // 按钮背景
         const btnW = Math.round(28 * fontScale);
         const btnH = Math.round(22 * fontScale);
         const btnR = Math.round(5 * fontScale);
@@ -436,13 +432,11 @@ class Hero {
         ctx.arcTo(btnX, btnY, btnX + btnR, btnY, btnR);
         ctx.closePath();
         ctx.fill();
-        // ♫ 音符符号
         ctx.font = `${Math.round(16 * fontScale)}px serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = sndEnabled ? "#fff" : "#aaa";
         ctx.fillText("♫", sndIconX, sndIconY + Math.round(1 * fontScale));
-        // 静音时叠加红色斜杠
         if (!sndEnabled) {
             ctx.strokeStyle = "#f44";
             ctx.lineWidth = Math.round(2 * fontScale);
@@ -458,18 +452,26 @@ class Hero {
     _checkLevelUp() {
         const currentLevel = getLevel();
         if (currentLevel > this.lastLevel) {
-            // 连续升多级时，计算实际升级次数
             const levelsGained = currentLevel - this.lastLevel;
             this.lastLevel = currentLevel;
-            this.levelBonuses = getLevelBonuses();
-            // 更新 maxHp（按当前等级的累计 HP 加成）
-            this.maxHp = heroConfig.maxHp + this.levelBonuses.extraHp;
-            // 每级升级回血 1 HP，连续升多级时累计回血（不超过 maxHp）
+            // 累加待处理升级次数
+            addPendingLevelUps(levelsGained);
+            // 每级升级回血 1 HP（不超过 maxHp）
+            this.maxHp = getMaxHp();
             this.hp = Math.min(this.hp + levelsGained, this.maxHp);
             // 升级特效
             this.levelUpAnim = 60;
             this.hpFlash = 20;
             playLevelUp();
+            // 进入升级选择阶段
+            const hasOffers = startUpgradeSelection();
+            if (hasOffers) {
+                this._setCurrentPhase(PHASE_LEVEL_UP);
+            }
+            else {
+                // 无可用选项（极端情况），跳过升级选择
+                addPendingLevelUps(-getPendingLevelUps());
+            }
         }
     }
     _drawHp() {
@@ -535,7 +537,6 @@ class Hero {
         const heroCx = this.x + heroImg[0].width / 2;
         const heroCy = this.y + heroImg[0].height / 2;
         const progress = 1 - this.levelUpAnim / 60;
-        // 浮动文字
         const floatY = heroCy - 60 - progress * 80;
         const alpha = 1 - progress;
         ctx.save();
@@ -547,7 +548,6 @@ class Hero {
         ctx.shadowBlur = 16;
         ctx.fillText(t("effect.levelUp") + lv, heroCx, floatY);
         ctx.restore();
-        // 金色光环
         const ringRadius = 20 + progress * 80;
         const ringAlpha = (1 - progress) * 0.6;
         ctx.save();
@@ -612,8 +612,17 @@ function getHeroMaxHp() {
 function getHeroBuffs() {
     return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
 }
+function healHero(amount) {
+    if (!activeHero)
+        return;
+    if (activeHero.hp >= activeHero.maxHp)
+        return;
+    activeHero.hp = Math.min(activeHero.hp + amount, activeHero.maxHp);
+    activeHero.healAnim = 30;
+    activeHero.hpFlash = 30;
+    playHeal();
+}
 function getSoundIconArea() {
-    // 音效按钮位置：经验条左侧（与 _drawLevel 一致）
     const barWidth = Math.round(110 * fontScale);
     const barHeight = Math.round(10 * fontScale);
     const barX = width - barWidth - Math.round(10 * fontScale);
@@ -623,7 +632,6 @@ function getSoundIconArea() {
     const sndIconY = barY + barHeight / 2;
     const btnW = Math.round(28 * fontScale);
     const btnH = Math.round(22 * fontScale);
-    // 触控设备扩大热区：视觉不变，仅增大隐形触控范围，避免手指偏移导致战机移动
     const isTouch = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
     const pad = isTouch ? Math.round(10 * fontScale) : 0;
     return {
@@ -633,5 +641,5 @@ function getSoundIconArea() {
         h: btnH + pad * 2,
     };
 }
-export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getSoundIconArea };
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, healHero, getSoundIconArea, initUpgrades };
 export default Hero;

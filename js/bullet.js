@@ -6,9 +6,11 @@ import { getHeroBuffs } from "./hero.js";
 const bullets = [];
 let shootSoundCoolDown = 0;
 class Bullet {
-    constructor(n, heroX, heroY, heroW, heroH, isDiagonal = false) {
+    constructor(n, heroX, heroY, heroW, heroH, isDiagonal = false, piercing = false) {
         this.n = n;
         this.isDiagonal = isDiagonal;
+        this.piercing = piercing;
+        this.hitEnemyIds = new Set();
         this.mx = heroX + (heroW - m.width) / 2 + this.n;
         this.my = this.n === 0 ? heroY - m.height : heroY + m.height;
         this.width = m.width;

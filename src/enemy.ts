@@ -3,8 +3,9 @@ import { ctx, width, height, fontScale } from "./canvas.js";
 import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
-import { addExp, getExpReward, getLevelBonuses, getLevel } from "./level.js";
-import { getHeroHp, getHeroMaxHp, getHeroBuffs } from "./hero.js";
+import { addExp, getExpReward, getLevel } from "./level.js";
+import { getHeroHp, getHeroMaxHp, getHeroBuffs, healHero } from "./hero.js";
+import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getLifeStealChance, getCritChance } from "./upgrade.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit } from "./audio.js";
@@ -28,6 +29,7 @@ import { getDifficulty } from "./settings.js";
 import type { MoveType, BuffState, HpBarConfig, EnemyType } from "./types.js";
 
 const liveEnemy: Enemy[] = [];
+let nextEnemyId: number = 0;
 
 let bigEnemyCoolDown: number = 0;
 
@@ -42,6 +44,7 @@ function getHpRatio(): number {
 }
 
 class Enemy {
+  id: number;
   n: number;
   enemy: HTMLImageElement;
   type: EnemyType;            // 敌机类型标识（替代 speed 判断）
@@ -77,6 +80,7 @@ class Enemy {
     const bigEnemyThreshold = bigEnemyProb * 20;
     const midEnemyThreshold = bigEnemyThreshold + scaledMediumWeight;
 
+    this.id = nextEnemyId++;
     this.n = Math.random() * 20;
     this.speed = 0;
     this.lives = 2;
@@ -257,12 +261,12 @@ class Enemy {
 
     const allBullets = Bullet.getAll();
     const buffs: BuffState = getHeroBuffs();
-    const levelBonuses = getLevelBonuses();
-    const baseDamage = bulletConfig.baseDamage + levelBonuses.extraDamage;
-    const damageMultiplier = baseDamage * (buffs.firepower > 0 ? buffConfig.firepower.damageMultiplier : 1);
+    const damageMultiplier = getBulletDamageWithBuff(buffs.firepower > 0);
+    const piercing = hasPiercing();
 
     // 单帧累积命中伤害：合并为一个伤害文本，避免多弹同时命中产生多个动效导致重叠
     let frameDamage = 0;
+    let frameCrit = false;
 
     for (let i = allBullets.length - 1; i >= 0; i--) {
       const h = allBullets[i];
@@ -272,8 +276,25 @@ class Enemy {
         h.my + h.height >= this.y &&
         this.height + this.y >= h.my
       ) {
-        this.lives -= damageMultiplier;
-        frameDamage += damageMultiplier;
+        // 穿透子弹：跳过已命中过的敌机
+        if (h.piercing && h.hitEnemyIds.has(this.id)) continue;
+
+        // 暴击判定：暴击时伤害翻倍
+        let dmg = damageMultiplier;
+        const isCrit = Math.random() < getCritChance();
+        if (isCrit) {
+          dmg *= 2;
+          frameCrit = true;
+        }
+
+        this.lives -= dmg;
+        frameDamage += dmg;
+
+        // 穿透子弹记录已命中的敌机
+        if (h.piercing) {
+          h.hitEnemyIds.add(this.id);
+        }
+
         if (this.lives <= 0) {
           this.die = true;
           addGameScore(this.score);
@@ -281,16 +302,22 @@ class Enemy {
           addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), this.score);
           if (this.type === "big") {
             playEnemyDestroyBig();
+            // 击杀 BOSS 增加下次升级的稀有度加成
+            addBossKillBonus();
           } else if (this.type === "medium") {
             playEnemyDestroyMedium();
           } else {
             playEnemyDestroySmall();
           }
           this._dropItems();
-          h.removable = true;
+          // 生命汲取：击杀敌机概率回复 HP
+          const stealChance = getLifeStealChance();
+          if (stealChance > 0 && Math.random() < stealChance) healHero(1);
+          // 非穿透子弹标记移除，穿透子弹继续飞行
+          if (!h.piercing) h.removable = true;
           break;
         }
-        h.removable = true;
+        if (!h.piercing) h.removable = true;
       }
     }
 
@@ -302,15 +329,19 @@ class Enemy {
         this.hitSoundCoolDown = hitEffect.soundCoolDown;
       }
       if (hitEffect.damageText.show) {
+        // 暴击时使用金色、更大字号
+        const critFontSize = frameCrit ? Math.round(hitEffect.damageText.fontSize * 1.5 * fontScale) : Math.round(hitEffect.damageText.fontSize * fontScale);
+        const critColor = frameCrit ? "#ffd700" : hitEffect.damageText.color;
         addDamageEffect(
           this.x + this.width / 2,
           this.y + this.height,
           Math.ceil(frameDamage),
-          Math.round(hitEffect.damageText.fontSize * fontScale),
-          hitEffect.damageText.color,
+          critFontSize,
+          critColor,
           Math.round(hitEffect.damageText.floatDistance * fontScale),
           hitEffect.damageText.frames,
-          Math.round(hitEffect.damageText.stackOffset * fontScale)
+          Math.round(hitEffect.damageText.stackOffset * fontScale),
+          frameCrit
         );
       }
     }
@@ -373,6 +404,10 @@ class Enemy {
 
   static clear(): void {
     liveEnemy.length = 0;
+  }
+
+  static resetNextId(): void {
+    nextEnemyId = 0;
   }
 }
 

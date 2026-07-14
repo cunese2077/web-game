@@ -9,6 +9,7 @@ export const PHASE_LOADING = 3 as const;
 export const PHASE_PLAY = 4 as const;
 export const PHASE_PAUSE = 5 as const;
 export const PHASE_GAME_OVER = 6 as const;
+export const PHASE_LEVEL_UP = 7 as const;
 
 export type GamePhase =
   | typeof PHASE_DOWNLOAD
@@ -16,7 +17,8 @@ export type GamePhase =
   | typeof PHASE_LOADING
   | typeof PHASE_PLAY
   | typeof PHASE_PAUSE
-  | typeof PHASE_GAME_OVER;
+  | typeof PHASE_GAME_OVER
+  | typeof PHASE_LEVEL_UP;
 
 // --- 敌机类型 ---
 export type EnemyType = "small" | "medium" | "big";
@@ -31,9 +33,8 @@ export interface DifficultyConfig {
   enemySpeedMultiplier: number;     // 敌机速度乘数
   enemyScalingMultiplier: number;   // 敌机成长系数乘数（影响后期 HP/分数增长速度）
   enemySpawnRateMultiplier: number;  // 敌机生成间隔乘数（<1=更频繁，>1=更稀疏）
-  heroHpBonus: number;              // 玩家额外 HP（负数=减少）
-  damageMultiplier: number;         // 玩家伤害乘数（<1=削弱）
   dropRateMultiplier: number;       // 道具掉落概率乘数
+  upgradeRerolls: number;           // 每次升级的刷新次数
 }
 
 // --- 移动模式 ---
@@ -235,31 +236,6 @@ export interface BulletConfig {
 }
 
 // --- 等级配置 ---
-// 等级奖励子配置（控制各等级段的属性加成规则）
-export interface LevelBonusConfig {
-  // HP 加成：达到指定等级点时 maxHp +1
-  hpBonusLevels: number[];
-  // 子弹伤害加成：每级增加 perLevel，最高累计至 maxLevel 级
-  damageBonus: {
-    perLevel: number;   // 每级伤害增量
-    maxLevel: number;   // 适用上限等级（超过后不再增加）
-  };
-  // 射击间隔减少：每 perLevels 级减少 reduction，仅 startLevel~endLevel 区间生效
-  bulletInterval: {
-    perLevels: number;  // 每 N 级触发一次
-    reduction: number;  // 每次减少量
-    startLevel: number; // 起始等级（含）
-    endLevel: number;   // 结束等级（含）
-  };
-  // Buff 持续倍率：每 perLevels 级乘以 multiplier，仅 startLevel~endLevel 区间生效
-  buffDuration: {
-    perLevels: number;  // 每 N 级触发一次
-    multiplier: number; // 每次倍率（>1 延长）
-    startLevel: number; // 起始等级（含）
-    endLevel: number;   // 结束等级（含）
-  };
-}
-
 export interface LevelConfig {
   base: number;           // 基础升级经验（1→2 级所需）
   growth: number;         // 递增系数（每级经验增量基数）
@@ -270,14 +246,34 @@ export interface LevelConfig {
     medium: number;
     big: number;
   };
-  bonuses: LevelBonusConfig;  // 等级奖励配置（HP/伤害/射速/Buff）
 }
 
-export interface LevelBonuses {
-  extraHp: number;                  // 额外 HP
-  extraDamage: number;              // 额外子弹伤害
-  bulletIntervalReduction: number;  // 射击间隔减少
-  buffDurationMultiplier: number;   // Buff 持续时间倍率
+// --- 升级系统类型 ---
+export type UpgradeRarity = "common" | "rare" | "epic" | "legendary";
+
+export type UpgradeType = "weapon" | "passive" | "special";
+
+// 升级定义：描述一种可获取的升级
+export interface UpgradeDef {
+  id: string;                    // 唯一标识
+  type: UpgradeType;
+  rarity: UpgradeRarity;
+  maxLevel: number;              // 最大等级（武器=5，被动=可叠加/特殊=1）
+  weaponSlot: boolean;           // 是否占用武器槽位
+  prerequisites: string[];       // 前置升级 id
+  evolutionFrom: [string, string] | null;  // 进化来源（两个 Lv5 武器 id）
+  label: TextKey;                // 名称 i18n key
+  descriptions: TextKey[];       // 各等级描述 i18n key（索引=当前等级-1，升级到下一级时显示）
+  icon: string;                  // 图标标识（Canvas 绘制用）
+}
+
+// 升级选项：出牌算法生成的一张卡片
+export interface UpgradeOffer {
+  upgradeId: string;
+  currentLevel: number;   // 当前等级（0=尚未获得）
+  nextLevel: number;       // 升级后的等级
+  isNew: boolean;          // 是否首次获得
+  def: UpgradeDef;         // 关联的定义
 }
 
 // --- Buff 浮动文字 ---

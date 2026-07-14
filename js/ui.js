@@ -61,7 +61,7 @@ function clearScoreEffects() {
 // 子弹击中敌机时，在命中位置显示 "-X" 伤害数字，上浮并淡出
 const damageEffects = [];
 class DamageEffectObj {
-    constructor(x, y, damage, fontSize, color, floatDistance, frames) {
+    constructor(x, y, damage, fontSize, color, floatDistance, frames, crit = false) {
         this.x = x;
         this.y = y;
         this.damage = damage;
@@ -71,6 +71,7 @@ class DamageEffectObj {
         this.frames = frames;
         this.frame = frames;
         this.removable = false;
+        this.crit = crit;
     }
     update() {
         this.frame--;
@@ -90,10 +91,30 @@ class DamageEffectObj {
         ctx.globalAlpha = alpha;
         ctx.font = `bold ${this.fontSize}px arial`;
         ctx.textAlign = "center";
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = this.color;
-        ctx.fillText("-" + this.damage, this.x, floatY);
+        if (this.crit) {
+            // 暴击效果：金色 + 更强发光 + 缩放动画
+            const progress = 1 - this.frame / this.frames;
+            const scale = 1 + (1 - progress) * 0.3;
+            ctx.translate(this.x, floatY);
+            ctx.scale(scale, scale);
+            ctx.shadowColor = "#ffd700";
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = "#ffd700";
+            ctx.fillText("-" + this.damage, 0, 0);
+            // 暴击标签
+            const labelSize = Math.round(this.fontSize * 0.6);
+            ctx.font = `bold ${labelSize}px arial`;
+            ctx.fillStyle = "#ff6600";
+            ctx.shadowColor = "#ff6600";
+            ctx.shadowBlur = 6;
+            ctx.fillText(t("combat.crit"), 0, -this.fontSize * 0.8);
+        }
+        else {
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = this.color;
+            ctx.fillText("-" + this.damage, this.x, floatY);
+        }
         ctx.restore();
     }
 }
@@ -112,7 +133,7 @@ class DamageEffectObj {
 // 【兜底】找不到不重叠的空槽时，跳过本次伤害文本显示（return），彻底避免重叠。
 //   场景：大型敌机持续受击，连续命中动效起始 y 间距仅 ~6px（敌机下移 2px/帧 × 子弹间隔 3 帧），
 //   远小于 stackOffset，向上找空槽很快跑出屏幕顶部。此时已有足够的伤害文本在显示，跳过不影响信息传达。
-function addDamageEffect(x, y, damage, fontSize, color, floatDistance, frames, stackOffset) {
+function addDamageEffect(x, y, damage, fontSize, color, floatDistance, frames, stackOffset, crit = false) {
     const xRange = fontSize * 2; // x 检测范围：字号 2 倍（同 x 附近的动效才需要堆叠）
     // 【关键】只收集"屏幕内可见"的动效参与堆叠计算（curY >= 0）。
     // 已跑出屏幕顶部（curY < 0）的动效不可见，不占用空槽，否则会阻挡新动效找空槽导致兜底重叠。
@@ -158,7 +179,7 @@ function addDamageEffect(x, y, damage, fontSize, color, floatDistance, frames, s
     if (chosenSlot === -1) {
         return; // 不产生新动效，避免重叠
     }
-    damageEffects.push(new DamageEffectObj(x, startY, damage, fontSize, color, floatDistance, frames));
+    damageEffects.push(new DamageEffectObj(x, startY, damage, fontSize, color, floatDistance, frames, crit));
 }
 function drawDamageEffects() {
     for (let i = damageEffects.length - 1; i >= 0; i--) {

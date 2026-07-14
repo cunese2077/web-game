@@ -1,15 +1,17 @@
 // 游戏主引擎
 import { canvas, ctx, fontScale } from "./canvas.js";
 import { download } from "./resources.js";
-import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, } from "./constants.js";
+import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP, } from "./constants.js";
 import { Hero, getSoundIconArea } from "./hero.js";
 import { resetGameScore } from "./score.js";
 import { resetLevel } from "./level.js";
+import { initUpgrades, getPendingLevelUps } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
-import { resumeAudio, playGameOver } from "./audio.js";
+import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
+import { resumeAudio, playGameOver, playUpgradeSelect } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 let curPhase = PHASE_DOWNLOAD;
 let hero = null;
@@ -54,22 +56,38 @@ function start() {
                 toggleSound();
             }
         }
+        else if (curPhase === PHASE_LEVEL_UP) {
+            // 升级选择界面点击处理
+            const result = handleUpgradeClick(clickX, clickY);
+            if (result === "selected") {
+                playUpgradeSelect();
+                if (getPendingLevelUps() <= 0) {
+                    curPhase = PHASE_PLAY;
+                }
+                // 仍有待处理升级时保持 PHASE_LEVEL_UP，新选项已自动生成
+            }
+            // "rerolled" 或 null 点击：保持当前状态
+        }
         else if (curPhase === PHASE_GAME_OVER) {
             resetGameScore();
             resetLevel();
+            initUpgrades();
             hero = new Hero();
             hero.setPhaseCallbacks(getCurPhase, setCurPhase);
             Bullet.clear();
             Enemy.clear();
+            Enemy.resetNextId();
             Item.clear();
             clearScoreEffects();
             clearDamageEffects();
+            clearUpgradeUI();
             gameOverSoundPlayed = false;
             curPhase = PHASE_READY;
         }
     };
     ctx.fillStyle = "#963";
     ctx.font = `${Math.round(24 * fontScale)}px arial`;
+    initUpgrades();
     hero = new Hero();
     hero.setPhaseCallbacks(getCurPhase, setCurPhase);
     pBg = paintBg();
@@ -103,6 +121,18 @@ function gameEngine() {
                 curPhase = hero.draw(curPhase);
             drawScoreEffects();
             drawDamageEffects();
+            break;
+        case PHASE_LEVEL_UP:
+            if (pBg)
+                pBg();
+            Enemy.drawEnemy();
+            Item.drawItems();
+            Bullet.drawBullet();
+            if (hero)
+                hero.draw(curPhase);
+            drawScoreEffects();
+            drawDamageEffects();
+            drawUpgradeUI();
             break;
         case PHASE_PAUSE:
             drawPause();

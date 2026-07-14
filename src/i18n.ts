@@ -57,6 +57,43 @@ export type TextKey =
   | "difficulty.normal"      // "普通" / "NORMAL"
   | "difficulty.medium"      // "中等" / "MEDIUM"
   | "difficulty.hard"        // "困难" / "HARD"
+  // 升级选择界面（upgradeUI.ts）
+  | "upgrade.title"           // "升级!" / "LEVEL UP!"
+  | "upgrade.hint.select"     // "选择任意强化增益" / "CHOOSE A BUFF"
+  | "upgrade.hint.random"     // "强化随机出现" / "BUFFS ARE RANDOM"
+  | "upgrade.hint.reroll"     // "可免费刷新" / "FREE REROLLS"
+  | "upgrade.hint.times"      // "次" / "TIMES"
+  | "upgrade.reroll"          // "刷新" / "REROLL"
+  | "upgrade.new"             // "新!" / "NEW!"
+  | "upgrade.lv"              // "等级" / "LV"
+  | "upgrade.maxLevel"        // "满级" / "MAX"
+  // 稀有度标签
+  | "upgrade.rarity.common"     // "普通" / "COMMON"
+  | "upgrade.rarity.rare"       // "精良" / "RARE"
+  | "upgrade.rarity.epic"       // "史诗" / "EPIC"
+  | "upgrade.rarity.legendary"  // "传说" / "LEGEND"
+  // 基础武器升级名称和描述
+  | "upgrade.baseWeapon"              // "基础武器" / "BASE WEAPON"
+  | "upgrade.baseWeapon.desc.1"       // "伤害 +30%" / "DMG +30%"
+  | "upgrade.baseWeapon.desc.2"       // "四路子弹" / "4-WAY SHOT"
+  | "upgrade.baseWeapon.desc.3"       // "伤害 +30%, 射速 +20%" / "DMG +30%, RATE +20%"
+  | "upgrade.baseWeapon.desc.4"       // "五路子弹 + 穿透" / "5-WAY + PIERCE"
+  // 被动升级
+  | "upgrade.hpUp"            // "生命强化" / "HP UP"
+  | "upgrade.hpUp.desc"       // "最大HP +1" / "Max HP +1"
+  | "upgrade.damageUp"        // "伤害增幅" / "DMG UP"
+  | "upgrade.damageUp.desc"   // "所有武器伤害 +15%" / "All weapon DMG +15%"
+  | "upgrade.fireRateUp"      // "射速提升" / "RATE UP"
+  | "upgrade.fireRateUp.desc" // "基础武器射速 +10%" / "Base weapon rate +10%"
+  | "upgrade.moveSpeedUp"     // "移速提升" / "MOVE UP"
+  | "upgrade.moveSpeedUp.desc" // "移动速度 +8%" / "Move speed +8%"
+  | "upgrade.critChance"      // "暴击强化" / "CRIT UP"
+  | "upgrade.critChance.desc" // "暴击率 +8%" / "Crit rate +8%"
+  | "upgrade.shieldExtend"    // "护盾延长" / "SHIELD+"
+  | "upgrade.shieldExtend.desc" // "护盾持续时间 +30%" / "Shield duration +30%"
+  | "upgrade.lifeSteal"       // "生命汲取" / "LIFE STEAL"
+  | "upgrade.lifeSteal.desc"  // "击杀敌机 15% 回复 1 HP" / "15% kill heal 1 HP"
+  | "combat.crit"             // "暴击!" / "CRIT!"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"
@@ -101,6 +138,39 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "difficulty.normal": "普通",
     "difficulty.medium": "中等",
     "difficulty.hard": "困难",
+    "upgrade.title": "升级!",
+    "upgrade.hint.select": "选择任意强化增益",
+    "upgrade.hint.random": "强化随机出现",
+    "upgrade.hint.reroll": "可免费刷新",
+    "upgrade.hint.times": "次",
+    "upgrade.reroll": "刷新",
+    "upgrade.new": "新!",
+    "upgrade.lv": "等级",
+    "upgrade.maxLevel": "满级",
+    "upgrade.rarity.common": "普通",
+    "upgrade.rarity.rare": "精良",
+    "upgrade.rarity.epic": "史诗",
+    "upgrade.rarity.legendary": "传说",
+    "upgrade.baseWeapon": "基础武器",
+    "upgrade.baseWeapon.desc.1": "伤害 +30%",
+    "upgrade.baseWeapon.desc.2": "四路子弹",
+    "upgrade.baseWeapon.desc.3": "伤害 +30%, 射速 +20%",
+    "upgrade.baseWeapon.desc.4": "五路子弹 + 穿透",
+    "upgrade.hpUp": "生命强化",
+    "upgrade.hpUp.desc": "最大HP +1",
+    "upgrade.damageUp": "伤害增幅",
+    "upgrade.damageUp.desc": "所有武器伤害 +15%",
+    "upgrade.fireRateUp": "射速提升",
+    "upgrade.fireRateUp.desc": "基础武器射速 +10%",
+    "upgrade.moveSpeedUp": "移速提升",
+    "upgrade.moveSpeedUp.desc": "移动速度 +8%",
+    "upgrade.critChance": "暴击强化",
+    "upgrade.critChance.desc": "暴击率 +8%",
+    "upgrade.shieldExtend": "护盾延长",
+    "upgrade.shieldExtend.desc": "护盾持续时间 +30%",
+    "upgrade.lifeSteal": "生命汲取",
+    "upgrade.lifeSteal.desc": "击杀敌机 15% 回复 1 HP",
+    "combat.crit": "暴击!",
     "html.title": "飞机大战网页版",
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
   },
@@ -142,6 +212,39 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "difficulty.normal": "NORMAL",
     "difficulty.medium": "MEDIUM",
     "difficulty.hard": "HARD",
+    "upgrade.title": "LEVEL UP!",
+    "upgrade.hint.select": "CHOOSE A BUFF",
+    "upgrade.hint.random": "BUFFS ARE RANDOM",
+    "upgrade.hint.reroll": "FREE REROLLS",
+    "upgrade.hint.times": "times",
+    "upgrade.reroll": "REROLL",
+    "upgrade.new": "NEW!",
+    "upgrade.lv": "LV",
+    "upgrade.maxLevel": "MAX",
+    "upgrade.rarity.common": "COMMON",
+    "upgrade.rarity.rare": "RARE",
+    "upgrade.rarity.epic": "EPIC",
+    "upgrade.rarity.legendary": "LEGEND",
+    "upgrade.baseWeapon": "BASE WEAPON",
+    "upgrade.baseWeapon.desc.1": "DMG +30%",
+    "upgrade.baseWeapon.desc.2": "4-WAY SHOT",
+    "upgrade.baseWeapon.desc.3": "DMG +30%, RATE +20%",
+    "upgrade.baseWeapon.desc.4": "5-WAY + PIERCE",
+    "upgrade.hpUp": "HP UP",
+    "upgrade.hpUp.desc": "Max HP +1",
+    "upgrade.damageUp": "DMG UP",
+    "upgrade.damageUp.desc": "All weapon DMG +15%",
+    "upgrade.fireRateUp": "RATE UP",
+    "upgrade.fireRateUp.desc": "Base weapon rate +10%",
+    "upgrade.moveSpeedUp": "MOVE UP",
+    "upgrade.moveSpeedUp.desc": "Move speed +8%",
+    "upgrade.critChance": "CRIT UP",
+    "upgrade.critChance.desc": "Crit rate +8%",
+    "upgrade.shieldExtend": "SHIELD+",
+    "upgrade.shieldExtend.desc": "Shield duration +30%",
+    "upgrade.lifeSteal": "LIFE STEAL",
+    "upgrade.lifeSteal.desc": "15% chance to heal 1 HP on kill",
+    "combat.crit": "CRIT!",
     "html.title": "Plane War Web",
     "html.unsupported": "Your browser does not support canvas!!!",
   },
@@ -183,6 +286,39 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "difficulty.normal": "普通",
     "difficulty.medium": "中級",
     "difficulty.hard": "ハード",
+    "upgrade.title": "レベルアップ!",
+    "upgrade.hint.select": "強化を選択",
+    "upgrade.hint.random": "ランダム出現",
+    "upgrade.hint.reroll": "無料リロール",
+    "upgrade.hint.times": "回",
+    "upgrade.reroll": "リロール",
+    "upgrade.new": "NEW!",
+    "upgrade.lv": "Lv",
+    "upgrade.maxLevel": "MAX",
+    "upgrade.rarity.common": "コモン",
+    "upgrade.rarity.rare": "レア",
+    "upgrade.rarity.epic": "エピック",
+    "upgrade.rarity.legendary": "レジェンド",
+    "upgrade.baseWeapon": "ベースウェポン",
+    "upgrade.baseWeapon.desc.1": "ダメージ +30%",
+    "upgrade.baseWeapon.desc.2": "4方向弾",
+    "upgrade.baseWeapon.desc.3": "ダメージ +30%, 射速 +20%",
+    "upgrade.baseWeapon.desc.4": "5方向弾 + 貫通",
+    "upgrade.hpUp": "HPアップ",
+    "upgrade.hpUp.desc": "最大HP +1",
+    "upgrade.damageUp": "ダメージアップ",
+    "upgrade.damageUp.desc": "全武器ダメージ +15%",
+    "upgrade.fireRateUp": "射速アップ",
+    "upgrade.fireRateUp.desc": "ベース武器の射速 +10%",
+    "upgrade.moveSpeedUp": "移動アップ",
+    "upgrade.moveSpeedUp.desc": "移動速度 +8%",
+    "upgrade.critChance": "クリティカル",
+    "upgrade.critChance.desc": "クリティカル率 +8%",
+    "upgrade.shieldExtend": "シールド延長",
+    "upgrade.shieldExtend.desc": "シールド持続 +30%",
+    "upgrade.lifeSteal": "ライフスティール",
+    "upgrade.lifeSteal.desc": "敵撃破時 15% の確率で HP +1",
+    "combat.crit": "クリティカル!",
     "html.title": "エアバトル Web",
     "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",
   },

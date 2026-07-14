@@ -51,9 +51,9 @@ const enemyConfig = {
         },
         // 成长配置：中型敌机HP和分数稳步增长，保持中期挑战
         scaling: {
-            hpScale: 0.035, // 30级时 HP ≈ 36（2.4倍）
-            speedScale: 0.006, // 每级速度 +0.6%（30级时 4→4.70）
-            scoreScale: 0.035, // 30级时分数 ≈ 48（2.4倍）
+            hpScale: 0.06, // 30级时 HP ≈ 52（3.5倍），普通难度适中
+            speedScale: 0.008, // 每级速度 +0.8%（30级时 4→5.20）
+            scoreScale: 0.10, // 30级时分数 ≈ 122（6倍）
         },
     },
     // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
@@ -82,9 +82,9 @@ const enemyConfig = {
         },
         // 成长配置：大型敌机HP增长最快，后期保持压迫感
         scaling: {
-            hpScale: 0.045, // 30级时 HP ≈ 198（2.8倍）
-            speedScale: 0.004, // 每级速度 +0.4%（30级时 2→2.23）
-            scoreScale: 0.04, // 30级时分数 ≈ 264（2.6倍）
+            hpScale: 0.08, // 30级时 HP ≈ 301（4.3倍），普通难度适中
+            speedScale: 0.005, // 每级速度 +0.5%（30级时 2→2.29）
+            scoreScale: 0.12, // 30级时分数 ≈ 760（7.6倍）
         },
     },
 };
@@ -105,7 +105,7 @@ const hitEffect = {
 };
 // ========== 敌机等级成长配置 ==========
 // 幂函数指数：控制属性增长曲线的加速程度
-// 1.0=线性，1.1=温和加速（推荐，适合30级满级的游戏），1.3=较快加速
+// 1.0=线性，1.1=温和加速，1.2=中速加速（推荐，配合升级系统保持后期挑战）
 const ENEMY_SCALING_EXPONENT = 1.1;
 // 敌机生成比例随等级缩放配置
 // 后期小型敌机减少、中型增多，游戏节奏从"躲避大量弱敌"过渡到"对抗少量强敌"
@@ -128,38 +128,35 @@ function getScaledEnemyStat(base, scaleFactor, level, linear = false) {
 // 难度越高 → 敌机越强（HP/速度/成长/生成频率），道具越少
 // 新增难度只需在此添加一个配置对象 + 对应 i18n 翻译
 const difficultyConfig = {
-    // 【普通】标准难度，敌机属性无加成
+    // 【普通】标准难度，敌机属性无加成，3次刷新机会
     normal: {
         label: "difficulty.normal",
         enemyHpMultiplier: 1.0,
         enemySpeedMultiplier: 1.0,
         enemyScalingMultiplier: 1.0,
         enemySpawnRateMultiplier: 1.0,
-        heroHpBonus: 0,
-        damageMultiplier: 1.0,
         dropRateMultiplier: 1.0,
+        upgradeRerolls: 3,
     },
-    // 【中等】敌机 HP +60%、速度 +10%、成长系数 ×1.4、生成更频繁、道具略少
+    // 【中等】敌机 HP +30%、速度 +10%、成长系数 ×1.5、生成更频繁、道具略少、2次刷新
     medium: {
         label: "difficulty.medium",
-        enemyHpMultiplier: 1.6,
+        enemyHpMultiplier: 1.3,
         enemySpeedMultiplier: 1.1,
-        enemyScalingMultiplier: 1.4,
+        enemyScalingMultiplier: 1.5,
         enemySpawnRateMultiplier: 0.85,
-        heroHpBonus: 0,
-        damageMultiplier: 1.0,
         dropRateMultiplier: 0.85,
+        upgradeRerolls: 2,
     },
-    // 【困难】敌机 HP +120%、速度 +20%、成长系数 ×1.8、生成大幅加快、道具显著减少
+    // 【困难】敌机 HP +60%、速度 +20%、成长系数 ×2.0、生成大幅加快、道具显著减少、1次刷新
     hard: {
         label: "difficulty.hard",
-        enemyHpMultiplier: 2.2,
+        enemyHpMultiplier: 1.6,
         enemySpeedMultiplier: 1.2,
-        enemyScalingMultiplier: 1.8,
+        enemyScalingMultiplier: 2.0,
         enemySpawnRateMultiplier: 0.65,
-        heroHpBonus: 0,
-        damageMultiplier: 1.0,
         dropRateMultiplier: 0.65,
+        upgradeRerolls: 1,
     },
 };
 function getDifficultyConfig(difficulty) {
@@ -251,52 +248,17 @@ const bulletConfig = {
     diagonalDrift: 5,
 };
 // ========== 等级配置 ==========
-// 所有等级成长相关参数集中在此，修改本对象即可调整整个等级系统
-//
-// 【经验曲线】expToNext(lv) = base + growth × (lv-1)^exponent
-//   - base:      1→2 级所需经验（起步门槛），值越大前期升级越慢
-//   - growth:    每级递增基数，值越大后期升级越慢
-//   - exponent:  曲线指数，1.0=线性（平稳），1.5=超线性（后期陡峭）
-//   - 当前采用线性增长（exponent=1.0），满级约 15 分钟
-//
-// 【等级奖励】bonuses 对象控制各等级段的属性加成：
-//   - hpBonusLevels:    达到任一指定等级时 maxHp +1
-//   - damageBonus:      每级增加 perLevel 伤害，累计至 maxLevel 级封顶
-//   - bulletInterval:   每 perLevels 级减少 reduction 射击间隔，区间内生效
-//   - buffDuration:     每 perLevels 级乘以 multiplier，区间内生效
+// 经验曲线：expToNext(lv) = base + growth × (lv-1)^exponent
+// Roguelike 升级选择系统需要更多升级次数（50级满级，约20-25分钟一局）
 const levelConfig = {
-    base: 450, // 1→2 级所需经验（起步门槛）
-    growth: 30, // 每级递增基数（线性：每级 +30）
-    exponent: 1.0, // 曲线指数（1.0=线性，前期平稳后期不过陡）
-    maxLevel: 30, // 满级
+    base: 300, // 1→2 级所需经验（降低起步门槛）
+    growth: 25, // 每级递增基数
+    exponent: 1.05, // 轻微加速后期
+    maxLevel: 50, // 满级
     expRewards: {
-        small: 7, // 小型敌机击毁经验
-        medium: 20, // 中型敌机击毁经验
-        big: 100, // 大型敌机击毁经验
-    },
-    // 等级奖励配置 —— 修改此处可调整各等级段的属性加成
-    bonuses: {
-        // HP 加成等级点：达到任一等级时 maxHp +1（满级共 +10 HP）
-        hpBonusLevels: [2, 4, 7, 10, 13, 17, 20, 23, 27, 30],
-        // 子弹伤害加成：1~10 级每级 +0.15（10 级时累计 +1.5）
-        damageBonus: {
-            perLevel: 0.15,
-            maxLevel: 10,
-        },
-        // 射击间隔减少：11~20 级每 2 级 -0.15（下限 1 帧）
-        bulletInterval: {
-            perLevels: 2,
-            reduction: 0.15,
-            startLevel: 11,
-            endLevel: 20,
-        },
-        // Buff 持续倍率：21~30 级每 3 级 ×1.05（累计 ×1.15）
-        buffDuration: {
-            perLevels: 3,
-            multiplier: 1.05,
-            startLevel: 21,
-            endLevel: 30,
-        },
+        small: 5, // 小型敌机击毁经验
+        medium: 15, // 中型敌机击毁经验
+        big: 80, // 大型敌机击毁经验
     },
 };
 // ========== 动态概率计算函数 ==========
@@ -321,4 +283,126 @@ function getDynamicSpreadDropProb(hpRatio) {
 function getDynamicBigEnemySpawnProb(hpRatio) {
     return enemyConfig.big.spawnProbBase + (1 - hpRatio) * (enemyConfig.big.spawnProbMax - enemyConfig.big.spawnProbBase);
 }
-export { enemyConfig, enemySpawnScaling, difficultyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, };
+// ========== 升级池配置 ==========
+// P1：基础武器升级 + 4 种被动
+// 基础武器每级效果：
+//   Lv1: 三路子弹（默认）
+//   Lv2: 伤害 +30%
+//   Lv3: 四路子弹
+//   Lv4: 伤害 +30%, 射速 +20%
+//   Lv5: 五路子弹 + 穿透
+const upgradePool = [
+    {
+        id: "baseWeapon",
+        type: "weapon",
+        rarity: "rare", // 武器升级是核心成长，稀有度高于普通被动
+        maxLevel: 5,
+        weaponSlot: true,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.baseWeapon",
+        descriptions: [
+            "upgrade.baseWeapon.desc.1", // Lv1→2: 伤害 +30%
+            "upgrade.baseWeapon.desc.2", // Lv2→3: 四路子弹
+            "upgrade.baseWeapon.desc.3", // Lv3→4: 伤害+射速提升
+            "upgrade.baseWeapon.desc.4", // Lv4→5: 五路+穿透
+        ],
+        icon: "bullet",
+    },
+    {
+        id: "hpUp",
+        type: "passive",
+        rarity: "common", // 基础被动，最常见
+        maxLevel: 99,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.hpUp",
+        descriptions: ["upgrade.hpUp.desc"],
+        icon: "heart",
+    },
+    {
+        id: "damageUp",
+        type: "passive",
+        rarity: "rare", // 伤害增幅是核心属性，较少出现
+        maxLevel: 99,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.damageUp",
+        descriptions: ["upgrade.damageUp.desc"],
+        icon: "sword",
+    },
+    {
+        id: "fireRateUp",
+        type: "passive",
+        rarity: "rare", // 射速增幅是核心属性，较少出现
+        maxLevel: 99,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.fireRateUp",
+        descriptions: ["upgrade.fireRateUp.desc"],
+        icon: "lightning",
+    },
+    {
+        id: "moveSpeedUp",
+        type: "passive",
+        rarity: "common", // 移速是辅助属性，常见
+        maxLevel: 99,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.moveSpeedUp",
+        descriptions: ["upgrade.moveSpeedUp.desc"],
+        icon: "boot",
+    },
+    // ========== 史诗 (epic) 道具 ==========
+    {
+        id: "critChance",
+        type: "passive",
+        rarity: "epic",
+        maxLevel: 5,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.critChance",
+        descriptions: ["upgrade.critChance.desc"],
+        icon: "sword",
+    },
+    {
+        id: "shieldExtend",
+        type: "passive",
+        rarity: "epic",
+        maxLevel: 3,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.shieldExtend",
+        descriptions: ["upgrade.shieldExtend.desc"],
+        icon: "heart",
+    },
+    // ========== 传说 (legendary) 道具 ==========
+    {
+        id: "lifeSteal",
+        type: "passive",
+        rarity: "legendary",
+        maxLevel: 3,
+        weaponSlot: false,
+        prerequisites: [],
+        evolutionFrom: null,
+        label: "upgrade.lifeSteal",
+        descriptions: ["upgrade.lifeSteal.desc"],
+        icon: "heart",
+    },
+];
+// 稀有度权重：数值越大出现概率越高
+const rarityWeights = {
+    common: 50,
+    rare: 30,
+    epic: 15,
+    legendary: 5,
+};
+// BOSS 击杀加成：每次击杀 big 敌机，epic/legendary 权重增加此值
+const bossKillRarityBonus = 15;
+export { enemyConfig, enemySpawnScaling, difficultyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, upgradePool, rarityWeights, bossKillRarityBonus, };
