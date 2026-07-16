@@ -11,7 +11,7 @@ import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext } from "./level.js";
 import { buffConfig, heroConfig, itemConfig, getDifficultyConfig } from "./config.js";
 import { t } from "./i18n.js";
-import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getShieldExtendMultiplier, } from "./upgrade.js";
+import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, } from "./upgrade.js";
 let activeHero = null;
 let eventsBound = false;
 function bindEventsOnce() {
@@ -231,7 +231,7 @@ class Hero {
                     playFirepower();
                     break;
                 case "shield":
-                    this.buffs.shield = Math.round(buffConfig.shield.duration * getShieldExtendMultiplier());
+                    this.buffs.shield = buffConfig.shield.duration;
                     this._addBuffFloat(t(itemConfig.types.shield.label), itemConfig.types.shield.color);
                     playShield();
                     break;
@@ -584,7 +584,7 @@ class Hero {
                     this.invincible = buffConfig.shield.invincibleFrames;
                     break;
                 }
-                this.hp--;
+                this.hp -= Math.max(1, 1 - getArmorReduction());
                 playHit();
                 if (this.hp <= 0) {
                     this.hp = 0;

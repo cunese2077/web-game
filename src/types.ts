@@ -261,6 +261,7 @@ export interface UpgradeDef {
   maxLevel: number;              // 最大等级（武器=5，被动=可叠加/特殊=1）
   weaponSlot: boolean;           // 是否占用武器槽位
   prerequisites: string[];       // 前置升级 id
+  prereqLevels: Record<string, number>; // 前置道具最低等级要求（默认 1）
   evolutionFrom: [string, string] | null;  // 进化来源（两个 Lv5 武器 id）
   label: TextKey;                // 名称 i18n key
   descriptions: TextKey[];       // 各等级描述 i18n key（索引=当前等级-1，升级到下一级时显示）

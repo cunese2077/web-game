@@ -143,6 +143,28 @@ function _drawCard(offer: UpgradeOffer, x: number, y: number, w: number, h: numb
   ctx.textAlign = "center";
   ctx.fillText(rarityText, tagX + tagWidth / 2, tagY + tagHeight / 2 + tagFontSize * 0.35);
 
+  // BOSS 传说标识（左上角，仅传说稀有度显示）
+  if (offer.def.rarity === "legendary") {
+    const bossText = t("upgrade.boss");
+    const bossFontSize = Math.round(9 * fontScale);
+    ctx.font = `bold ${bossFontSize}px arial`;
+    const bossTagWidth = ctx.measureText(bossText).width + Math.round(6 * fontScale) * 2;
+    const bossTagHeight = Math.round(16 * fontScale);
+    const bossTagX = x + Math.round(4 * fontScale);
+    const bossTagY = y + Math.round(4 * fontScale);
+    // 金色背景 + 脉冲发光
+    ctx.save();
+    ctx.shadowColor = "#fd0";
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = "rgba(255, 170, 0, 0.6)";
+    _roundRect(bossTagX, bossTagY, bossTagWidth, bossTagHeight, Math.round(3 * fontScale));
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.fillText(bossText, bossTagX + bossTagWidth / 2, bossTagY + bossTagHeight / 2 + bossFontSize * 0.35);
+  }
+
   const contentX = x + Math.round(8 * fontScale);
   const contentW = w - Math.round(16 * fontScale);
   const centerX = x + w / 2;
@@ -301,6 +323,133 @@ function _drawIcon(icon: string, cx: number, cy: number, color: string): number 
       ctx.fill();
       ctx.restore();
       return cy + s * 0.5;
+    }
+    case "missile": {
+      // 追踪导弹：橙红色导弹 + 尾焰，底部 = cy + size
+      ctx.fillStyle = "#f74";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - size);                    // 弹头尖端
+      ctx.lineTo(cx + size * 0.3, cy - size * 0.3); // 右肩
+      ctx.lineTo(cx + size * 0.3, cy + size * 0.6); // 右尾
+      ctx.lineTo(cx - size * 0.3, cy + size * 0.6); // 左尾
+      ctx.lineTo(cx - size * 0.3, cy - size * 0.3); // 左肩
+      ctx.closePath();
+      ctx.fill();
+      // 尾翼
+      ctx.fillStyle = "#c44";
+      ctx.beginPath();
+      ctx.moveTo(cx - size * 0.3, cy + size * 0.3);
+      ctx.lineTo(cx - size * 0.6, cy + size * 0.7);
+      ctx.lineTo(cx - size * 0.3, cy + size * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + size * 0.3, cy + size * 0.3);
+      ctx.lineTo(cx + size * 0.6, cy + size * 0.7);
+      ctx.lineTo(cx + size * 0.3, cy + size * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      // 尾焰
+      ctx.fillStyle = "#fa0";
+      ctx.beginPath();
+      ctx.moveTo(cx - size * 0.2, cy + size * 0.6);
+      ctx.lineTo(cx, cy + size);
+      ctx.lineTo(cx + size * 0.2, cy + size * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      return cy + size;
+    }
+    case "orb": {
+      // 护盾球体：蓝色发光圆，底部 = cy + s
+      const s = size * 0.8;
+      ctx.shadowColor = "#4af";
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = "#4af";
+      ctx.beginPath();
+      ctx.arc(cx, cy, s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      // 高光
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.beginPath();
+      ctx.arc(cx - s * 0.25, cy - s * 0.25, s * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return cy + s;
+    }
+    case "bomb": {
+      // 爆裂弹：红色圆 + 引线，底部 = cy + size
+      const r = size * 0.55;
+      // 球体
+      ctx.fillStyle = "#e33";
+      ctx.beginPath();
+      ctx.arc(cx, cy + size * 0.15, r, 0, Math.PI * 2);
+      ctx.fill();
+      // 高光
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.beginPath();
+      ctx.arc(cx - r * 0.25, cy + size * 0.15 - r * 0.25, r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      // 引线
+      ctx.strokeStyle = "#fa0";
+      ctx.lineWidth = Math.max(1, Math.round(2 * fontScale));
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.4, cy + size * 0.15 - r * 0.7);
+      ctx.quadraticCurveTo(cx + r * 0.8, cy - size * 0.6, cx + r * 0.5, cy - size * 0.8);
+      ctx.stroke();
+      // 火花
+      ctx.fillStyle = "#ff0";
+      ctx.beginPath();
+      ctx.arc(cx + r * 0.5, cy - size * 0.8, Math.max(1, Math.round(3 * fontScale)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return cy + size;
+    }
+    case "star": {
+      // 五角星（幸运），底部 = cy + outerR
+      ctx.fillStyle = "#fd0";
+      const outerR = size * 0.9;
+      const innerR = size * 0.4;
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const outerAngle = (Math.PI / 2) + (i * 2 * Math.PI / 5);
+        const innerAngle = outerAngle + Math.PI / 5;
+        if (i === 0) {
+          ctx.moveTo(cx + Math.cos(outerAngle) * outerR, cy - Math.sin(outerAngle) * outerR);
+        } else {
+          ctx.lineTo(cx + Math.cos(outerAngle) * outerR, cy - Math.sin(outerAngle) * outerR);
+        }
+        ctx.lineTo(cx + Math.cos(innerAngle) * innerR, cy - Math.sin(innerAngle) * innerR);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      return cy + outerR;
+    }
+    case "shield": {
+      // 护盾（护甲），底部 = cy + size
+      ctx.fillStyle = "#8af";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - size);
+      ctx.lineTo(cx + size * 0.7, cy - size * 0.5);
+      ctx.lineTo(cx + size * 0.7, cy + size * 0.2);
+      ctx.quadraticCurveTo(cx + size * 0.4, cy + size * 0.8, cx, cy + size);
+      ctx.quadraticCurveTo(cx - size * 0.4, cy + size * 0.8, cx - size * 0.7, cy + size * 0.2);
+      ctx.lineTo(cx - size * 0.7, cy - size * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      // 内部高光
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - size * 0.6);
+      ctx.lineTo(cx + size * 0.35, cy - size * 0.3);
+      ctx.lineTo(cx, cy + size * 0.2);
+      ctx.lineTo(cx - size * 0.35, cy - size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      return cy + size;
     }
   }
   ctx.restore();

@@ -5,7 +5,7 @@ import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
 import { addExp, getExpReward, getLevel } from "./level.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs, healHero } from "./hero.js";
-import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getLifeStealChance, getCritChance } from "./upgrade.js";
+import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance } from "./upgrade.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit } from "./audio.js";
@@ -65,6 +65,8 @@ class Enemy {
   moveType: MoveType;
   movePhase: number;
   moveDirection: number;
+  slowFrames: number;
+  slowFactor: number;
 
   constructor() {
     const hpRatio = getHpRatio();
@@ -129,6 +131,8 @@ class Enemy {
     this.moveType = this._getMoveType();
     this.movePhase = Math.random() * Math.PI * 2;
     this.moveDirection = Math.random() < 0.5 ? 1 : -1;
+    this.slowFrames = 0;
+    this.slowFactor = 0;
   }
 
   _getMoveType(): MoveType {
@@ -140,7 +144,7 @@ class Enemy {
     return enemyConfig.small.move.type;
   }
 
-  _updateHorizontalPosition(): void {
+  _updateHorizontalPosition(speedMul: number = 1): void {
     if (this.die) return;
 
     const canvasWidth = width;
@@ -148,14 +152,14 @@ class Enemy {
     if (this.moveType === "sine") {
       // 正弦摆动只对中型敌机生效，直接使用中型敌机配置
       const config = enemyConfig.medium.move;
-      this.movePhase += config.frequency;
+      this.movePhase += config.frequency * speedMul;
       this.x = this.originX + config.amplitude * Math.sin(this.movePhase);
       this.x = Math.max(0, Math.min(this.x, canvasWidth - this.width));
 
     } else if (this.moveType === "zigzag") {
       // 锯齿形移动只对大型敌机生效，直接使用大型敌机配置
       const config = enemyConfig.big.move;
-      this.x += config.horizontalSpeed * this.moveDirection;
+      this.x += config.horizontalSpeed * this.moveDirection * speedMul;
       if (this.x <= 0) {
         this.x = 0;
         this.moveDirection = 1;
@@ -196,6 +200,23 @@ class Enemy {
 
     ctx.drawImage(this.enemy, this.x, this.y);
 
+    // 冰冻视觉效果：被减速时覆盖半透明蓝色冰霜 + 冰晶边框
+    if (!this.die && this.slowFrames > 0) {
+      ctx.save();
+      // 半透明蓝色冰霜覆盖
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = "#8df";
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+      // 冰晶边框
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = "#bef";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#4af";
+      ctx.shadowBlur = 6;
+      ctx.strokeRect(this.x - 1, this.y - 1, this.width + 2, this.height + 2);
+      ctx.restore();
+    }
+
     // 受击音效冷却递减
     if (this.hitSoundCoolDown > 0) {
       this.hitSoundCoolDown--;
@@ -206,8 +227,11 @@ class Enemy {
       this._drawHpBar();
     }
 
-    this.y += this.speed;
-    this._updateHorizontalPosition();
+    // 移动（受减速/冰冻影响）
+    const speedMul = this.slowFrames > 0 ? (1 - this.slowFactor) : 1;
+    this.y += this.speed * speedMul;
+    this._updateHorizontalPosition(speedMul);
+    if (this.slowFrames > 0) this.slowFrames--;
     this.hit();
 
     if (this.y > height) {
@@ -283,7 +307,7 @@ class Enemy {
         let dmg = damageMultiplier;
         const isCrit = Math.random() < getCritChance();
         if (isCrit) {
-          dmg *= 2;
+          dmg *= 2.0;
           frameCrit = true;
         }
 
@@ -310,9 +334,6 @@ class Enemy {
             playEnemyDestroySmall();
           }
           this._dropItems();
-          // 生命汲取：击杀敌机概率回复 HP
-          const stealChance = getLifeStealChance();
-          if (stealChance > 0 && Math.random() < stealChance) healHero(1);
           // 非穿透子弹标记移除，穿透子弹继续飞行
           if (!h.piercing) h.removable = true;
           break;
@@ -408,6 +429,65 @@ class Enemy {
 
   static resetNextId(): void {
     nextEnemyId = 0;
+  }
+
+  // 外部伤害接口：特殊武器调用此方法对敌机造成伤害
+  // skipHitSound=true 时跳过通用受击音效（由调用方播放专属音效）
+  static applyDamage(enemyId: number, damage: number, isCrit: boolean, skipHitSound: boolean = false): void {
+    const enemy = liveEnemy.find(e => e.id === enemyId && !e.die);
+    if (!enemy) return;
+
+    enemy.lives -= damage;
+    if (enemy.lives <= 0) {
+      enemy.die = true;
+      addGameScore(enemy.score);
+      addExp(getExpReward(enemy.type));
+      addScoreEffect(enemy.x + enemy.width / 2, Math.max(enemy.y + enemy.height / 2, Math.round(30 * fontScale)), enemy.score);
+      if (enemy.type === "big") {
+        playEnemyDestroyBig();
+        addBossKillBonus();
+      } else if (enemy.type === "medium") {
+        playEnemyDestroyMedium();
+      } else {
+        playEnemyDestroySmall();
+      }
+      enemy._dropItems();
+    }
+
+    // 伤害文本
+    if (hitEffect.damageText.show) {
+      const critFontSize = isCrit ? Math.round(hitEffect.damageText.fontSize * 1.5 * fontScale) : Math.round(hitEffect.damageText.fontSize * fontScale);
+      const critColor = isCrit ? "#ffd700" : hitEffect.damageText.color;
+      addDamageEffect(
+        enemy.x + enemy.width / 2,
+        enemy.y + enemy.height,
+        Math.ceil(damage),
+        critFontSize,
+        critColor,
+        Math.round(hitEffect.damageText.floatDistance * fontScale),
+        hitEffect.damageText.frames,
+        Math.round(hitEffect.damageText.stackOffset * fontScale),
+        isCrit
+      );
+    }
+    // 受击音效（跳过时由调用方播放专属音效）
+    if (!skipHitSound && enemy.hitSoundCoolDown === 0) {
+      playEnemyHit();
+      enemy.hitSoundCoolDown = hitEffect.soundCoolDown;
+    }
+  }
+
+  // 外部减速/冰冻接口：特殊武器调用此方法对敌机施加减速效果
+  static applySlow(enemyId: number, factor: number, frames: number): void {
+    const enemy = liveEnemy.find(e => e.id === enemyId && !e.die);
+    if (!enemy) return;
+    enemy.slowFactor = factor;
+    enemy.slowFrames = frames;
+  }
+
+  // 获取敌机代理列表（供特殊武器使用，避免直接暴露 liveEnemy）
+  static getEnemyProxies(): { id: number; x: number; y: number; width: number; height: number; die: boolean; lives: number; type: string }[] {
+    return liveEnemy;
   }
 }
 

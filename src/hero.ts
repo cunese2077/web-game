@@ -22,8 +22,8 @@ import {
   getMaxHp,
   hasPiercing,
   startUpgradeSelection,
-  getShieldExtendMultiplier,
   getCritChance,
+  getArmorReduction,
 } from "./upgrade.js";
 import type { GamePhase, BuffState, BuffFloat, ItemType } from "./types.js";
 
@@ -276,7 +276,7 @@ class Hero {
           playFirepower();
           break;
         case "shield":
-          this.buffs.shield = Math.round(buffConfig.shield.duration * getShieldExtendMultiplier());
+          this.buffs.shield = buffConfig.shield.duration;
           this._addBuffFloat(t(itemConfig.types.shield.label), itemConfig.types.shield.color);
           playShield();
           break;
@@ -678,7 +678,7 @@ class Hero {
           break;
         }
 
-        this.hp--;
+        this.hp -= Math.max(1, 1 - getArmorReduction());
         playHit();
         if (this.hp <= 0) {
           this.hp = 0;

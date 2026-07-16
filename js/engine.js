@@ -1,6 +1,6 @@
 // 游戏主引擎
 import { canvas, ctx, fontScale } from "./canvas.js";
-import { download } from "./resources.js";
+import { download, heroImg } from "./resources.js";
 import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP, } from "./constants.js";
 import { Hero, getSoundIconArea } from "./hero.js";
 import { resetGameScore } from "./score.js";
@@ -11,6 +11,7 @@ import Enemy from "./enemy.js";
 import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
+import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
 import { resumeAudio, playGameOver, playUpgradeSelect } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 let curPhase = PHASE_DOWNLOAD;
@@ -78,6 +79,8 @@ function start() {
             Enemy.clear();
             Enemy.resetNextId();
             Item.clear();
+            Bullet.clear();
+            clearSpecialWeapons();
             clearScoreEffects();
             clearDamageEffects();
             clearUpgradeUI();
@@ -119,6 +122,10 @@ function gameEngine() {
             Bullet.drawBullet();
             if (hero)
                 curPhase = hero.draw(curPhase);
+            // 特殊武器更新+绘制
+            if (hero) {
+                updateAndDrawSpecialWeapons(hero.x, hero.y, heroImg[0].width, heroImg[0].height, curPhase, () => Enemy.getEnemyProxies(), (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound), (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames));
+            }
             drawScoreEffects();
             drawDamageEffects();
             break;

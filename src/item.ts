@@ -142,6 +142,11 @@ class Item {
   static checkCollision(heroX: number, heroY: number, heroW: number, heroH: number): ItemType[] {
     const picked: ItemType[] = [];
     const halfSize = itemConfig.size / 2;
+    // 拾取范围（无加成）
+    const effX = heroX;
+    const effY = heroY;
+    const effW = heroW;
+    const effH = heroH;
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i];
       if (item.removable) continue;
@@ -152,10 +157,10 @@ class Item {
       const itemBottom = item.y + halfSize;
 
       if (
-        itemRight >= heroX &&
-        itemLeft <= heroX + heroW &&
-        itemBottom >= heroY &&
-        itemTop <= heroY + heroH
+        itemRight >= effX &&
+        itemLeft <= effX + effW &&
+        itemBottom >= effY &&
+        itemTop <= effY + effH
       ) {
         item.removable = true;
         picked.push(item.type);

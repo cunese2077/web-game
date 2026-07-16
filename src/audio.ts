@@ -84,6 +84,11 @@ interface AudioConfig {
   spread: MelodyConfig;
   levelUp: MelodyConfig;
   upgradeSelect: MelodyConfig;
+  laser: ToneWithNoiseConfig;       // 激光发射：低频嗡鸣 + 噪声
+  lightning: ToneWithNoiseConfig;   // 闪电链：高频噼啪 + 噪声
+  missile: ToneWithNoiseConfig;     // 导弹发射：低频呼啸 + 噪声
+  missileHit: BigExplosionConfig;   // 导弹命中爆炸
+  wingmanHit: ToneWithNoiseConfig;  // 僚机命中
 }
 
 // ========== 音效配置对象 ==========
@@ -181,6 +186,32 @@ const audioConfig: AudioConfig = {
     attackTime: 0.02,
     volume: 0.15,
     duration: 0.2,
+  },
+  // 激光发射音效：低频持续嗡鸣 + 白噪声，模拟高能光束
+  laser: {
+    noise: { volume: 0.3, duration: 0.3, amplitude: 0.8 },
+    tone: { type: "sawtooth", freqStart: 300, freqEnd: 50, volume: 0.3, duration: 0.3 },
+  },
+  // 闪电链音效：高频噼啪 + 噪声，模拟电弧放电
+  lightning: {
+    noise: { volume: 0.3, duration: 0.12, amplitude: 0.8 },
+    tone: { type: "square", freqStart: 2400, freqEnd: 200, volume: 0.2, duration: 0.12 },
+  },
+  // 导弹发射音效：低频呼啸 + 噪声，模拟推进器点火
+  missile: {
+    noise: { volume: 0.3, duration: 0.25, amplitude: 0.7 },
+    tone: { type: "sawtooth", freqStart: 500, freqEnd: 60, volume: 0.3, duration: 0.25 },
+  },
+  // 导弹命中爆炸音效：噪声 + 双音下降，模拟爆炸冲击
+  missileHit: {
+    noise: { volume: 0.5, duration: 0.4, amplitude: 1.0 },
+    tone1: { type: "sawtooth", freqStart: 800, freqEnd: 15, volume: 0.35, duration: 0.4 },
+    tone2: { type: "square", freqStart: 400, freqEnd: 8, volume: 0.25, duration: 0.35 },
+  },
+  // 僚机命中音效：清脆高频 + 噪声，区别于普通子弹
+  wingmanHit: {
+    noise: { volume: 0.15, duration: 0.06, amplitude: 0.4 },
+    tone: { type: "triangle", freqStart: 1200, freqEnd: 600, volume: 0.15, duration: 0.06 },
   },
 };
 
@@ -600,6 +631,179 @@ function playUpgradeSelect(): void {
   });
 }
 
+// 激光发射音效：低频嗡鸣 + 噪声
+function playLaser(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.laser;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone.type;
+  osc.frequency.setValueAtTime(c.tone.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
+  gain.gain.setValueAtTime(vol(c.tone.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone.duration);
+}
+
+// 闪电链音效：高频噼啪 + 噪声
+function playLightning(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.lightning;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone.type;
+  osc.frequency.setValueAtTime(c.tone.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
+  gain.gain.setValueAtTime(vol(c.tone.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone.duration);
+}
+
+// 导弹发射音效：低频呼啸 + 噪声
+function playMissile(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.missile;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone.type;
+  osc.frequency.setValueAtTime(c.tone.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
+  gain.gain.setValueAtTime(vol(c.tone.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone.duration);
+}
+
+// 导弹命中爆炸音效：噪声 + 双音下降
+function playMissileHit(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.missileHit;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone1.type;
+  osc.frequency.setValueAtTime(c.tone1.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone1.freqEnd, now + c.tone1.duration);
+  gain.gain.setValueAtTime(vol(c.tone1.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone1.duration);
+
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.connect(gain2);
+  gain2.connect(ctx.destination);
+  autoDisconnect(osc2, gain2);
+  osc2.type = c.tone2.type;
+  osc2.frequency.setValueAtTime(c.tone2.freqStart, now);
+  osc2.frequency.exponentialRampToValueAtTime(c.tone2.freqEnd, now + c.tone2.duration);
+  gain2.gain.setValueAtTime(vol(c.tone2.volume), now);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + c.tone2.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone1.duration);
+  osc2.start(now);
+  osc2.stop(now + c.tone2.duration);
+}
+
+// 僚机命中音效：清脆高频 + 噪声
+function playWingmanHit(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.wingmanHit;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone.type;
+  osc.frequency.setValueAtTime(c.tone.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
+  gain.gain.setValueAtTime(vol(c.tone.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone.duration);
+}
+
 export {
   audioConfig,
   resumeAudio,
@@ -618,4 +822,9 @@ export {
   playSpread,
   playLevelUp,
   playUpgradeSelect,
+  playLaser,
+  playLightning,
+  playMissile,
+  playMissileHit,
+  playWingmanHit,
 };
