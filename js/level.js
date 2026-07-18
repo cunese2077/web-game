@@ -48,6 +48,8 @@ function resetLevel() {
 function getExpReward(enemyType) {
     if (enemyType === "big")
         return levelConfig.expRewards.big;
+    if (enemyType === "elite")
+        return levelConfig.expRewards.elite;
     if (enemyType === "medium")
         return levelConfig.expRewards.medium;
     return levelConfig.expRewards.small;

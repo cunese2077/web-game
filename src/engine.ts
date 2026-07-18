@@ -1,5 +1,5 @@
 // 游戏主引擎
-import { canvas, ctx, fontScale } from "./canvas.js";
+import { ctx, canvas, fontScale, width, height } from "./canvas.js";
 import { download, heroImg } from "./resources.js";
 import {
   PHASE_DOWNLOAD,
@@ -9,19 +9,24 @@ import {
   PHASE_PAUSE,
   PHASE_GAME_OVER,
   PHASE_LEVEL_UP,
+  PHASE_BOSS_WARNING,
+  PHASE_BOSS,
 } from "./constants.js";
-import { Hero, getSoundIconArea } from "./hero.js";
+import { Hero, getSoundIconArea, getHeroBuffs } from "./hero.js";
 import { resetGameScore } from "./score.js";
-import { resetLevel } from "./level.js";
-import { initUpgrades, getPendingLevelUps } from "./upgrade.js";
+import { resetLevel, getLevel, addExp } from "./level.js";
+import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
-import { resumeAudio, playGameOver, playUpgradeSelect } from "./audio.js";
+import { checkBossTrigger, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss } from "./boss.js";
+import { updateAndDrawBullets, clearBullets, getBullets } from "./enemyBullet.js";
+import { resumeAudio, playGameOver, playUpgradeSelect, playBossWarning } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
+import { t } from "./i18n.js";
 import type { GamePhase } from "./types.js";
 
 let curPhase: GamePhase = PHASE_DOWNLOAD;
@@ -29,6 +34,94 @@ let hero: Hero | null = null;
 let pBg: (() => void) | null = null;
 let loadAnim: (() => GamePhase) | null = null;
 let gameOverSoundPlayed: boolean = false;
+
+// BOSS 预警 UI 绘制
+function _drawBossWarningUI(): void {
+  const timer = getBossWarningTimer();
+  const seconds = Math.ceil(timer / 20); // 20fps
+  ctx.save();
+
+  // 红色闪烁遮罩
+  const pulse = 0.25 + 0.2 * Math.sin(timer * 0.3);
+  ctx.fillStyle = `rgba(180, 0, 0, ${pulse})`;
+  ctx.fillRect(0, 0, width, height);
+
+  // 顶部和底部警告条纹
+  ctx.fillStyle = `rgba(255, 200, 0, ${0.4 + 0.3 * Math.sin(timer * 0.3)})`;
+  const stripeH = Math.round(4 * fontScale);
+  ctx.fillRect(0, 0, width, stripeH);
+  ctx.fillRect(0, height - stripeH, width, stripeH);
+
+  // 主标题：BOSS 来袭
+  const titleY = height / 2 - Math.round(30 * fontScale);
+  ctx.font = `bold ${Math.round(32 * fontScale)}px arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffd700";
+  ctx.shadowColor = "#f00";
+  ctx.shadowBlur = 15;
+  ctx.fillText(t("boss.warning"), width / 2, titleY);
+
+  // 倒计时数字（大号红色）
+  const numY = height / 2 + Math.round(20 * fontScale);
+  ctx.font = `bold ${Math.round(48 * fontScale)}px arial`;
+  ctx.fillStyle = "#f44";
+  ctx.shadowColor = "#fff";
+  ctx.shadowBlur = 12;
+  ctx.fillText(String(seconds), width / 2, numY);
+
+  ctx.restore();
+}
+
+// 玩家子弹命中 BOSS 检测（同帧伤害合并，支持暴击和伤害加成）
+function _checkBulletsHitBoss(): void {
+  const boss = getActiveBoss();
+  if (!boss || !boss.alive) return;
+  const bounds = boss.getBounds();
+  const allBullets = Bullet.getAll();
+  const damageMultiplier = getBulletDamageWithBuff(getHeroBuffs().firepower > 0);
+  let frameDamage = 0;
+  let frameCrit = false;
+  for (let i = allBullets.length - 1; i >= 0; i--) {
+    const b = allBullets[i];
+    if (b.removable) continue;
+    if (
+      b.mx + b.width >= bounds.left &&
+      b.mx <= bounds.right &&
+      b.my + b.height >= bounds.top &&
+      b.my <= bounds.bottom
+    ) {
+      // 与敌机相同的伤害计算：武器等级 + 被动加成 + 暴击
+      let dmg = damageMultiplier;
+      const isCrit = Math.random() < getCritChance();
+      if (isCrit) {
+        dmg *= 2.0;
+        frameCrit = true;
+      }
+      frameDamage += dmg;
+      if (!b.piercing) {
+        b.removable = true;
+      }
+    }
+  }
+  if (frameDamage > 0) {
+    boss.takeDamage(frameDamage);
+    // 显示伤害文字（BOSS 底部位置，暴击时金色大字）
+    const critFontSize = frameCrit ? Math.round(22 * 1.5 * fontScale) : Math.round(22 * fontScale);
+    const critColor = frameCrit ? "#ffd700" : "#f44";
+    addDamageEffect(
+      boss.x,
+      boss.y + boss.bossHeight / 2,
+      Math.ceil(frameDamage),
+      critFontSize,
+      critColor,
+      Math.round(35 * fontScale),
+      25,
+      Math.round(24 * fontScale),
+      frameCrit
+    );
+  }
+}
 
 function getCurPhase(): GamePhase {
   return curPhase;
@@ -75,7 +168,13 @@ function start(): void {
       if (result === "selected") {
         playUpgradeSelect();
         if (getPendingLevelUps() <= 0) {
-          curPhase = PHASE_PLAY;
+          // 所有升级处理完毕，检查是否应触发 BOSS
+          if (checkBossTrigger(getLevel())) {
+            startBossWarning();
+            curPhase = PHASE_BOSS_WARNING;
+          } else {
+            curPhase = PHASE_PLAY;
+          }
         }
         // 仍有待处理升级时保持 PHASE_LEVEL_UP，新选项已自动生成
       }
@@ -92,6 +191,8 @@ function start(): void {
       Item.clear();
       Bullet.clear();
       clearSpecialWeapons();
+      clearBoss();
+      clearBullets();
       clearScoreEffects();
       clearDamageEffects();
       clearUpgradeUI();
@@ -140,6 +241,67 @@ function gameEngine(): void {
       }
       drawScoreEffects();
       drawDamageEffects();
+      break;
+    case PHASE_BOSS_WARNING:
+      if (pBg) pBg();
+      Enemy.drawEnemy();
+      Item.drawItems();
+      Bullet.drawBullet();
+      if (hero) curPhase = hero.draw(curPhase);
+      // 特殊武器更新+绘制（预警期间仍可攻击）
+      if (hero) {
+        updateAndDrawSpecialWeapons(
+          hero.x, hero.y, heroImg[0].width, heroImg[0].height,
+          curPhase,
+          () => Enemy.getEnemyProxies(),
+          (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
+          (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
+        );
+      }
+      drawScoreEffects();
+      drawDamageEffects();
+      // BOSS 预警倒计时
+      if (updateBossWarning()) {
+        spawnBoss();
+        curPhase = PHASE_BOSS;
+      } else {
+        // 绘制预警 UI（半透明红色遮罩，不阻挡交互）
+        _drawBossWarningUI();
+      }
+      // 预警期间每 45 帧播放一次警报音效
+      if (getBossWarningTimer() > 0 && getBossWarningTimer() % 45 === 0) {
+        playBossWarning();
+      }
+      break;
+    case PHASE_BOSS:
+      if (pBg) pBg();
+      Enemy.drawEnemy();
+      Item.drawItems();
+      Bullet.drawBullet();
+      if (hero) curPhase = hero.draw(curPhase);
+      // 特殊武器更新+绘制
+      if (hero) {
+        updateAndDrawSpecialWeapons(
+          hero.x, hero.y, heroImg[0].width, heroImg[0].height,
+          curPhase,
+          () => Enemy.getEnemyProxies(),
+          (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
+          (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
+        );
+      }
+      // BOSS 更新+绘制
+      updateAndDrawBoss();
+      // BOSS 弹幕更新+绘制
+      updateAndDrawBullets();
+      // 玩家子弹命中 BOSS
+      _checkBulletsHitBoss();
+      drawScoreEffects();
+      drawDamageEffects();
+      // BOSS 被击败 → 回到正常游戏
+      if (!isBossAlive()) {
+        clearBullets();
+        curPhase = PHASE_PLAY;
+      }
       break;
     case PHASE_LEVEL_UP:
       if (pBg) pBg();

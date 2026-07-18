@@ -89,6 +89,9 @@ interface AudioConfig {
   missile: ToneWithNoiseConfig;     // 导弹发射：低频呼啸 + 噪声
   missileHit: BigExplosionConfig;   // 导弹命中爆炸
   wingmanHit: ToneWithNoiseConfig;  // 僚机命中
+  bossWarning: HitAlarmConfig;      // BOSS 来袭预警
+  bossHit: ToneWithNoiseConfig;     // BOSS 受击
+  bossDestroy: BigExplosionConfig;  // BOSS 击毁
 }
 
 // ========== 音效配置对象 ==========
@@ -212,6 +215,28 @@ const audioConfig: AudioConfig = {
   wingmanHit: {
     noise: { volume: 0.15, duration: 0.06, amplitude: 0.4 },
     tone: { type: "triangle", freqStart: 1200, freqEnd: 600, volume: 0.15, duration: 0.06 },
+  },
+  // BOSS 来袭预警：急促警报双音交替
+  bossWarning: {
+    type: "square",
+    freq1: 880,
+    freq2: 660,
+    freq3: 880,
+    t1: 0.15,
+    t2: 0.3,
+    volume: 0.2,
+    duration: 0.45,
+  },
+  // BOSS 受击：沉重钝击
+  bossHit: {
+    noise: { volume: 0.15, duration: 0.08, amplitude: 0.5 },
+    tone: { type: "sawtooth", freqStart: 200, freqEnd: 80, volume: 0.12, duration: 0.08 },
+  },
+  // BOSS 击毁：大规模爆炸
+  bossDestroy: {
+    noise: { volume: 0.4, duration: 0.6, amplitude: 1.0 },
+    tone1: { type: "sawtooth", freqStart: 400, freqEnd: 15, volume: 0.3, duration: 0.6 },
+    tone2: { type: "square", freqStart: 200, freqEnd: 8, volume: 0.2, duration: 0.5 },
   },
 };
 
@@ -804,6 +829,105 @@ function playWingmanHit(): void {
   osc.stop(now + c.tone.duration);
 }
 
+// BOSS 来袭预警音效：急促警报
+function playBossWarning(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.bossWarning;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.type;
+  osc.frequency.setValueAtTime(c.freq1, now);
+  osc.frequency.setValueAtTime(c.freq2, now + c.t1);
+  osc.frequency.setValueAtTime(c.freq3, now + c.t2);
+  gain.gain.setValueAtTime(vol(c.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.duration);
+  osc.start(now);
+  osc.stop(now + c.duration);
+}
+
+// BOSS 受击音效：沉重钝击
+function playBossHit(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.bossHit;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone.type;
+  osc.frequency.setValueAtTime(c.tone.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone.freqEnd, now + c.tone.duration);
+  gain.gain.setValueAtTime(vol(c.tone.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone.duration);
+}
+
+// BOSS 击毁音效：大规模爆炸
+function playBossDestroy(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.bossDestroy;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  const noise = createNoiseBuffer(ctx, c.noise.duration, c.noise.amplitude);
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  autoDisconnect(noise, noiseGain);
+  noiseGain.gain.setValueAtTime(vol(c.noise.volume), now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + c.noise.duration);
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  autoDisconnect(osc, gain);
+  osc.type = c.tone1.type;
+  osc.frequency.setValueAtTime(c.tone1.freqStart, now);
+  osc.frequency.exponentialRampToValueAtTime(c.tone1.freqEnd, now + c.tone1.duration);
+  gain.gain.setValueAtTime(vol(c.tone1.volume), now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + c.tone1.duration);
+
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.connect(gain2);
+  gain2.connect(ctx.destination);
+  autoDisconnect(osc2, gain2);
+  osc2.type = c.tone2.type;
+  osc2.frequency.setValueAtTime(c.tone2.freqStart, now);
+  osc2.frequency.exponentialRampToValueAtTime(c.tone2.freqEnd, now + c.tone2.duration);
+  gain2.gain.setValueAtTime(vol(c.tone2.volume), now);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + c.tone2.duration);
+
+  noise.start(now);
+  noise.stop(now + c.noise.duration);
+  osc.start(now);
+  osc.stop(now + c.tone1.duration);
+  osc2.start(now);
+  osc2.stop(now + c.tone2.duration);
+}
+
 export {
   audioConfig,
   resumeAudio,
@@ -827,4 +951,7 @@ export {
   playMissile,
   playMissileHit,
   playWingmanHit,
+  playBossWarning,
+  playBossHit,
+  playBossDestroy,
 };

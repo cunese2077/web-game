@@ -87,6 +87,39 @@ const enemyConfig = {
             scoreScale: 0.12, // 30级时分数 ≈ 760（7.6倍）
         },
     },
+    // 【精英敌机】中型和大型之间，俯冲移动，8级后出现
+    elite: {
+        speed: 3,
+        hp: 40,
+        score: 50,
+        spawnProbBase: 0.03, // 基础 3% 出现概率
+        spawnProbMax: 0.10, // 上限 10%
+        spawnStartLevel: 8, // 玩家 8 级后开始出现
+        move: {
+            type: "dive",
+            triggerRange: 200, // 进入玩家上方 200px 范围触发俯冲
+            diveSpeedMultiplier: 2.0, // 俯冲时速度 ×2
+            wobbleAmplitude: 20, // 阶段1小幅左右摆动振幅
+            wobbleFrequency: 0.04, // 阶段1摆动频率
+        },
+        hpBar: {
+            show: true,
+            showText: true,
+            offsetY: -8,
+            height: 4,
+            colorFull: "#4f4",
+            colorMid: "#ff0",
+            colorLow: "#f44",
+            midThreshold: 0.5,
+            lowThreshold: 0.25,
+        },
+        // 成长配置：精英敌机介于中型和大型之间
+        scaling: {
+            hpScale: 0.08, // 30级时 HP ≈ 173（4.3倍）
+            speedScale: 0.010, // 每级速度 +1%（30级时 3→3.87）
+            scoreScale: 0.07, // 30级时分数 ≈ 177（3.5倍）
+        },
+    },
 };
 // ========== 敌机受击动效配置（全局，所有敌机共用） ==========
 // 控制子弹击中敌机但未击毁时的音效和伤害数字反馈
@@ -113,6 +146,7 @@ const enemySpawnScaling = {
     smallWeightDecay: 0.025, // 小型敌机出现权重每级 -2.5%（30级时权重从15→4）
     mediumWeightGrowth: 0.02, // 中型敌机出现权重每级 +2%（30级时权重从5→8）
     bigProbGrowth: 0.001, // 大型敌机基础出现概率每级 +0.1%（30级时基础概率从5%→7.9%）
+    eliteProbGrowth: 0.003, // 精英敌机基础出现概率每级 +0.3%（30级时基础概率从3%→11.7%，上限10%）
 };
 // 敌机属性缩放辅助函数
 // HP/分数使用幂函数增长：base × (1 + scaleFactor × (level-1)^exponent)
@@ -135,28 +169,37 @@ const difficultyConfig = {
         enemySpeedMultiplier: 1.0,
         enemyScalingMultiplier: 1.0,
         enemySpawnRateMultiplier: 1.0,
+        enemyDamageMultiplier: 1.0,
         dropRateMultiplier: 1.0,
         upgradeRerolls: 3,
+        bossHpMultiplier: 1.0,
+        bossAttackSpeedMultiplier: 1.0,
     },
-    // 【中等】敌机 HP +30%、速度 +10%、成长系数 ×1.5、生成更频繁、道具略少、2次刷新
+    // 【中等】敌机 HP +30%、速度 +10%、成长系数 ×1.5、生成更频繁、碰撞伤害 +20%、道具略少、2次刷新
     medium: {
         label: "difficulty.medium",
         enemyHpMultiplier: 1.3,
         enemySpeedMultiplier: 1.1,
         enemyScalingMultiplier: 1.5,
         enemySpawnRateMultiplier: 0.85,
+        enemyDamageMultiplier: 1.2,
         dropRateMultiplier: 0.85,
         upgradeRerolls: 2,
+        bossHpMultiplier: 1.3,
+        bossAttackSpeedMultiplier: 1.15,
     },
-    // 【困难】敌机 HP +60%、速度 +20%、成长系数 ×2.0、生成大幅加快、道具显著减少、1次刷新
+    // 【困难】敌机 HP +60%、速度 +20%、成长系数 ×2.0、生成大幅加快、碰撞伤害 +50%、道具显著减少、1次刷新
     hard: {
         label: "difficulty.hard",
         enemyHpMultiplier: 1.6,
         enemySpeedMultiplier: 1.2,
         enemyScalingMultiplier: 2.0,
         enemySpawnRateMultiplier: 0.65,
+        enemyDamageMultiplier: 1.5,
         dropRateMultiplier: 0.65,
         upgradeRerolls: 1,
+        bossHpMultiplier: 1.6,
+        bossAttackSpeedMultiplier: 1.3,
     },
 };
 function getDifficultyConfig(difficulty) {
@@ -250,6 +293,28 @@ const bulletConfig = {
 // ========== 等级配置 ==========
 // 经验曲线：expToNext(lv) = base + growth × (lv-1)^exponent
 // Roguelike 升级选择系统需要更多升级次数（50级满级，约20-25分钟一局）
+// BOSS 配置
+const bossConfig = {
+    baseHp: 350, // 首次 BOSS（Lv5）基础 HP（较低，入门难度）
+    hpGrowthFactor: 0.7, // 每次递增 70%：Lv10=595, Lv15=840, Lv20=1085...
+    widthRatio: 0.35, // 宽度占画布 35%
+    heightRatio: 0.08, // 高度占画布 8%
+    moveSpeed: 1.5, // 水平巡逻速度
+    warningFrames: 60, // 预警 3 秒（20fps × 3）
+    triggerInterval: 5, // 每 5 级触发一次
+    firstTriggerLevel: 5, // 首次 Lv5 触发
+    bullet: {
+        speed: 3, // 弹幕基础速度
+        size: 5, // 弹幕半径
+        fanCount: 4, // 扇形弹幕数量（首个 BOSS 较少）
+        fanSpreadAngle: 0.9, // 扇形张角（弧度，约 52°）
+        aimedCount: 2, // 定向射击数量
+        interval: 40, // 攻击间隔（帧，2 秒@20fps，首个 BOSS 较慢）
+    },
+    defeatExpMultiplier: 4, // 击败经验 ≈ 1 级经验量（Lv5时约420，Lv10约520）
+    defeatItemDropProb: 0.5, // 50% 概率掉落特殊道具
+    enemySpawnRate: 24, // BOSS 战期间每 24 帧生成一个敌机
+};
 const levelConfig = {
     base: 300, // 1→2 级所需经验（降低起步门槛）
     growth: 25, // 每级递增基数
@@ -258,6 +323,7 @@ const levelConfig = {
     expRewards: {
         small: 5, // 小型敌机击毁经验
         medium: 15, // 中型敌机击毁经验
+        elite: 40, // 精英敌机击毁经验
         big: 80, // 大型敌机击毁经验
     },
 };
@@ -282,6 +348,24 @@ function getDynamicSpreadDropProb(hpRatio) {
 }
 function getDynamicBigEnemySpawnProb(hpRatio) {
     return enemyConfig.big.spawnProbBase + (1 - hpRatio) * (enemyConfig.big.spawnProbMax - enemyConfig.big.spawnProbBase);
+}
+// 精英敌机掉落概率（与大型敌机同档位）
+function getDynamicEliteShieldDropProb(hpRatio) {
+    return dropConfig.bigEnemy.shieldBase + (1 - hpRatio) * dropConfig.bigEnemy.shieldBonus;
+}
+function getDynamicEliteHealDropProb(hpRatio) {
+    return dropConfig.bigEnemy.healBase + (1 - hpRatio) * dropConfig.bigEnemy.healBonus;
+}
+function getDynamicEliteFirepowerDropProb(hpRatio) {
+    return dropConfig.bigEnemy.firepowerBase + (1 - hpRatio) * dropConfig.bigEnemy.firepowerBonus;
+}
+// 敌机碰撞伤害基础值（按类型分级）
+function getCollisionDamage(enemyType) {
+    if (enemyType === "big")
+        return 2;
+    if (enemyType === "elite")
+        return 2;
+    return 1; // small, medium
 }
 // ========== 升级池配置 ==========
 // P1：基础武器升级 + 4 种被动
@@ -576,4 +660,4 @@ const rarityWeights = {
 };
 // BOSS 击杀加成：每次击杀 big 敌机，epic/legendary 权重增加此值
 const bossKillRarityBonus = 15;
-export { enemyConfig, enemySpawnScaling, difficultyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, upgradePool, rarityWeights, bossKillRarityBonus, };
+export { enemyConfig, enemySpawnScaling, difficultyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, bossConfig, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, getDynamicEliteShieldDropProb, getDynamicEliteHealDropProb, getDynamicEliteFirepowerDropProb, getCollisionDamage, upgradePool, rarityWeights, bossKillRarityBonus, };

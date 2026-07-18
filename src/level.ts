@@ -59,6 +59,7 @@ function resetLevel(): void {
 // 获取敌机经验奖励
 function getExpReward(enemyType: EnemyType): number {
   if (enemyType === "big") return levelConfig.expRewards.big;
+  if (enemyType === "elite") return levelConfig.expRewards.elite;
   if (enemyType === "medium") return levelConfig.expRewards.medium;
   return levelConfig.expRewards.small;
 }

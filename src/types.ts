@@ -10,6 +10,8 @@ export const PHASE_PLAY = 4 as const;
 export const PHASE_PAUSE = 5 as const;
 export const PHASE_GAME_OVER = 6 as const;
 export const PHASE_LEVEL_UP = 7 as const;
+export const PHASE_BOSS_WARNING = 8 as const;  // BOSS 来袭预警（3秒倒计时）
+export const PHASE_BOSS = 9 as const;          // BOSS 战进行中
 
 export type GamePhase =
   | typeof PHASE_DOWNLOAD
@@ -18,10 +20,12 @@ export type GamePhase =
   | typeof PHASE_PLAY
   | typeof PHASE_PAUSE
   | typeof PHASE_GAME_OVER
-  | typeof PHASE_LEVEL_UP;
+  | typeof PHASE_LEVEL_UP
+  | typeof PHASE_BOSS_WARNING
+  | typeof PHASE_BOSS;
 
 // --- 敌机类型 ---
-export type EnemyType = "small" | "medium" | "big";
+export type EnemyType = "small" | "medium" | "elite" | "big";
 
 // --- 游戏难度 ---
 export type Difficulty = "normal" | "medium" | "hard";
@@ -33,12 +37,15 @@ export interface DifficultyConfig {
   enemySpeedMultiplier: number;     // 敌机速度乘数
   enemyScalingMultiplier: number;   // 敌机成长系数乘数（影响后期 HP/分数增长速度）
   enemySpawnRateMultiplier: number;  // 敌机生成间隔乘数（<1=更频繁，>1=更稀疏）
+  enemyDamageMultiplier: number;    // 敌机碰撞伤害乘数（1.0=标准）
   dropRateMultiplier: number;       // 道具掉落概率乘数
   upgradeRerolls: number;           // 每次升级的刷新次数
+  bossHpMultiplier: number;         // BOSS HP 额外乘数（1.0=标准）
+  bossAttackSpeedMultiplier: number; // BOSS 攻击频率乘数（1.0=标准）
 }
 
 // --- 移动模式 ---
-export type MoveType = "straight" | "sine" | "zigzag";
+export type MoveType = "straight" | "sine" | "zigzag" | "dive";
 
 // --- 敌机移动配置 ---
 export interface SmallEnemyMoveConfig {
@@ -57,7 +64,15 @@ export interface ZigzagMoveConfig {
   horizontalSpeed: number;
 }
 
-export type EnemyMoveConfig = SmallEnemyMoveConfig | SineMoveConfig | ZigzagMoveConfig;
+export interface DiveMoveConfig {
+  type: "dive";
+  triggerRange: number;      // 进入俯冲的垂直距离（距玩家上方此距离内触发）
+  diveSpeedMultiplier: number; // 俯冲时速度倍率
+  wobbleAmplitude: number;    // 阶段1小幅左右摆动振幅
+  wobbleFrequency: number;    // 阶段1摆动频率
+}
+
+export type EnemyMoveConfig = SmallEnemyMoveConfig | SineMoveConfig | ZigzagMoveConfig | DiveMoveConfig;
 
 // --- 敌机血量条配置 ---
 export interface HpBarConfig {
@@ -104,6 +119,7 @@ export interface EnemySpawnScalingConfig {
   smallWeightDecay: number;    // 小型敌机出现权重每级衰减率
   mediumWeightGrowth: number;  // 中型敌机出现权重每级增长率
   bigProbGrowth: number;       // 大型敌机基础出现概率每级增长值
+  eliteProbGrowth: number;     // 精英敌机基础出现概率每级增长值
 }
 
 // --- 敌机配置 ---
@@ -139,9 +155,22 @@ export interface BigEnemyConfig {
   scaling: EnemyScalingConfig;
 }
 
+export interface EliteEnemyConfig {
+  speed: number;
+  hp: number;
+  score: number;
+  spawnProbBase: number;     // 基础出现概率
+  spawnProbMax: number;      // 最高出现概率
+  spawnStartLevel: number;   // 开始出现的玩家等级
+  move: DiveMoveConfig;
+  hpBar: HpBarConfig;
+  scaling: EnemyScalingConfig;
+}
+
 export interface EnemyConfig {
   small: SmallEnemyConfig;
   medium: MediumEnemyConfig;
+  elite: EliteEnemyConfig;
   big: BigEnemyConfig;
 }
 
@@ -244,6 +273,7 @@ export interface LevelConfig {
   expRewards: {           // 各敌机经验奖励
     small: number;
     medium: number;
+    elite: number;
     big: number;
   };
 }
@@ -275,6 +305,32 @@ export interface UpgradeOffer {
   nextLevel: number;       // 升级后的等级
   isNew: boolean;          // 是否首次获得
   def: UpgradeDef;         // 关联的定义
+}
+
+// --- BOSS 弹幕配置 ---
+export interface BossBulletConfig {
+  speed: number;            // 弹幕基础速度
+  size: number;             // 弹幕半径
+  fanCount: number;         // 扇形弹幕数量
+  fanSpreadAngle: number;   // 扇形张角（弧度）
+  aimedCount: number;       // 定向射击数量
+  interval: number;         // 攻击间隔（帧）
+}
+
+// --- BOSS 配置 ---
+export interface BossConfig {
+  baseHp: number;            // 基础 HP（首次 BOSS，Lv5）
+  hpGrowthFactor: number;    // HP 等级成长因子：baseHP × (1 + hpGrowthFactor × (bossIndex))
+  widthRatio: number;        // BOSS 宽度占画布比例
+  heightRatio: number;       // BOSS 高度占画布比例
+  moveSpeed: number;         // 水平巡逻速度
+  warningFrames: number;     // 预警持续帧数（gameEngine 20fps，60帧=3秒）
+  triggerInterval: number;   // 每隔多少级触发一次 BOSS（5）
+  firstTriggerLevel: number; // 首次触发等级（5）
+  bullet: BossBulletConfig;  // 弹幕配置
+  defeatExpMultiplier: number; // 击败经验倍率（相当于同等级大型敌机经验的倍数）
+  defeatItemDropProb: number;  // 击败掉落特殊道具概率
+  enemySpawnRate: number;      // BOSS 战期间敌机生成间隔（帧数，固定值）
 }
 
 // --- Buff 浮动文字 ---

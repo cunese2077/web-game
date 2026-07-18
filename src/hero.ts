@@ -1,7 +1,8 @@
 // 玩家战机类
 import { ctx, canvas, width, height, fontScale } from "./canvas.js";
 import { heroImg } from "./resources.js";
-import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP } from "./constants.js";
+import { PHASE_DOWNLOAD, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP, PHASE_BOSS, PHASE_BOSS_WARNING } from "./constants.js";
+import { bossConfig } from "./config.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
@@ -9,7 +10,9 @@ import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp }
 import { isSoundEnabled, getDifficulty } from "./settings.js";
 import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext, addExp, resetLevel } from "./level.js";
-import { buffConfig, heroConfig, itemConfig, bulletConfig, getDifficultyConfig } from "./config.js";
+import { buffConfig, heroConfig, itemConfig, bulletConfig, getDifficultyConfig, getCollisionDamage } from "./config.js";
+import { getActiveBoss } from "./boss.js";
+import { getBullets } from "./enemyBullet.js";
 import { t } from "./i18n.js";
 import {
   initUpgrades,
@@ -37,8 +40,11 @@ function bindEventsOnce(): void {
   const move = (e: MouseEvent | TouchEvent): void => {
     if (!activeHero) return;
     const curPhase = activeHero._getCurrentPhase();
-    if (curPhase === PHASE_PLAY || curPhase === PHASE_PAUSE) {
-      activeHero._setCurrentPhase(PHASE_PLAY);
+    if (curPhase === PHASE_PLAY || curPhase === PHASE_PAUSE || curPhase === PHASE_BOSS_WARNING || curPhase === PHASE_BOSS) {
+      // 仅从暂停恢复到游戏中；BOSS 预警/战斗阶段保持不变
+      if (curPhase === PHASE_PAUSE) {
+        activeHero._setCurrentPhase(PHASE_PLAY);
+      }
       const offsetX = e instanceof MouseEvent ? e.offsetX : e.touches[0].pageX;
       const offsetY = e instanceof MouseEvent ? e.offsetY : e.touches[0].pageY;
       // 排除音效按钮区域：点击按钮时不应移动战机
@@ -67,7 +73,9 @@ function bindEventsOnce(): void {
 
   canvas.onmouseout = (): void => {
     if (!activeHero) return;
-    if (activeHero._getCurrentPhase() === PHASE_PLAY) {
+    const phase = activeHero._getCurrentPhase();
+    // BOSS 预警/战斗阶段不进入暂停（避免恢复时丢失 BOSS 阶段）
+    if (phase === PHASE_PLAY) {
       activeHero._setCurrentPhase(PHASE_PAUSE);
     }
   };
@@ -160,7 +168,10 @@ class Hero {
 
     if (curPhase !== PHASE_LEVEL_UP) {
       this._tickBuffs();
-      this._checkLevelUp();
+      // BOSS 预警/战斗期间延迟升级选择，避免抢夺阶段控制权
+      if (curPhase !== PHASE_BOSS_WARNING && curPhase !== PHASE_BOSS) {
+        this._checkLevelUp();
+      }
       this.hit();
     }
 
@@ -202,7 +213,7 @@ class Hero {
     }
 
     // 射击逻辑：由升级状态驱动，升级选择时暂停
-    if (curPhase === PHASE_PLAY) {
+    if (curPhase === PHASE_PLAY || curPhase === PHASE_BOSS_WARNING || curPhase === PHASE_BOSS) {
       this.hCount++;
       const bulletInterval = getBulletInterval();
       if (this.hCount % bulletInterval === 0) {
@@ -212,7 +223,11 @@ class Hero {
 
       this.eCount++;
       const diffConfig = getDifficultyConfig(getDifficulty());
-      const spawnInterval = Math.max(1, Math.round(heroConfig.enemySpawnInterval * diffConfig.enemySpawnRateMultiplier));
+      let spawnInterval = Math.max(1, Math.round(heroConfig.enemySpawnInterval * diffConfig.enemySpawnRateMultiplier));
+      // BOSS 战期间使用固定生成间隔
+      if (curPhase === PHASE_BOSS) {
+        spawnInterval = bossConfig.enemySpawnRate;
+      }
       if (this.eCount % spawnInterval === 0) {
         Enemy.add(new Enemy());
         this.eCount = 0;
@@ -678,7 +693,11 @@ class Hero {
           break;
         }
 
-        this.hp -= Math.max(1, 1 - getArmorReduction());
+        // 碰撞伤害：基础值按敌机类型分级 × 难度乘数，再减护甲
+        const diffConfig = getDifficultyConfig(getDifficulty());
+        const baseDmg = getCollisionDamage(d.type);
+        const finalDmg = Math.max(1, Math.round(baseDmg * diffConfig.enemyDamageMultiplier) - getArmorReduction());
+        this.hp -= finalDmg;
         playHit();
         if (this.hp <= 0) {
           this.hp = 0;
@@ -688,6 +707,54 @@ class Hero {
           this.invincible = heroConfig.invincibleFrames;
         }
         break;
+      }
+    }
+
+    // BOSS 碰撞检测
+    const boss = getActiveBoss();
+    if (boss && boss.alive) {
+      const bounds = boss.getBounds();
+      const hw = heroImg[0].width;
+      const hh = heroImg[0].height;
+      if (this.x < bounds.right && this.x + hw > bounds.left &&
+          this.y < bounds.bottom && this.y + hh > bounds.top) {
+        if (this.buffs.shield > 0) {
+          this.buffs.shield = 0;
+          this.invincible = buffConfig.shield.invincibleFrames;
+        } else if (this.invincible <= 0) {
+          const diffConfig = getDifficultyConfig(getDifficulty());
+          const bossDmg = Math.max(1, Math.round(3 * diffConfig.enemyDamageMultiplier) - getArmorReduction());
+          this.hp -= bossDmg;
+          playHit();
+          if (this.hp <= 0) { this.hp = 0; this.dying = true; this.index = 2; }
+          else { this.invincible = heroConfig.invincibleFrames; }
+        }
+      }
+    }
+
+    // 敌机弹幕碰撞检测
+    const enemyBullets = getBullets();
+    const hw = heroImg[0].width;
+    const hh = heroImg[0].height;
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      const b = enemyBullets[i];
+      const dx = this.x + hw / 2 - b.x;
+      const dy = this.y + hh / 2 - b.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < b.size + Math.max(hw, hh) / 2 * 0.5) {
+        if (this.buffs.shield > 0) {
+          this.buffs.shield = 0;
+          this.invincible = buffConfig.shield.invincibleFrames;
+          b.removable = true;
+        } else if (this.invincible <= 0) {
+          const diffConfig = getDifficultyConfig(getDifficulty());
+          const bulletDmg = Math.max(1, Math.round(1 * diffConfig.enemyDamageMultiplier));
+          this.hp -= bulletDmg;
+          playHit();
+          b.removable = true;
+          if (this.hp <= 0) { this.hp = 0; this.dying = true; this.index = 2; }
+          else { this.invincible = heroConfig.invincibleFrames; }
+        }
       }
     }
   }
@@ -708,6 +775,14 @@ function getHeroMaxHp(): number {
 
 function getHeroBuffs(): BuffState {
   return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
+}
+
+function getHeroY(): number {
+  return activeHero ? activeHero.y : 0;
+}
+
+function getHeroX(): number {
+  return activeHero ? activeHero.x : 0;
 }
 
 function healHero(amount: number): void {
@@ -739,5 +814,5 @@ function getSoundIconArea(): { x: number; y: number; w: number; h: number } {
   };
 }
 
-export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, healHero, getSoundIconArea, initUpgrades };
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, initUpgrades };
 export default Hero;

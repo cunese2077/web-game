@@ -4,7 +4,7 @@ import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
 import { addExp, getExpReward, getLevel } from "./level.js";
-import { getHeroHp, getHeroMaxHp, getHeroBuffs, healHero } from "./hero.js";
+import { getHeroHp, getHeroMaxHp, getHeroBuffs, healHero, getHeroY } from "./hero.js";
 import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance } from "./upgrade.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
@@ -24,6 +24,9 @@ import {
   getDynamicMediumShieldDropProb,
   getDynamicSpreadDropProb,
   getDynamicBigEnemySpawnProb,
+  getDynamicEliteShieldDropProb,
+  getDynamicEliteHealDropProb,
+  getDynamicEliteFirepowerDropProb,
 } from "./config.js";
 import { getDifficulty } from "./settings.js";
 import type { MoveType, BuffState, HpBarConfig, EnemyType } from "./types.js";
@@ -67,20 +70,30 @@ class Enemy {
   moveDirection: number;
   slowFrames: number;
   slowFactor: number;
+  isDiving: boolean;        // 俯冲状态标记（精英敌机专用）
 
   constructor() {
     const hpRatio = getHpRatio();
     const level = getLevel();
     const diffConfig = getDifficultyConfig(getDifficulty());
 
-    // 根据等级调整生成权重和大型敌机概率
+    // 根据等级调整生成权重和大型敌机/精英敌机概率
     const scaledSmallWeight = Math.max(1, enemyConfig.small.spawnWeight * (1 - enemySpawnScaling.smallWeightDecay * (level - 1)));
     const scaledMediumWeight = enemyConfig.medium.spawnWeight * (1 + enemySpawnScaling.mediumWeightGrowth * (level - 1));
     const scaledBigProbBase = enemyConfig.big.spawnProbBase + enemySpawnScaling.bigProbGrowth * (level - 1);
     const scaledBigProbMax = Math.min(0.2, enemyConfig.big.spawnProbMax + enemySpawnScaling.bigProbGrowth * (level - 1));
     const bigEnemyProb = scaledBigProbBase + (1 - hpRatio) * (scaledBigProbMax - scaledBigProbBase);
     const bigEnemyThreshold = bigEnemyProb * 20;
-    const midEnemyThreshold = bigEnemyThreshold + scaledMediumWeight;
+
+    // 精英敌机概率：8级后出现，随等级递增
+    const eliteLevel = Math.max(0, level - enemyConfig.elite.spawnStartLevel + 1);
+    const eliteProbBase = eliteLevel > 0
+      ? Math.min(enemyConfig.elite.spawnProbMax, enemyConfig.elite.spawnProbBase + enemySpawnScaling.eliteProbGrowth * (level - enemyConfig.elite.spawnStartLevel))
+      : 0;
+    const eliteProbMax = Math.min(enemyConfig.elite.spawnProbMax, eliteProbBase + (1 - hpRatio) * 0.03);
+    const eliteThreshold = bigEnemyThreshold + eliteProbMax * 20;
+
+    const midEnemyThreshold = eliteThreshold + scaledMediumWeight;
 
     this.id = nextEnemyId++;
     this.n = Math.random() * 20;
@@ -91,6 +104,7 @@ class Enemy {
     this.hpBarConfig = enemyConfig.small.hpBar;
     this.type = "small";
     this.hitSoundCoolDown = 0;
+    this.isDiving = false;
 
     if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
       this.enemy = enemy3[0];
@@ -101,6 +115,14 @@ class Enemy {
       this.score = Math.ceil(getScaledEnemyStat(enemyConfig.big.score, enemyConfig.big.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
       this.hpBarConfig = enemyConfig.big.hpBar;
       bigEnemyCoolDown = enemyConfig.big.coolDownFrames;
+    } else if (this.n < eliteThreshold) {
+      // 精英敌机：复用 enemy3 图片 + ctx.scale(0.7)
+      this.enemy = enemy3[0];
+      this.type = "elite";
+      this.speed = getScaledEnemyStat(enemyConfig.elite.speed, enemyConfig.elite.scaling.speedScale, level, true) * diffConfig.enemySpeedMultiplier;
+      this.lives = getScaledEnemyStat(enemyConfig.elite.hp, enemyConfig.elite.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
+      this.score = Math.ceil(getScaledEnemyStat(enemyConfig.elite.score, enemyConfig.elite.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
+      this.hpBarConfig = enemyConfig.elite.hpBar;
     } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
       this.type = "medium";
@@ -115,8 +137,8 @@ class Enemy {
       this.lives = getScaledEnemyStat(enemyConfig.small.hp, enemyConfig.small.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
       this.score = Math.ceil(getScaledEnemyStat(enemyConfig.small.score, enemyConfig.small.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
     }
-    // HP 取整：确保血量条显示的整数与实际值一致
-    this.lives = Math.max(1, Math.ceil(this.lives));
+    // HP 浮点精度：保留浮点数，仅确保最低 1 点
+    this.lives = Math.max(1, this.lives);
     this.maxLives = this.lives;
 
     this.x = parseInt(String(Math.random() * (width - this.enemy.width)));
@@ -138,6 +160,8 @@ class Enemy {
   _getMoveType(): MoveType {
     if (this.type === "big") {
       return enemyConfig.big.move.type;
+    } else if (this.type === "elite") {
+      return enemyConfig.elite.move.type;
     } else if (this.type === "medium") {
       return enemyConfig.medium.move.type;
     }
@@ -168,11 +192,29 @@ class Enemy {
         this.x = canvasWidth - this.width;
         this.moveDirection = -1;
       }
+
+    } else if (this.moveType === "dive") {
+      // 俯冲移动：精英敌机专用
+      const config = enemyConfig.elite.move;
+      const heroY = getHeroY();
+
+      if (!this.isDiving) {
+        // 阶段1：正常下落 + 小幅左右摆动
+        this.movePhase += config.wobbleFrequency * speedMul;
+        this.x = this.originX + config.wobbleAmplitude * Math.sin(this.movePhase);
+        this.x = Math.max(0, Math.min(this.x, canvasWidth - this.width));
+
+        // 判断是否进入俯冲范围
+        if (this.y > 0 && heroY - this.y < config.triggerRange && this.y < heroY) {
+          this.isDiving = true;
+        }
+      }
+      // 阶段2/3：俯冲时不做横向移动，直线冲向玩家
     }
   }
 
   draw(): void {
-    if (this.type === "big") {
+    if (this.type === "big" || this.type === "elite") {
       if (this.die) {
         if (this.index < 2) {
           this.index = 3;
@@ -198,7 +240,27 @@ class Enemy {
       }
     }
 
-    ctx.drawImage(this.enemy, this.x, this.y);
+    // 精英敌机缩放绘制（0.7x），其余正常绘制
+    if (this.type === "elite") {
+      ctx.save();
+      const scale = 0.7;
+      const drawW = this.enemy.width * scale;
+      const drawH = this.enemy.height * scale;
+      const drawX = this.x + (this.width - drawW) / 2;
+      const drawY = this.y + (this.height - drawH) / 2;
+      ctx.drawImage(this.enemy, drawX, drawY, drawW, drawH);
+      // 精英敌机紫色光环标识
+      ctx.strokeStyle = "#c8f";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#c8f";
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(drawX + drawW / 2, drawY + drawH / 2, Math.max(drawW, drawH) / 2 + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.drawImage(this.enemy, this.x, this.y);
+    }
 
     // 冰冻视觉效果：被减速时覆盖半透明蓝色冰霜 + 冰晶边框
     if (!this.die && this.slowFrames > 0) {
@@ -229,7 +291,9 @@ class Enemy {
 
     // 移动（受减速/冰冻影响）
     const speedMul = this.slowFrames > 0 ? (1 - this.slowFactor) : 1;
-    this.y += this.speed * speedMul;
+    // 俯冲状态：速度加倍
+    const diveMul = (this.isDiving && this.moveType === "dive") ? enemyConfig.elite.move.diveSpeedMultiplier : 1;
+    this.y += this.speed * speedMul * diveMul;
     this._updateHorizontalPosition(speedMul);
     if (this.slowFrames > 0) this.slowFrames--;
     this.hit();
@@ -272,7 +336,7 @@ class Enemy {
       ctx.shadowColor = "#000";
       ctx.shadowBlur = 3;
       ctx.fillText(
-        `${Math.ceil(this.lives)}/${this.maxLives}`,
+        `${Math.ceil(this.lives)}/${Math.ceil(this.maxLives)}`,
         barX + barWidth / 2,
         barY - 2
       );
@@ -328,6 +392,8 @@ class Enemy {
             playEnemyDestroyBig();
             // 击杀 BOSS 增加下次升级的稀有度加成
             addBossKillBonus();
+          } else if (this.type === "elite") {
+            playEnemyDestroyBig();
           } else if (this.type === "medium") {
             playEnemyDestroyMedium();
           } else {
@@ -374,7 +440,7 @@ class Enemy {
 
     const hpRatio = getHpRatio();
 
-    if (this.type === "big") {
+    if (this.type === "big" || this.type === "elite") {
       const shieldProb = getDynamicShieldDropProb(hpRatio);
       const healProb = getDynamicHealDropProb(hpRatio);
       const firepowerProb = getDynamicBigFirepowerDropProb(hpRatio);
@@ -446,6 +512,8 @@ class Enemy {
       if (enemy.type === "big") {
         playEnemyDestroyBig();
         addBossKillBonus();
+      } else if (enemy.type === "elite") {
+        playEnemyDestroyBig();
       } else if (enemy.type === "medium") {
         playEnemyDestroyMedium();
       } else {

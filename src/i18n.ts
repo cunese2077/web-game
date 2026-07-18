@@ -129,6 +129,9 @@ export type TextKey =
   | "upgrade.voidEnergy"           // "虚空能量" / "VOID ENERGY"
   | "upgrade.voidEnergy.desc"      // "激光全屏穿透, 无限链" / "Full laser, Infinite chain"
   | "combat.crit"             // "暴击!" / "CRIT!"
+  // BOSS
+  | "boss.title"              // "BOSS" / "BOSS"
+  | "boss.warning"            // "⚠ BOSS 来袭!" / "⚠ BOSS INCOMING!"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"
@@ -240,6 +243,8 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "combat.crit": "暴击!",
     "html.title": "飞机大战网页版",
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
+    "boss.title": "BOSS",
+    "boss.warning": "⚠ BOSS 来袭!",
   },
   en: {
     "hud.score": "SCORE:",
@@ -346,6 +351,8 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "combat.crit": "CRIT!",
     "html.title": "Plane War Web",
     "html.unsupported": "Your browser does not support canvas!!!",
+    "boss.title": "BOSS",
+    "boss.warning": "⚠ BOSS INCOMING!",
   },
   ja: {
     "hud.score": "得点:",
@@ -452,6 +459,8 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "combat.crit": "クリティカル!",
     "html.title": "エアバトル Web",
     "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",
+    "boss.title": "BOSS",
+    "boss.warning": "⚠ BOSS 来襲!",
   },
 };
 

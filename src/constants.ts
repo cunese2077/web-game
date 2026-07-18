@@ -7,4 +7,6 @@ export {
   PHASE_PAUSE,
   PHASE_GAME_OVER,
   PHASE_LEVEL_UP,
+  PHASE_BOSS_WARNING,
+  PHASE_BOSS,
 } from "./types.js";
