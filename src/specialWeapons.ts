@@ -1,9 +1,9 @@
 // 特殊武器模块 - 管理追踪导弹、能量武器（激光+闪电）、僚机
 import { ctx, width, height } from "./canvas.js";
-import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasNukeWarhead, hasVoidEnergy, getWingmanCount, hasBulletStorm } from "./upgrade.js";
+import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasNukeWarhead, hasVoidEnergy, getWingmanCount, getWingmanDamageBonus, hasBulletStorm } from "./upgrade.js";
 import { getHeroBuffs } from "./hero.js";
 import { buffConfig } from "./config.js";
-import { PHASE_PLAY } from "./constants.js";
+import { PHASE_PLAY, PHASE_BOSS_WARNING, PHASE_BOSS } from "./constants.js";
 import { playLaser, playLightning, playMissile, playMissileHit, playWingmanHit } from "./audio.js";
 import type { GamePhase } from "./types.js";
 
@@ -486,7 +486,7 @@ function updateAndDrawSpecialWeapons(
   damageEnemy: (enemy: EnemyProxy, damage: number, isCrit: boolean, skipHitSound?: boolean) => void,
   slowEnemy: (enemyId: number, factor: number, frames: number) => void,
 ): void {
-  if (curPhase !== PHASE_PLAY) return;
+  if (curPhase !== PHASE_PLAY && curPhase !== PHASE_BOSS_WARNING && curPhase !== PHASE_BOSS) return;
 
   const allEnemies = getEnemies();
   const buffs = getHeroBuffs();
@@ -507,8 +507,9 @@ function updateAndDrawSpecialWeapons(
       // 专属道具：核弹头
       const nukeMul = hasNukeWarhead() ? 2 : 1;
       const finalDamage = baseDamage * nukeMul;
-      // 专属道具：爆炸范围
-      const explosionRadius = cfg.explosionRadius * (1 + getExplosionRadiusBonus()) * (hasNukeWarhead() ? 3 : 1);
+      // 专属道具：爆炸范围 + 核弹头保底爆炸
+      const baseExplosion = hasNukeWarhead() ? Math.max(cfg.explosionRadius, 25) : cfg.explosionRadius;
+      const explosionRadius = baseExplosion * (1 + getExplosionRadiusBonus()) * (hasNukeWarhead() ? 3 : 1);
       // 专属道具：多重导弹
       const totalMissiles = cfg.count + getMultiMissileBonus();
       for (let i = 0; i < totalMissiles; i++) {
@@ -714,7 +715,7 @@ function updateAndDrawSpecialWeapons(
   // ---- 僚机（基于被动叠加） ----
   const wingmanCount = getWingmanCount();
   if (wingmanCount > 0) {
-    const baseDamage = (1 + (wingmanCount - 1) * 0.5) * getDamagePassiveMultiplier() * firepowerMul;
+    const baseDamage = (1 + (wingmanCount - 1) * 0.5) * (1 + getWingmanDamageBonus()) * getDamagePassiveMultiplier() * firepowerMul;
     const effectiveInterval = Math.max(1, Math.round(WINGMAN_INTERVAL / (1 + getFireRatePassiveBonus())));
 
     // 确保 cooldowns 数组长度匹配

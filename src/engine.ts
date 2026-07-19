@@ -14,7 +14,7 @@ import {
 } from "./constants.js";
 import { Hero, getSoundIconArea, getHeroBuffs } from "./hero.js";
 import { resetGameScore } from "./score.js";
-import { resetLevel, getLevel, addExp } from "./level.js";
+import { resetLevel, getLevel, getExp, getExpToNext, addExp } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
@@ -27,6 +27,7 @@ import { updateAndDrawBullets, clearBullets, getBullets } from "./enemyBullet.js
 import { resumeAudio, playGameOver, playUpgradeSelect, playBossWarning } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 import { t } from "./i18n.js";
+import { isDebugMode, isDebugPanelVisible, getDebugInfo, getDebugPanelArea, getDebugToggleArea, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
 import type { GamePhase } from "./types.js";
 
 let curPhase: GamePhase = PHASE_DOWNLOAD;
@@ -137,6 +138,10 @@ function start(): void {
     resumeAudio();
     const clickX = e.offsetX;
     const clickY = e.offsetY;
+
+    // 调试面板点击优先拦截
+    if (handleDebugClick(clickX, clickY)) return;
+    if (handleDebugToggleClick(clickX, clickY)) return;
 
     if (curPhase === PHASE_READY) {
       // 设置界面打开时：处理设置项点击或返回
@@ -325,9 +330,19 @@ function gameEngine(): void {
       }
       break;
   }
+
+  // 调试面板（仅开发环境）
+  if (isDebugMode()) {
+    if (isDebugPanelVisible()) {
+      drawDebugPanel();
+    } else {
+      drawDebugToggle();
+    }
+  }
 }
 
 loadSettings();
+initDebugControls();
 download(start);
 
 const TARGET_DELTA: number = 50;
@@ -341,5 +356,15 @@ function gameLoop(timestamp: number): void {
   }
   requestAnimationFrame(gameLoop);
 }
+
+// 调试用：外部触发 BOSS 预警阶段切换
+function triggerBossPhase(): void {
+  if (curPhase === PHASE_PLAY || curPhase === PHASE_LEVEL_UP) {
+    startBossWarning();
+    curPhase = PHASE_BOSS_WARNING;
+  }
+}
+
+export { triggerBossPhase };
 
 requestAnimationFrame(gameLoop);

@@ -123,7 +123,7 @@ export type TextKey =
   | "upgrade.freezeAddon.desc"     // "命中减速 30%" / "Slow 30% on hit"
   // BOSS 传说道具
   | "upgrade.bulletStorm"          // "弹幕风暴" / "BULLET STORM"
-  | "upgrade.bulletStorm.desc"     // "子弹数 ×2, 射速 ×1.5" / "Bullets ×2, Fire rate ×1.5"
+  | "upgrade.bulletStorm.desc"     // "子弹数 +3, 射速 ×1.3" / "Bullets +3, Fire rate ×1.3"
   | "upgrade.nukeWarhead"          // "核弹头" / "NUKE WARHEAD"
   | "upgrade.nukeWarhead.desc"     // "爆炸 ×3, 伤害 ×2" / "Explosion ×3, Dmg ×2"
   | "upgrade.voidEnergy"           // "虚空能量" / "VOID ENERGY"
@@ -235,7 +235,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.freezeAddon": "冰冻附加",
     "upgrade.freezeAddon.desc": "命中减速 30%",
     "upgrade.bulletStorm": "弹幕风暴",
-    "upgrade.bulletStorm.desc": "子弹数 ×2, 射速 ×1.5",
+    "upgrade.bulletStorm.desc": "子弹数 +3, 射速 ×1.3",
     "upgrade.nukeWarhead": "核弹头",
     "upgrade.nukeWarhead.desc": "爆炸 ×3, 伤害 ×2",
     "upgrade.voidEnergy": "虚空能量",
@@ -343,7 +343,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.freezeAddon": "Freeze Addon",
     "upgrade.freezeAddon.desc": "Slow 30% on hit",
     "upgrade.bulletStorm": "Bullet Storm",
-    "upgrade.bulletStorm.desc": "Bullets ×2, Fire rate ×1.5",
+    "upgrade.bulletStorm.desc": "Bullets +3, Fire rate ×1.3",
     "upgrade.nukeWarhead": "Nuke Warhead",
     "upgrade.nukeWarhead.desc": "Explosion ×3, Dmg ×2",
     "upgrade.voidEnergy": "Void Energy",
@@ -451,7 +451,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.freezeAddon": "フリーズアドオン",
     "upgrade.freezeAddon.desc": "命中時減速 30%",
     "upgrade.bulletStorm": "弾幕ストーム",
-    "upgrade.bulletStorm.desc": "弾数 ×2, 射速 ×1.5",
+    "upgrade.bulletStorm.desc": "弾数 +3, 射速 ×1.3",
     "upgrade.nukeWarhead": "核弾頭",
     "upgrade.nukeWarhead.desc": "爆発 ×3, ダメージ ×2",
     "upgrade.voidEnergy": "ヴォイドエネルギー",

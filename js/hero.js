@@ -13,6 +13,7 @@ import { getLevel, getExp, getExpToNext } from "./level.js";
 import { buffConfig, heroConfig, itemConfig, getDifficultyConfig, getCollisionDamage } from "./config.js";
 import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
+import { getDebugPanelArea, getDebugToggleArea } from "./debug.js";
 import { t } from "./i18n.js";
 import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, } from "./upgrade.js";
 let activeHero = null;
@@ -36,6 +37,17 @@ function bindEventsOnce() {
             const sndArea = getSoundIconArea();
             if (offsetX >= sndArea.x && offsetX < sndArea.x + sndArea.w &&
                 offsetY >= sndArea.y && offsetY < sndArea.y + sndArea.h) {
+                return;
+            }
+            // 排除调试面板区域：点击调试按钮时不应移动战机
+            const dbgPanel = getDebugPanelArea();
+            if (dbgPanel && offsetX >= dbgPanel.x && offsetX < dbgPanel.x + dbgPanel.w &&
+                offsetY >= dbgPanel.y && offsetY < dbgPanel.y + dbgPanel.h) {
+                return;
+            }
+            const dbgToggle = getDebugToggleArea();
+            if (dbgToggle && offsetX >= dbgToggle.x && offsetX < dbgToggle.x + dbgToggle.w &&
+                offsetY >= dbgToggle.y && offsetY < dbgToggle.y + dbgToggle.h) {
                 return;
             }
             const w = heroImg[0].width;
@@ -202,12 +214,15 @@ class Hero {
         const heroH = heroImg[0].height;
         const piercing = hasPiercing();
         if (isSpread) {
-            // 散弹 buff：固定 5 路扇形
-            Bullet.add(new Bullet(-48, this.x, this.y, heroW, heroH, true, piercing));
-            Bullet.add(new Bullet(-24, this.x, this.y, heroW, heroH, false, piercing));
-            Bullet.add(new Bullet(0, this.x, this.y, heroW, heroH, false, piercing));
-            Bullet.add(new Bullet(24, this.x, this.y, heroW, heroH, false, piercing));
-            Bullet.add(new Bullet(48, this.x, this.y, heroW, heroH, true, piercing));
+            // 散弹 buff：扇形发射，子弹数由武器等级+弹幕风暴决定
+            const spreadWidth = 48; // 最外侧子弹距中心的像素偏移
+            const step = bulletCount > 1 ? (spreadWidth * 2) / (bulletCount - 1) : 0;
+            const startOffset = -spreadWidth;
+            for (let i = 0; i < bulletCount; i++) {
+                const offset = bulletCount === 1 ? 0 : startOffset + step * i;
+                const isDiagonal = i === 0 || i === bulletCount - 1;
+                Bullet.add(new Bullet(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
+            }
         }
         else {
             // 正常射击：根据武器等级决定子弹数和间距

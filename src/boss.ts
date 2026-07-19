@@ -10,6 +10,7 @@ import { addGameScore } from "./score.js";
 import { addExp } from "./level.js";
 import { playBossHit, playBossDestroy } from "./audio.js";
 import { t } from "./i18n.js";
+import { triggerBossLegendary } from "./upgrade.js";
 import type { BossConfig } from "./types.js";
 
 // Boss 攻击阶段
@@ -210,6 +211,8 @@ class Boss {
   // 击败奖励
   _onDefeat(): void {
     playBossDestroy();
+    // 触发传说道具保底：下次升级选项保证至少 1 个传说道具
+    triggerBossLegendary();
     // 经验爆发：相当于同等级大型敌机经验的 N 倍
     const level = getLevel();
     const expReward = Math.ceil(bossConfig.defeatExpMultiplier * (80 + level * 5));

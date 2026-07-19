@@ -270,7 +270,10 @@ function getBaseWeaponLevel(): number {
 function getBulletCount(): number {
   const lv = getBaseWeaponLevel();
   const idx = Math.min(lv, BASE_WEAPON_LEVELS.length) - 1;
-  return BASE_WEAPON_LEVELS[idx].bulletCount;
+  let count = BASE_WEAPON_LEVELS[idx].bulletCount;
+  // 弹幕风暴：子弹数 +3
+  if (hasBulletStorm()) count += 3;
+  return count;
 }
 
 // 基础武器伤害加成（乘法，如 0.3 = +30%）
@@ -328,8 +331,16 @@ function getArmorReduction(): number {
 }
 
 // 僚机数量（机炮专属，每层+1架）
+// 僚机数量由 wingman 武器等级决定：Lv1=1架, Lv2+=2架
 function getWingmanCount(): number {
-  return getPassiveStacks("wingmanItem");
+  const lv = getWeaponLevel("wingman");
+  if (lv <= 0) return 0;
+  return lv >= 2 ? 2 : 1;
+}
+
+// 僚机伤害加成（wingmanItem 被动，每层 +30%）
+function getWingmanDamageBonus(): number {
+  return getPassiveStacks("wingmanItem") * 0.3;
 }
 
 // 爆炸范围加成（导弹专属，每层+50%）
@@ -389,7 +400,9 @@ function consumeBossLegendary(): boolean {
 // 当前射击间隔（帧数）
 function getBulletInterval(): number {
   // 基础武器射速加成 + 被动射速加成
-  const totalFireRateBonus = getBaseWeaponFireRateBonus() + getFireRatePassiveBonus();
+  let totalFireRateBonus = getBaseWeaponFireRateBonus() + getFireRatePassiveBonus();
+  // 弹幕风暴：射速 ×1.3（额外 +30% 射速加成）
+  if (hasBulletStorm()) totalFireRateBonus += 0.3;
   const baseInterval = heroConfig.bulletInterval;
   // 射速加成减少射击间隔：interval = base / (1 + bonus)
   return Math.max(1, Math.round(baseInterval / (1 + totalFireRateBonus)));
@@ -426,6 +439,7 @@ export {
   rerollOffers,
   applyUpgrade,
   addBossKillBonus,
+  triggerBossLegendary,
   getBaseWeaponLevel,
   getBulletCount,
   getBaseWeaponDamageBonus,
@@ -439,6 +453,7 @@ export {
   getCritChance,
   getArmorReduction,
   getWingmanCount,
+  getWingmanDamageBonus,
   getExplosionRadiusBonus,
   getMultiMissileBonus,
   getChainEnhanceBonus,

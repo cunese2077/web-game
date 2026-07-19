@@ -234,7 +234,11 @@ function getBaseWeaponLevel() {
 function getBulletCount() {
     const lv = getBaseWeaponLevel();
     const idx = Math.min(lv, BASE_WEAPON_LEVELS.length) - 1;
-    return BASE_WEAPON_LEVELS[idx].bulletCount;
+    let count = BASE_WEAPON_LEVELS[idx].bulletCount;
+    // 弹幕风暴：子弹数 +3
+    if (hasBulletStorm())
+        count += 3;
+    return count;
 }
 // 基础武器伤害加成（乘法，如 0.3 = +30%）
 function getBaseWeaponDamageBonus() {
@@ -281,8 +285,16 @@ function getArmorReduction() {
     return getPassiveStacks("armor");
 }
 // 僚机数量（机炮专属，每层+1架）
+// 僚机数量由 wingman 武器等级决定：Lv1=1架, Lv2+=2架
 function getWingmanCount() {
-    return getPassiveStacks("wingmanItem");
+    const lv = getWeaponLevel("wingman");
+    if (lv <= 0)
+        return 0;
+    return lv >= 2 ? 2 : 1;
+}
+// 僚机伤害加成（wingmanItem 被动，每层 +30%）
+function getWingmanDamageBonus() {
+    return getPassiveStacks("wingmanItem") * 0.3;
 }
 // 爆炸范围加成（导弹专属，每层+50%）
 function getExplosionRadiusBonus() {
@@ -331,7 +343,10 @@ function consumeBossLegendary() {
 // 当前射击间隔（帧数）
 function getBulletInterval() {
     // 基础武器射速加成 + 被动射速加成
-    const totalFireRateBonus = getBaseWeaponFireRateBonus() + getFireRatePassiveBonus();
+    let totalFireRateBonus = getBaseWeaponFireRateBonus() + getFireRatePassiveBonus();
+    // 弹幕风暴：射速 ×1.3（额外 +30% 射速加成）
+    if (hasBulletStorm())
+        totalFireRateBonus += 0.3;
     const baseInterval = heroConfig.bulletInterval;
     // 射速加成减少射击间隔：interval = base / (1 + bonus)
     return Math.max(1, Math.round(baseInterval / (1 + totalFireRateBonus)));
@@ -352,4 +367,4 @@ function getBulletDamageWithBuff(firepowerActive) {
 function getMaxHp() {
     return heroConfig.maxHp + getExtraHp();
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, };
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, };
