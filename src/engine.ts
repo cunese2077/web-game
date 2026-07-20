@@ -22,7 +22,7 @@ import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
-import { checkBossTrigger, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss } from "./boss.js";
+import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss } from "./boss.js";
 import { updateAndDrawBullets, clearBullets, getBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playBossWarning } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
@@ -360,6 +360,8 @@ function gameLoop(timestamp: number): void {
 // 调试用：外部触发 BOSS 预警阶段切换
 function triggerBossPhase(): void {
   if (curPhase === PHASE_PLAY || curPhase === PHASE_LEVEL_UP) {
+    // 根据玩家当前等级注册 BOSS 等级，确保 bossIndex 与玩家等级匹配
+    registerDebugBossLevel(getLevel());
     startBossWarning();
     curPhase = PHASE_BOSS_WARNING;
   }

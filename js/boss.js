@@ -324,6 +324,19 @@ function updateBossWarning() {
     }
     return false;
 }
+// 调试用：根据玩家当前等级注册对应的 BOSS 等级到 triggeredBossLevels
+// 确保 spawnBoss() 生成的 bossIndex 与玩家等级匹配
+function registerDebugBossLevel(level) {
+    if (level < bossConfig.firstTriggerLevel)
+        return;
+    // 计算当前等级对应的 BOSS 触发等级：5,10,15,20,...
+    const bossLevel = bossConfig.firstTriggerLevel +
+        Math.floor((level - bossConfig.firstTriggerLevel) / bossConfig.triggerInterval) * bossConfig.triggerInterval;
+    // 注册所有尚未触发的 BOSS 等级（保证 bossIndex 正确递增）
+    for (let lv = bossConfig.firstTriggerLevel; lv <= bossLevel; lv += bossConfig.triggerInterval) {
+        triggeredBossLevels.add(lv);
+    }
+}
 // 生成 BOSS
 function spawnBoss() {
     // bossIndex = 已触发数量 - 1
@@ -355,4 +368,4 @@ function clearBoss() {
 function getBossWarningTimer() {
     return bossWarningTimer;
 }
-export { Boss, checkBossTrigger, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, };
+export { Boss, checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, };
