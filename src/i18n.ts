@@ -128,6 +128,14 @@ export type TextKey =
   | "upgrade.nukeWarhead.desc"     // "爆炸 ×3, 伤害 ×2" / "Explosion ×3, Dmg ×2"
   | "upgrade.voidEnergy"           // "虚空能量" / "VOID ENERGY"
   | "upgrade.voidEnergy.desc"      // "激光全屏穿透, 无限链" / "Full laser, Infinite chain"
+  // 进化超武
+  | "upgrade.doomBarrage"           // "末日弹幕" / "DOOM BARRAGE"
+  | "upgrade.doomBarrage.desc"      // "子弹微型爆炸, 导弹 +50% 伤害" / "Bullet micro-explosion, Missile +50% DMG"
+  | "upgrade.quantumAnnihilate"     // "量子歼灭" / "QUANTUM ANNIHILATE"
+  | "upgrade.quantumAnnihilate.desc" // "导弹 EMP 脉冲, 闪电链无限 +2 跳" / "Missile EMP, Infinite chain +2"
+  | "upgrade.annihilateSquad"       // "歼灭编队" / "ANNIHILATE SQUAD"
+  | "upgrade.annihilateSquad.desc"  // "僚机 +2, 僚机伤害 ×2, 子弹 +2 路" / "Wingman +2, DMG ×2, Bullets +2"
+  | "upgrade.evolution"             // "进化" / "EVOLVE"
   | "combat.crit"             // "暴击!" / "CRIT!"
   // BOSS
   | "boss.title"              // "BOSS" / "BOSS"
@@ -240,6 +248,13 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.nukeWarhead.desc": "爆炸 ×3, 伤害 ×2",
     "upgrade.voidEnergy": "虚空能量",
     "upgrade.voidEnergy.desc": "激光全屏穿透, 无限链",
+    "upgrade.doomBarrage": "末日弹幕",
+    "upgrade.doomBarrage.desc": "子弹命中爆炸, 导弹 +50% 伤害",
+    "upgrade.quantumAnnihilate": "量子歼灭",
+    "upgrade.quantumAnnihilate.desc": "导弹 EMP 脉冲, 闪电链无限 +2 跳",
+    "upgrade.annihilateSquad": "歼灭编队",
+    "upgrade.annihilateSquad.desc": "僚机 +2, 伤害 ×2, 子弹 +2 路",
+    "upgrade.evolution": "进化",
     "combat.crit": "暴击!",
     "html.title": "飞机大战网页版",
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
@@ -348,6 +363,13 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.nukeWarhead.desc": "Explosion ×3, Dmg ×2",
     "upgrade.voidEnergy": "Void Energy",
     "upgrade.voidEnergy.desc": "Full laser, Infinite chain",
+    "upgrade.doomBarrage": "Doom Barrage",
+    "upgrade.doomBarrage.desc": "Bullet micro-explosion, Missile +50% DMG",
+    "upgrade.quantumAnnihilate": "Quantum Annihilate",
+    "upgrade.quantumAnnihilate.desc": "Missile EMP pulse, Infinite chain +2",
+    "upgrade.annihilateSquad": "Annihilate Squad",
+    "upgrade.annihilateSquad.desc": "Wingman +2, DMG ×2, Bullets +2",
+    "upgrade.evolution": "EVOLVE",
     "combat.crit": "CRIT!",
     "html.title": "Plane War Web",
     "html.unsupported": "Your browser does not support canvas!!!",
@@ -456,6 +478,13 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.nukeWarhead.desc": "爆発 ×3, ダメージ ×2",
     "upgrade.voidEnergy": "ヴォイドエネルギー",
     "upgrade.voidEnergy.desc": "フルレーザー, 無限チェイン",
+    "upgrade.doomBarrage": "ドゥームバラージ",
+    "upgrade.doomBarrage.desc": "弾着爆発, ミサイル +50% ダメージ",
+    "upgrade.quantumAnnihilate": "クアンタムアナイアレイト",
+    "upgrade.quantumAnnihilate.desc": "ミサイルEMP, 無限チェイン +2",
+    "upgrade.annihilateSquad": "アナイアレイトスクワッド",
+    "upgrade.annihilateSquad.desc": "ウィングマン +2, ダメージ ×2, 弾 +2",
+    "upgrade.evolution": "進化",
     "combat.crit": "クリティカル!",
     "html.title": "エアバトル Web",
     "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",

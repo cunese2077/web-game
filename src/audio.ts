@@ -92,6 +92,7 @@ interface AudioConfig {
   bossWarning: HitAlarmConfig;      // BOSS 来袭预警
   bossHit: ToneWithNoiseConfig;     // BOSS 受击
   bossDestroy: BigExplosionConfig;  // BOSS 击毁
+  evolution: MelodyConfig;           // 进化合成
 }
 
 // ========== 音效配置对象 ==========
@@ -237,6 +238,15 @@ const audioConfig: AudioConfig = {
     noise: { volume: 0.4, duration: 0.6, amplitude: 1.0 },
     tone1: { type: "sawtooth", freqStart: 400, freqEnd: 15, volume: 0.3, duration: 0.6 },
     tone2: { type: "square", freqStart: 200, freqEnd: 8, volume: 0.2, duration: 0.5 },
+  },
+  // 进化合成：华丽上行和弦 + 高频泛音，标志两武器融合
+  evolution: {
+    type: "sine",
+    notes: [523, 659, 784, 1047, 1319],
+    noteInterval: 0.07,
+    attackTime: 0.02,
+    volume: 0.2,
+    duration: 0.4,
   },
 };
 
@@ -883,6 +893,28 @@ function playBossHit(): void {
   osc.stop(now + c.tone.duration);
 }
 
+// 进化合成音效：华丽上行和弦
+function playEvolution(): void {
+  if (!soundEnabled) return;
+  const c = audioConfig.evolution;
+  const ctx = getAudioCtx();
+  c.notes.forEach((freq: number, i: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
+    osc.type = c.type;
+    const startTime = ctx.currentTime + i * c.noteInterval;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(vol(c.volume), startTime + c.attackTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.duration);
+    osc.start(startTime);
+    osc.stop(startTime + c.duration);
+  });
+}
+
 // BOSS 击毁音效：大规模爆炸
 function playBossDestroy(): void {
   if (!soundEnabled) return;
@@ -954,4 +986,5 @@ export {
   playBossWarning,
   playBossHit,
   playBossDestroy,
+  playEvolution,
 };

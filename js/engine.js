@@ -14,7 +14,7 @@ import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.j
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss } from "./boss.js";
 import { updateAndDrawBullets, clearBullets } from "./enemyBullet.js";
-import { resumeAudio, playGameOver, playUpgradeSelect, playBossWarning } from "./audio.js";
+import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 import { t } from "./i18n.js";
 import { isDebugMode, isDebugPanelVisible, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
@@ -140,8 +140,13 @@ function start() {
         else if (curPhase === PHASE_LEVEL_UP) {
             // 升级选择界面点击处理
             const result = handleUpgradeClick(clickX, clickY);
-            if (result === "selected") {
-                playUpgradeSelect();
+            if (result === "selected" || result === "selected_evolution") {
+                if (result === "selected_evolution") {
+                    playEvolution();
+                }
+                else {
+                    playUpgradeSelect();
+                }
                 if (getPendingLevelUps() <= 0) {
                     // 所有升级处理完毕，检查是否应触发 BOSS
                     if (checkBossTrigger(getLevel())) {

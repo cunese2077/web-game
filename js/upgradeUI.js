@@ -112,26 +112,37 @@ function _drawCard(offer, x, y, w, h, index) {
     ctx.fillStyle = colors.border;
     ctx.textAlign = "center";
     ctx.fillText(rarityText, tagX + tagWidth / 2, tagY + tagHeight / 2 + tagFontSize * 0.35);
-    // BOSS 传说标识（左上角，仅传说稀有度显示）
+    // 传说标识（左上角，仅传说稀有度显示）
+    // 进化道具显示"进化"标识（紫色），非进化传说道具显示"BOSS"标识（金色）
     if (offer.def.rarity === "legendary") {
-        const bossText = t("upgrade.boss");
+        const isEvolution = offer.def.evolutionFrom !== null;
+        const tagKey = isEvolution ? "upgrade.evolution" : "upgrade.boss";
+        const tagText = t(tagKey);
         const bossFontSize = Math.round(9 * fontScale);
         ctx.font = `bold ${bossFontSize}px arial`;
-        const bossTagWidth = ctx.measureText(bossText).width + Math.round(6 * fontScale) * 2;
+        const bossTagWidth = ctx.measureText(tagText).width + Math.round(6 * fontScale) * 2;
         const bossTagHeight = Math.round(16 * fontScale);
         const bossTagX = x + Math.round(4 * fontScale);
         const bossTagY = y + Math.round(4 * fontScale);
-        // 金色背景 + 脉冲发光
         ctx.save();
-        ctx.shadowColor = "#fd0";
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = "rgba(255, 170, 0, 0.6)";
+        if (isEvolution) {
+            // 进化标识：紫色背景 + 紫色发光
+            ctx.shadowColor = "#c6f";
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = "rgba(180, 80, 255, 0.7)";
+        }
+        else {
+            // BOSS 标识：金色背景 + 脉冲发光
+            ctx.shadowColor = "#fd0";
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = "rgba(255, 170, 0, 0.6)";
+        }
         _roundRect(bossTagX, bossTagY, bossTagWidth, bossTagHeight, Math.round(3 * fontScale));
         ctx.fill();
         ctx.restore();
         ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
-        ctx.fillText(bossText, bossTagX + bossTagWidth / 2, bossTagY + bossTagHeight / 2 + bossFontSize * 0.35);
+        ctx.fillText(tagText, bossTagX + bossTagWidth / 2, bossTagY + bossTagHeight / 2 + bossFontSize * 0.35);
     }
     const contentX = x + Math.round(8 * fontScale);
     const contentW = w - Math.round(16 * fontScale);
@@ -448,7 +459,7 @@ function _wrapText(text, x, y, maxWidth, lineHeight) {
     }
 }
 // ========== 处理点击 ==========
-// 返回: "selected" (选中卡片), "rerolled" (刷新), null (无效点击)
+// 返回: "selected" (选中卡片), "selected_evolution" (选中进化卡片), "rerolled" (刷新), null (无效点击)
 function handleUpgradeClick(clickX, clickY) {
     // 检查卡片点击
     for (const area of cardHitAreas) {
@@ -456,8 +467,10 @@ function handleUpgradeClick(clickX, clickY) {
             clickY >= area.y && clickY < area.y + area.h) {
             const offers = getCurrentOffers();
             if (area.offerIndex < offers.length) {
-                applyUpgrade(offers[area.offerIndex]);
-                return "selected";
+                const selectedOffer = offers[area.offerIndex];
+                const isEvolution = selectedOffer.def.evolutionFrom !== null;
+                applyUpgrade(selectedOffer);
+                return isEvolution ? "selected_evolution" : "selected";
             }
         }
     }

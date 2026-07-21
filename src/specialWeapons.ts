@@ -1,6 +1,6 @@
 // 特殊武器模块 - 管理追踪导弹、能量武器（激光+闪电）、僚机
 import { ctx, width, height } from "./canvas.js";
-import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasNukeWarhead, hasVoidEnergy, getWingmanCount, getWingmanDamageBonus, hasBulletStorm } from "./upgrade.js";
+import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasNukeWarhead, hasVoidEnergy, getWingmanCount, getWingmanDamageBonus, hasBulletStorm, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad } from "./upgrade.js";
 import { getHeroBuffs } from "./hero.js";
 import { buffConfig } from "./config.js";
 import { PHASE_PLAY, PHASE_BOSS_WARNING, PHASE_BOSS } from "./constants.js";
@@ -506,10 +506,14 @@ function updateAndDrawSpecialWeapons(
       const baseDamage = cfg.damage * getDamagePassiveMultiplier() * firepowerMul;
       // 专属道具：核弹头
       const nukeMul = hasNukeWarhead() ? 2 : 1;
-      const finalDamage = baseDamage * nukeMul;
+      // 进化：末日弹幕 — 导弹伤害 +50%
+      const doomMul = hasDoomBarrage() ? 1.5 : 1;
+      const finalDamage = baseDamage * nukeMul * doomMul;
       // 专属道具：爆炸范围 + 核弹头保底爆炸
       const baseExplosion = hasNukeWarhead() ? Math.max(cfg.explosionRadius, 25) : cfg.explosionRadius;
-      const explosionRadius = baseExplosion * (1 + getExplosionRadiusBonus()) * (hasNukeWarhead() ? 3 : 1);
+      // 进化：末日弹幕 — 爆炸范围 +30%
+      const doomExplosionMul = hasDoomBarrage() ? 1.3 : 1;
+      const explosionRadius = baseExplosion * (1 + getExplosionRadiusBonus()) * (hasNukeWarhead() ? 3 : 1) * doomExplosionMul;
       // 专属道具：多重导弹
       const totalMissiles = cfg.count + getMultiMissileBonus();
       for (let i = 0; i < totalMissiles; i++) {
@@ -555,6 +559,20 @@ function updateAndDrawSpecialWeapons(
               }
             }
           }
+          // 进化：量子歼灭 — 导弹命中触发 EMP 脉冲（30px 范围减速 60 帧）
+          if (hasQuantumAnnihilate()) {
+            const empRadius = 30;
+            for (const e2 of allEnemies) {
+              if (e2.die) continue;
+              const dx2 = ms.x - (e2.x + e2.width / 2);
+              const dy2 = ms.y - (e2.y + e2.height / 2);
+              if (Math.sqrt(dx2 * dx2 + dy2 * dy2) < empRadius) {
+                slowEnemy(e2.id, 0.4, 60);
+              }
+            }
+            // EMP 视觉闪光
+            hitFlashes.push(new HitFlash(ms.x, ms.y, empRadius, "#4af", 12));
+          }
           ms.removable = true;
           break;
         }
@@ -574,7 +592,8 @@ function updateAndDrawSpecialWeapons(
     const cfg = ENERGY_LEVELS[idx];
 
     // 专属道具：虚空能量 - 影响 chain range
-    const effectiveChainRange = hasVoidEnergy() ? 999 : LIGHTNING_CHAIN_RANGE;
+    // 进化：量子歼灭 - 闪电链范围无限
+    const effectiveChainRange = (hasVoidEnergy() || hasQuantumAnnihilate()) ? 999 : LIGHTNING_CHAIN_RANGE;
 
     // 激光部分（每 180 帧）
     laserCooldown++;
@@ -654,7 +673,8 @@ function updateAndDrawSpecialWeapons(
         let lastX = tx;
         let lastY = ty;
         // 专属道具：链式强化
-        const totalChains = cfg.chains + getChainEnhanceBonus();
+        // 进化：量子歼灭 — 闪电链 +2 跳
+        const totalChains = cfg.chains + getChainEnhanceBonus() + (hasQuantumAnnihilate() ? 2 : 0);
         for (let c = 0; c < totalChains; c++) {
           let nextTarget: EnemyProxy | null = null;
           let nextDist = Infinity;
@@ -714,16 +734,21 @@ function updateAndDrawSpecialWeapons(
 
   // ---- 僚机（基于被动叠加） ----
   const wingmanCount = getWingmanCount();
-  if (wingmanCount > 0) {
+  // 进化：歼灭编队 — 僚机数量 +2
+  const effectiveWingmanCount = wingmanCount + (hasAnnihilateSquad() ? 2 : 0);
+  if (effectiveWingmanCount > 0) {
     const baseDamage = (1 + (wingmanCount - 1) * 0.5) * (1 + getWingmanDamageBonus()) * getDamagePassiveMultiplier() * firepowerMul;
+    // 进化：歼灭编队 — 僚机伤害 ×2
+    const squadMul = hasAnnihilateSquad() ? 2 : 1;
+    const effectiveDamage = baseDamage * squadMul;
     const effectiveInterval = Math.max(1, Math.round(WINGMAN_INTERVAL / (1 + getFireRatePassiveBonus())));
 
     // 确保 cooldowns 数组长度匹配
-    while (wingmanCooldowns.length < wingmanCount) {
+    while (wingmanCooldowns.length < effectiveWingmanCount) {
       wingmanCooldowns.push(0);
     }
 
-    for (let w = 0; w < wingmanCount; w++) {
+    for (let w = 0; w < effectiveWingmanCount; w++) {
       wingmanCooldowns[w]++;
       // 僚机分布在英雄两侧
       const sideOffset = (w % 2 === 0 ? -1 : 1) * (Math.floor(w / 2) + 1) * WINGMAN_OFFSET;
@@ -736,7 +761,7 @@ function updateAndDrawSpecialWeapons(
         const bulletCount = hasBulletStorm() ? 2 : 1;
         for (let b = 0; b < bulletCount; b++) {
           const bulletOffsetX = b === 0 ? -3 : 3;
-          wingmanBullets.push(new WingmanBullet(wx + bulletOffsetX, wy - heroH / 2, baseDamage));
+          wingmanBullets.push(new WingmanBullet(wx + bulletOffsetX, wy - heroH / 2, effectiveDamage));
         }
       }
 

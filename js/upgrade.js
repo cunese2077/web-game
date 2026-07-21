@@ -15,8 +15,10 @@ let currentOffers = [];
 let rerollsLeft = 0;
 // BOSS 击杀稀有度加成：击杀 big 敌机时累加，生成选项时消耗
 let bossKillBonus = 0;
-// 传说保底标记：下次升级选项保证至少 1 个传说道具
+// BOSS 传说保底标记：下次升级选项保证至少 1 个传说道具
 let bossLegendaryPending = false;
+// 进化保底标记：下次升级选项保证出现可用的进化超武
+let evolutionPending = false;
 // 等级里程碑：到达这些等级时触发传说保底
 const LEGENDARY_MILESTONES = [10, 20, 30];
 // 已触发过的里程碑集合，避免重复触发
@@ -41,6 +43,7 @@ function initUpgrades() {
     rerollsLeft = 0;
     bossKillBonus = 0;
     bossLegendaryPending = false;
+    evolutionPending = false;
     triggeredMilestones = new Set();
 }
 function getWeaponLevel(id) {
@@ -136,11 +139,20 @@ function generateOffers() {
     if (available.length === 0)
         return [];
     const result = [];
-    // 检查 BOSS 传说保底
+    // 1. 检查进化保底（优先级最高：两个武器均 Lv5 触发）
+    if (evolutionPending) {
+        evolutionPending = false;
+        const evolutionOffers = available.filter(o => o.def.evolutionFrom !== null);
+        if (evolutionOffers.length > 0) {
+            const idx = Math.floor(Math.random() * evolutionOffers.length);
+            result.push(evolutionOffers[idx]);
+        }
+    }
+    // 2. 检查 BOSS 传说保底
     const hasLegendaryGuarantee = consumeBossLegendary();
-    if (hasLegendaryGuarantee) {
-        // 筛选满足前置条件的传说道具
-        const legendaryOffers = available.filter(o => o.def.rarity === "legendary");
+    if (hasLegendaryGuarantee && result.length === 0) {
+        // 筛选满足前置条件的非进化传说道具（进化由上面的独立机制处理）
+        const legendaryOffers = available.filter(o => o.def.rarity === "legendary" && o.def.evolutionFrom === null);
         if (legendaryOffers.length > 0) {
             // 均匀随机选一个传说道具（legendary 权重为 0，不能用加权随机）
             const idx = Math.floor(Math.random() * legendaryOffers.length);
@@ -186,6 +198,24 @@ function startUpgradeSelection() {
         if (level >= milestone && !triggeredMilestones.has(milestone)) {
             triggeredMilestones.add(milestone);
             triggerBossLegendary();
+        }
+    }
+    // 检查进化条件：遍历进化配方，如果有两个 Lv5 武器满足配方，触发进化保底
+    if (!evolutionPending) {
+        for (const def of upgradePool) {
+            if (def.evolutionFrom === null)
+                continue;
+            // 已获得则跳过
+            if (getPassiveStacks(def.id) > 0)
+                continue;
+            // 检查两个源武器是否都满级
+            const [w1, w2] = def.evolutionFrom;
+            const req1 = def.prereqLevels[w1] ?? 5;
+            const req2 = def.prereqLevels[w2] ?? 5;
+            if (getWeaponLevel(w1) >= req1 && getWeaponLevel(w2) >= req2) {
+                evolutionPending = true;
+                break;
+            }
         }
     }
     const diffConfig = getDifficultyConfig(getDifficulty());
@@ -238,6 +268,9 @@ function getBulletCount() {
     // 弹幕风暴：子弹数 +3
     if (hasBulletStorm())
         count += 3;
+    // 进化：歼灭编队 — 子弹 +2 路
+    if (hasAnnihilateSquad())
+        count += 2;
     return count;
 }
 // 基础武器伤害加成（乘法，如 0.3 = +30%）
@@ -324,6 +357,19 @@ function hasNukeWarhead() {
 function hasVoidEnergy() {
     return getPassiveStacks("voidEnergy") > 0;
 }
+// ========== 进化超武查询 ==========
+// 末日弹幕（baseWeapon + homingMissile）：子弹命中爆炸 + 导弹伤害/爆炸增强
+function hasDoomBarrage() {
+    return getPassiveStacks("doomBarrage") > 0;
+}
+// 量子歼灭（homingMissile + energyWeapon）：导弹EMP脉冲 + 闪电链无限+2跳
+function hasQuantumAnnihilate() {
+    return getPassiveStacks("quantumAnnihilate") > 0;
+}
+// 歼灭编队（baseWeapon + wingman）：僚机+2 + 伤害×2 + 子弹+2路
+function hasAnnihilateSquad() {
+    return getPassiveStacks("annihilateSquad") > 0;
+}
 // BOSS 击杀加成：击杀 big 敌机时调用
 function addBossKillBonus() {
     bossKillBonus += bossKillRarityBonus;
@@ -367,4 +413,4 @@ function getBulletDamageWithBuff(firepowerActive) {
 function getMaxHp() {
     return heroConfig.maxHp + getExtraHp();
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, };
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, };
