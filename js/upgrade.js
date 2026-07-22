@@ -208,10 +208,10 @@ function startUpgradeSelection() {
             // 已获得则跳过
             if (getPassiveStacks(def.id) > 0)
                 continue;
-            // 检查两个源武器是否都满级
+            // 检查两个源武器是否满足进化等级要求
             const [w1, w2] = def.evolutionFrom;
-            const req1 = def.prereqLevels[w1] ?? 5;
-            const req2 = def.prereqLevels[w2] ?? 5;
+            const req1 = def.prereqLevels[w1] ?? 3;
+            const req2 = def.prereqLevels[w2] ?? 3;
             if (getWeaponLevel(w1) >= req1 && getWeaponLevel(w2) >= req2) {
                 evolutionPending = true;
                 break;

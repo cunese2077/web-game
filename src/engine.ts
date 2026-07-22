@@ -36,6 +36,10 @@ let pBg: (() => void) | null = null;
 let loadAnim: (() => GamePhase) | null = null;
 let gameOverSoundPlayed: boolean = false;
 
+// 进化全屏闪光动画（选中进化道具时触发）
+let evolutionFlashFrames: number = 0;
+const EVOLUTION_FLASH_DURATION: number = 30; // 1.5秒@20fps
+
 // BOSS 预警 UI 绘制
 function _drawBossWarningUI(): void {
   const timer = getBossWarningTimer();
@@ -173,6 +177,7 @@ function start(): void {
       if (result === "selected" || result === "selected_evolution") {
         if (result === "selected_evolution") {
           playEvolution();
+          evolutionFlashFrames = EVOLUTION_FLASH_DURATION;
         } else {
           playUpgradeSelect();
         }
@@ -206,6 +211,7 @@ function start(): void {
       clearDamageEffects();
       clearUpgradeUI();
       gameOverSoundPlayed = false;
+      evolutionFlashFrames = 0;
       curPhase = PHASE_READY;
     }
   };
@@ -333,6 +339,25 @@ function gameEngine(): void {
         gameOverSoundPlayed = true;
       }
       break;
+  }
+
+  // 进化全屏闪光（绘制在最上层，调试面板之下）
+  if (evolutionFlashFrames > 0) {
+    evolutionFlashFrames--;
+    const progress = 1 - evolutionFlashFrames / EVOLUTION_FLASH_DURATION;
+    // 前半段：白色爆闪渐隐；后半段：紫色脉冲渐隐
+    let alpha: number;
+    let color: string;
+    if (progress < 0.3) {
+      alpha = 0.7 * (1 - progress / 0.3);
+      color = `rgba(255, 255, 255, ${alpha})`;
+    } else {
+      const pulse = 0.5 + 0.5 * Math.sin(evolutionFlashFrames * 0.4);
+      alpha = 0.3 * (1 - (progress - 0.3) / 0.7) * pulse;
+      color = `rgba(180, 80, 255, ${alpha})`;
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, width, height);
   }
 
   // 调试面板（仅开发环境）

@@ -15,7 +15,7 @@ import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
 import { getDebugPanelArea, getDebugToggleArea } from "./debug.js";
 import { t } from "./i18n.js";
-import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, } from "./upgrade.js";
+import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, } from "./upgrade.js";
 let activeHero = null;
 let eventsBound = false;
 function bindEventsOnce() {
@@ -166,6 +166,10 @@ class Hero {
         if (this.buffs.shield > 0) {
             this._drawShieldAura();
         }
+        // 进化光环：持有进化超武时显示专属紫色光环
+        if (hasDoomBarrage() || hasQuantumAnnihilate() || hasAnnihilateSquad()) {
+            this._drawEvolutionAura();
+        }
         this._drawScore();
         this._drawLevel();
         this._drawHp();
@@ -314,6 +318,38 @@ class Hero {
         ctx.shadowColor = "#4af";
         ctx.shadowBlur = 8;
         ctx.stroke();
+        ctx.restore();
+    }
+    // 进化光环：紫色脉冲光环 + 旋转粒子
+    _drawEvolutionAura() {
+        const cx = this.x + heroImg[0].width / 2;
+        const cy = this.y + heroImg[0].height / 2;
+        const radius = Math.max(heroImg[0].width, heroImg[0].height) * 0.65;
+        const alpha = 0.35 + Math.sin(this.count * 0.12) * 0.2;
+        ctx.save();
+        // 外层紫色脉冲环
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = "#c6f";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "#c6f";
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        // 3 个旋转小光点
+        const particleRadius = radius + 4;
+        const speed = this.count * 0.06;
+        for (let i = 0; i < 3; i++) {
+            const angle = speed + (Math.PI * 2 / 3) * i;
+            const px = cx + Math.cos(angle) * particleRadius;
+            const py = cy + Math.sin(angle) * particleRadius;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fillStyle = "#e8f";
+            ctx.shadowColor = "#c6f";
+            ctx.shadowBlur = 8;
+            ctx.fill();
+        }
         ctx.restore();
     }
     _drawBuffs() {
