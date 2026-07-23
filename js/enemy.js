@@ -197,14 +197,48 @@ class Enemy {
             const drawX = this.x + (this.width - drawW) / 2;
             const drawY = this.y + (this.height - drawH) / 2;
             ctx.drawImage(this.enemy, drawX, drawY, drawW, drawH);
-            // 精英敌机紫色光环标识
-            ctx.strokeStyle = "#c8f";
-            ctx.lineWidth = 2;
-            ctx.shadowColor = "#c8f";
-            ctx.shadowBlur = 6;
+            // 精英敌机紫色色调覆盖
+            ctx.globalAlpha = 0.2;
+            ctx.fillStyle = "rgba(160, 80, 255, 0.6)";
+            ctx.fillRect(drawX, drawY, drawW, drawH);
+            ctx.globalAlpha = 1;
+            // 精英敌机紫色脉冲光环（呼吸效果）
+            const cx = drawX + drawW / 2;
+            const cy = drawY + drawH / 2;
+            const auraRadius = Math.max(drawW, drawH) / 2 + 6;
+            const pulse = 0.5 + 0.5 * Math.sin(this.n * 0.15);
+            // 外层发光填充
+            ctx.globalAlpha = 0.1 + 0.08 * pulse;
             ctx.beginPath();
-            ctx.arc(drawX + drawW / 2, drawY + drawH / 2, Math.max(drawW, drawH) / 2 + 4, 0, Math.PI * 2);
+            ctx.arc(cx, cy, auraRadius + 4, 0, Math.PI * 2);
+            ctx.fillStyle = "#c8f";
+            ctx.fill();
+            // 内层描边
+            ctx.globalAlpha = 0.6 + 0.4 * pulse;
+            ctx.beginPath();
+            ctx.arc(cx, cy, auraRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = "#e0c8ff";
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = "#c8f";
+            ctx.shadowBlur = 12 + 6 * pulse;
             ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            // 俯冲拖尾：俯冲时绘制渐隐尾迹
+            if (this.isDiving && this.moveType === "dive") {
+                const trailCount = 3;
+                for (let t = 1; t <= trailCount; t++) {
+                    const trailY = drawY - t * 8;
+                    const alpha = 0.3 * (1 - t / (trailCount + 1));
+                    ctx.globalAlpha = alpha;
+                    ctx.drawImage(this.enemy, drawX, trailY, drawW, drawH);
+                }
+                // 俯冲红色闪光提示
+                ctx.globalAlpha = 0.15 + 0.1 * Math.sin(this.n * 0.4);
+                ctx.fillStyle = "#f44";
+                ctx.fillRect(drawX, drawY, drawW, drawH);
+            }
+            ctx.globalAlpha = 1;
             ctx.restore();
         }
         else {
