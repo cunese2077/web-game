@@ -165,6 +165,9 @@ export interface EliteEnemyConfig {
   move: DiveMoveConfig;
   hpBar: HpBarConfig;
   scaling: EnemyScalingConfig;
+  shootInterval: number;     // 射击间隔（帧）
+  bulletSpeed: number;       // 子弹速度
+  bulletSize: number;        // 子弹半径
 }
 
 export interface EnemyConfig {

@@ -256,6 +256,8 @@ function gameEngine(): void {
       }
       drawScoreEffects();
       drawDamageEffects();
+      // 精英敌机子弹更新+绘制
+      updateAndDrawBullets();
       break;
     case PHASE_BOSS_WARNING:
       if (pBg) pBg();
@@ -275,6 +277,8 @@ function gameEngine(): void {
       }
       drawScoreEffects();
       drawDamageEffects();
+      // 精英敌机子弹更新+绘制
+      updateAndDrawBullets();
       // BOSS 预警倒计时
       if (updateBossWarning()) {
         spawnBoss();

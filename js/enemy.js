@@ -4,6 +4,7 @@ import { enemy1, enemy2, enemy3 } from "./resources.js";
 import Bullet from "./bullet.js";
 import { addGameScore } from "./score.js";
 import { addExp, getExpReward, getLevel } from "./level.js";
+import { addBullet } from "./enemyBullet.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroY } from "./hero.js";
 import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance } from "./upgrade.js";
 import Item from "./item.js";
@@ -53,6 +54,8 @@ class Enemy {
         this.type = "small";
         this.hitSoundCoolDown = 0;
         this.isDiving = false;
+        this.frameCount = 0;
+        this.shootCooldown = 0;
         if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
             this.enemy = enemy3[0];
             this.type = "big";
@@ -71,6 +74,7 @@ class Enemy {
             this.lives = getScaledEnemyStat(enemyConfig.elite.hp, enemyConfig.elite.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
             this.score = Math.ceil(getScaledEnemyStat(enemyConfig.elite.score, enemyConfig.elite.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
             this.hpBarConfig = enemyConfig.elite.hpBar;
+            this.shootCooldown = enemyConfig.elite.shootInterval; // 初始射击冷却
         }
         else if (this.n < midEnemyThreshold) {
             this.enemy = enemy2[0];
@@ -206,7 +210,7 @@ class Enemy {
             const cx = drawX + drawW / 2;
             const cy = drawY + drawH / 2;
             const auraRadius = Math.max(drawW, drawH) / 2 + 6;
-            const pulse = 0.5 + 0.5 * Math.sin(this.n * 0.15);
+            const pulse = 0.5 + 0.5 * Math.sin(this.frameCount * 0.15);
             // 外层发光填充
             ctx.globalAlpha = 0.1 + 0.08 * pulse;
             ctx.beginPath();
@@ -234,7 +238,7 @@ class Enemy {
                     ctx.drawImage(this.enemy, drawX, trailY, drawW, drawH);
                 }
                 // 俯冲红色闪光提示
-                ctx.globalAlpha = 0.15 + 0.1 * Math.sin(this.n * 0.4);
+                ctx.globalAlpha = 0.15 + 0.1 * Math.sin(this.frameCount * 0.4);
                 ctx.fillStyle = "#f44";
                 ctx.fillRect(drawX, drawY, drawW, drawH);
             }
@@ -263,6 +267,21 @@ class Enemy {
         // 受击音效冷却递减
         if (this.hitSoundCoolDown > 0) {
             this.hitSoundCoolDown--;
+        }
+        // 帧计数递增（驱动动画效果）
+        this.frameCount = (this.frameCount + 1) % 10000;
+        // 精英敌机射击：进入屏幕后定时向下发射紫色子弹
+        if (this.type === "elite" && !this.die && this.y > 0) {
+            if (this.shootCooldown > 0) {
+                this.shootCooldown--;
+            }
+            else {
+                const cfg = enemyConfig.elite;
+                const bx = this.x + this.width / 2;
+                const by = this.y + this.height;
+                addBullet(bx, by, 0, cfg.bulletSpeed, cfg.bulletSize, "#c8f");
+                this.shootCooldown = cfg.shootInterval;
+            }
         }
         // 血量条绘制（存活且配置显示时）
         if (!this.die && this.hpBarConfig.show && this.maxLives > 0) {

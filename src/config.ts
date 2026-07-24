@@ -142,6 +142,9 @@ const enemyConfig: EnemyConfig = {
       speedScale: 0.010,    // 每级速度 +1%（30级时 3→3.87）
       scoreScale: 0.07,     // 30级时分数 ≈ 177（3.5倍）
     },
+    shootInterval: 40,      // 每 40 帧发射 1 发子弹（2秒@20fps）
+    bulletSpeed: 3.5,       // 子弹速度
+    bulletSize: 4,          // 子弹半径
   },
 };
 
