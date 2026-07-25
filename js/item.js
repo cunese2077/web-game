@@ -10,12 +10,14 @@ class Item {
         this.removable = false;
         this.animCount = 0;
     }
-    draw() {
-        this.animCount++;
-        this.y += itemConfig.speed;
-        if (this.y > height + itemConfig.size) {
-            this.removable = true;
-            return;
+    draw(frozen = false) {
+        if (!frozen) {
+            this.animCount++;
+            this.y += itemConfig.speed;
+            if (this.y > height + itemConfig.size) {
+                this.removable = true;
+                return;
+            }
         }
         const size = itemConfig.size;
         const scale = 1 + Math.sin(this.animCount * 0.1) * 0.15;
@@ -145,13 +147,13 @@ class Item {
         }
         return picked;
     }
-    static drawItems() {
+    static drawItems(frozen = false) {
         for (let i = items.length - 1; i >= 0; i--) {
             if (items[i].removable) {
                 items.splice(i, 1);
             }
             else {
-                items[i].draw();
+                items[i].draw(frozen);
             }
         }
     }

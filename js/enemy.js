@@ -41,7 +41,10 @@ class Enemy {
         const eliteProbBase = eliteLevel > 0
             ? Math.min(enemyConfig.elite.spawnProbMax, enemyConfig.elite.spawnProbBase + enemySpawnScaling.eliteProbGrowth * (level - enemyConfig.elite.spawnStartLevel))
             : 0;
-        const eliteProbMax = Math.min(enemyConfig.elite.spawnProbMax, eliteProbBase + (1 - hpRatio) * 0.03);
+        // 等级未达到时不出现，达到后基础概率 + 低血量额外概率
+        const eliteProbMax = eliteLevel > 0
+            ? Math.min(enemyConfig.elite.spawnProbMax, eliteProbBase + (1 - hpRatio) * 0.03)
+            : 0;
         const eliteThreshold = bigEnemyThreshold + eliteProbMax * 20;
         const midEnemyThreshold = eliteThreshold + scaledMediumWeight;
         this.id = nextEnemyId++;
@@ -161,7 +164,7 @@ class Enemy {
             // 阶段2/3：俯冲时不做横向移动，直线冲向玩家
         }
     }
-    draw() {
+    draw(frozen = false) {
         if (this.type === "big" || this.type === "elite") {
             if (this.die) {
                 if (this.index < 2) {
@@ -268,19 +271,22 @@ class Enemy {
         if (this.hitSoundCoolDown > 0) {
             this.hitSoundCoolDown--;
         }
-        // 帧计数递增（驱动动画效果）
-        this.frameCount = (this.frameCount + 1) % 10000;
-        // 精英敌机射击：进入屏幕后定时向下发射紫色子弹
-        if (this.type === "elite" && !this.die && this.y > 0) {
-            if (this.shootCooldown > 0) {
-                this.shootCooldown--;
-            }
-            else {
-                const cfg = enemyConfig.elite;
-                const bx = this.x + this.width / 2;
-                const by = this.y + this.height;
-                addBullet(bx, by, 0, cfg.bulletSpeed, cfg.bulletSize, "#c8f");
-                this.shootCooldown = cfg.shootInterval;
+        // 冻结模式：升级选择/暂停时不移动、不射击、不碰撞
+        if (!frozen) {
+            // 帧计数递增（驱动动画效果）
+            this.frameCount = (this.frameCount + 1) % 10000;
+            // 精英敌机射击：进入屏幕后定时向下发射紫色子弹
+            if (this.type === "elite" && !this.die && this.y > 0) {
+                if (this.shootCooldown > 0) {
+                    this.shootCooldown--;
+                }
+                else {
+                    const cfg = enemyConfig.elite;
+                    const bx = this.x + this.width / 2;
+                    const by = this.y + this.height;
+                    addBullet(bx, by, 0, cfg.bulletSpeed, cfg.bulletSize, "#c8f");
+                    this.shootCooldown = cfg.shootInterval;
+                }
             }
         }
         // 血量条绘制（存活且配置显示时）
@@ -288,16 +294,18 @@ class Enemy {
             this._drawHpBar();
         }
         // 移动（受减速/冰冻影响）
-        const speedMul = this.slowFrames > 0 ? (1 - this.slowFactor) : 1;
-        // 俯冲状态：速度加倍
-        const diveMul = (this.isDiving && this.moveType === "dive") ? enemyConfig.elite.move.diveSpeedMultiplier : 1;
-        this.y += this.speed * speedMul * diveMul;
-        this._updateHorizontalPosition(speedMul);
-        if (this.slowFrames > 0)
-            this.slowFrames--;
-        this.hit();
-        if (this.y > height) {
-            this.removable = true;
+        if (!frozen) {
+            const speedMul = this.slowFrames > 0 ? (1 - this.slowFactor) : 1;
+            // 俯冲状态：速度加倍
+            const diveMul = (this.isDiving && this.moveType === "dive") ? enemyConfig.elite.move.diveSpeedMultiplier : 1;
+            this.y += this.speed * speedMul * diveMul;
+            this._updateHorizontalPosition(speedMul);
+            if (this.slowFrames > 0)
+                this.slowFrames--;
+            this.hit();
+            if (this.y > height) {
+                this.removable = true;
+            }
         }
     }
     // 绘制血量条：背景 + 前景按比例填充，颜色随血量比例变化
@@ -446,14 +454,14 @@ class Enemy {
             }
         }
     }
-    static drawEnemy() {
+    static drawEnemy(frozen = false) {
         tickCoolDown();
         for (let i = liveEnemy.length - 1; i >= 0; i--) {
             if (liveEnemy[i].removable) {
                 liveEnemy.splice(i, 1);
             }
             else {
-                liveEnemy[i].draw();
+                liveEnemy[i].draw(frozen);
             }
         }
     }

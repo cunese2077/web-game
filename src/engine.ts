@@ -324,9 +324,9 @@ function gameEngine(): void {
       break;
     case PHASE_LEVEL_UP:
       if (pBg) pBg();
-      Enemy.drawEnemy();
-      Item.drawItems();
-      Bullet.drawBullet();
+      Enemy.drawEnemy(true);  // 冻结：不移动、不射击、不碰撞
+      Item.drawItems(true);   // 冻结：道具不下落
+      Bullet.drawBullet(true);  // 冻结：子弹不移动
       if (hero) hero.draw(curPhase);
       drawScoreEffects();
       drawDamageEffects();

@@ -50,9 +50,9 @@ function addBullet(x: number, y: number, speedX: number, speedY: number, size: n
   bullets.push(new EnemyBullet(x, y, speedX, speedY, size, color));
 }
 
-function updateAndDrawBullets(): void {
+function updateAndDrawBullets(frozen: boolean = false): void {
   for (let i = bullets.length - 1; i >= 0; i--) {
-    bullets[i].update();
+    if (!frozen) bullets[i].update();
     bullets[i].draw();
     if (bullets[i].removable) {
       bullets.splice(i, 1);

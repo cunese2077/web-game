@@ -36,9 +36,10 @@ let bullets = [];
 function addBullet(x, y, speedX, speedY, size, color) {
     bullets.push(new EnemyBullet(x, y, speedX, speedY, size, color));
 }
-function updateAndDrawBullets() {
+function updateAndDrawBullets(frozen = false) {
     for (let i = bullets.length - 1; i >= 0; i--) {
-        bullets[i].update();
+        if (!frozen)
+            bullets[i].update();
         bullets[i].draw();
         if (bullets[i].removable) {
             bullets.splice(i, 1);

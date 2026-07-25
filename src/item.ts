@@ -20,13 +20,15 @@ class Item {
     this.animCount = 0;
   }
 
-  draw(): void {
-    this.animCount++;
-    this.y += itemConfig.speed;
+  draw(frozen: boolean = false): void {
+    if (!frozen) {
+      this.animCount++;
+      this.y += itemConfig.speed;
 
-    if (this.y > height + itemConfig.size) {
-      this.removable = true;
-      return;
+      if (this.y > height + itemConfig.size) {
+        this.removable = true;
+        return;
+      }
     }
 
     const size = itemConfig.size;
@@ -169,12 +171,12 @@ class Item {
     return picked;
   }
 
-  static drawItems(): void {
+  static drawItems(frozen: boolean = false): void {
     for (let i = items.length - 1; i >= 0; i--) {
       if (items[i].removable) {
         items.splice(i, 1);
       } else {
-        items[i].draw();
+        items[i].draw(frozen);
       }
     }
   }

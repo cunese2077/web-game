@@ -17,7 +17,7 @@ class Bullet {
         this.height = m.height;
         this.removable = false;
     }
-    draw() {
+    draw(frozen = false) {
         const buffs = getHeroBuffs();
         if (buffs.firepower > 0) {
             ctx.save();
@@ -28,20 +28,22 @@ class Bullet {
         if (buffs.firepower > 0) {
             ctx.restore();
         }
-        this.my -= 20;
-        if (this.isDiagonal) {
-            this.mx += this.n > 0 ? 5 : -5;
-        }
-        else {
-            this.mx += this.n === 32 ? 3 : this.n === -32 ? -3 : 0;
-        }
-        if (this.my < -m.height) {
-            this.removable = true;
+        if (!frozen) {
+            this.my -= 20;
+            if (this.isDiagonal) {
+                this.mx += this.n > 0 ? 5 : -5;
+            }
+            else {
+                this.mx += this.n === 32 ? 3 : this.n === -32 ? -3 : 0;
+            }
+            if (this.my < -m.height) {
+                this.removable = true;
+            }
         }
     }
-    static drawBullet() {
+    static drawBullet(frozen = false) {
         for (let i = bullets.length - 1; i >= 0; i--) {
-            bullets[i].draw();
+            bullets[i].draw(frozen);
             if (bullets[i].removable) {
                 bullets.splice(i, 1);
             }
