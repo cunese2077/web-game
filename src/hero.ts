@@ -266,13 +266,14 @@ class Hero {
     const piercing = hasPiercing();
 
     if (isSpread) {
-      // 散弹 buff：扇形发射，子弹数由武器等级+弹幕风暴决定
+      // 散弹 buff：扇形发射，子弹数为散弹配置总数
+      const spreadBulletCount = buffConfig.spread.bulletCount;
       const spreadWidth = 48; // 最外侧子弹距中心的像素偏移
-      const step = bulletCount > 1 ? (spreadWidth * 2) / (bulletCount - 1) : 0;
+      const step = spreadBulletCount > 1 ? (spreadWidth * 2) / (spreadBulletCount - 1) : 0;
       const startOffset = -spreadWidth;
-      for (let i = 0; i < bulletCount; i++) {
-        const offset = bulletCount === 1 ? 0 : startOffset + step * i;
-        const isDiagonal = i === 0 || i === bulletCount - 1;
+      for (let i = 0; i < spreadBulletCount; i++) {
+        const offset = spreadBulletCount === 1 ? 0 : startOffset + step * i;
+        const isDiagonal = i === 0 || i === spreadBulletCount - 1;
         Bullet.add(new Bullet(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
       }
     } else {
