@@ -5,6 +5,7 @@ import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAME_OVER } from "./const
 import { getGameScore, resetGameScore } from "./score.js";
 import { getLevel, getTotalExp } from "./level.js";
 import { t } from "./i18n.js";
+import type { TextKey } from "./i18n.js";
 import type { GamePhase } from "./types.js";
 
 // ========== 得分动效系统 ==========
@@ -329,6 +330,8 @@ import { getSettingItems } from "./settings.js";
 
 // 设置界面各元素的点击区域（供 engine.ts 判断点击）
 interface SettingHitArea {
+  x: number;
+  w: number;
   y: number;
   h: number;
   type: "toggle" | "option" | "back";
@@ -366,6 +369,15 @@ function drawSettings(): void {
   const optionLineH = Math.round(38 * fontScale);
   settingHitAreas = [];
 
+  // 收集展开的下拉面板数据，延迟到最后绘制（保证在最上层）
+  interface DropdownInfo {
+    baseY: number;
+    optionLabels: TextKey[];
+    currentIdx: number;
+    itemIndex: number;
+  }
+  const pendingDropdowns: DropdownInfo[] = [];
+
   let curY = Math.round(110 * fontScale);
 
   for (let i = 0; i < items.length; i++) {
@@ -396,8 +408,10 @@ function drawSettings(): void {
       ctx.fillStyle = isOn ? "#4f4" : "#888";
       ctx.fillText((isOn ? "● " : "○ ") + t("settings.sound.on"), rightX, curY);
 
-      // 记录点击区域
+      // 记录点击区域（整行宽度）
       settingHitAreas.push({
+        x: Math.round(30 * fontScale),
+        w: width - Math.round(60 * fontScale),
         y: curY - lineH * 0.7,
         h: lineH * 0.9,
         type: "toggle",
@@ -418,6 +432,8 @@ function drawSettings(): void {
       ctx.fillText(optionText, width - Math.round(30 * fontScale), curY);
 
       settingHitAreas.push({
+        x: Math.round(30 * fontScale),
+        w: width - Math.round(60 * fontScale),
         y: curY - lineH * 0.7,
         h: lineH * 0.9,
         type: "toggle",
@@ -425,30 +441,17 @@ function drawSettings(): void {
         optionIndex: -1,
       });
 
-      curY += lineH * 0.3;
-
-      // 展开时绘制下拉选项列表
+      // 收集展开的下拉面板数据，延迟绘制
       if (isExpanded && item.optionLabels) {
-        for (let j = 0; j < item.optionLabels.length; j++) {
-          curY += optionLineH;
-          const isSelected = j === currentIdx;
-          const prefix = isSelected ? "● " : "  ";
-          ctx.textAlign = "right";
-          ctx.fillStyle = isSelected ? "#ffd700" : "#aaa";
-          ctx.font = `${optionFontSize}px arial`;
-          ctx.fillText(prefix + t(item.optionLabels[j]), width - Math.round(30 * fontScale), curY);
-
-          settingHitAreas.push({
-            y: curY - optionLineH * 0.7,
-            h: optionLineH * 0.9,
-            type: "option",
-            itemIndex: i,
-            optionIndex: j,
-          });
-        }
+        pendingDropdowns.push({
+          baseY: curY + lineH * 0.3,
+          optionLabels: item.optionLabels,
+          currentIdx,
+          itemIndex: i,
+        });
       }
 
-      curY += lineH * 0.7;
+      curY += lineH;
     }
   }
 
@@ -459,6 +462,8 @@ function drawSettings(): void {
   ctx.font = `${Math.round(18 * fontScale)}px arial`;
   ctx.fillText(t("settings.back"), cx, backY);
   settingHitAreas.push({
+    x: Math.round(30 * fontScale),
+    w: width - Math.round(60 * fontScale),
     y: backY - Math.round(25 * fontScale),
     h: Math.round(30 * fontScale),
     type: "back",
@@ -466,13 +471,110 @@ function drawSettings(): void {
     optionIndex: -1,
   });
 
+  // 最后绘制下拉面板（保证在所有元素最上层）
+  for (const dd of pendingDropdowns) {
+    const dropdownBaseY = dd.baseY;
+    const padH = Math.round(6 * fontScale);
+    const padW = Math.round(12 * fontScale);
+    const optionPadW = Math.round(10 * fontScale);
+
+    // 计算自适应宽度：测量所有选项文字，取最大宽度
+    ctx.font = `${optionFontSize}px arial`;
+    let maxTextW = 0;
+    for (const label of dd.optionLabels) {
+      const w = ctx.measureText(t(label)).width;
+      if (w > maxTextW) maxTextW = w;
+    }
+    // "● " 前缀宽度
+    const prefixW = ctx.measureText("● ").width;
+    const dropdownW = maxTextW + prefixW + padW * 2 + optionPadW;
+    const dropdownH = dd.optionLabels.length * optionLineH + padH * 2;
+    const dropdownX = width - Math.round(30 * fontScale) - dropdownW;
+
+    // 半透明背景 + 金色边框
+    ctx.fillStyle = "rgba(20, 20, 40, 0.95)";
+    ctx.strokeStyle = "#ffd700";
+    ctx.lineWidth = Math.max(1, Math.round(1.5 * fontScale));
+    ctx.beginPath();
+    const r = Math.round(6 * fontScale);
+    ctx.moveTo(dropdownX + r, dropdownBaseY);
+    ctx.lineTo(dropdownX + dropdownW - r, dropdownBaseY);
+    ctx.arcTo(dropdownX + dropdownW, dropdownBaseY, dropdownX + dropdownW, dropdownBaseY + r, r);
+    ctx.lineTo(dropdownX + dropdownW, dropdownBaseY + dropdownH - r);
+    ctx.arcTo(dropdownX + dropdownW, dropdownBaseY + dropdownH, dropdownX + dropdownW - r, dropdownBaseY + dropdownH, r);
+    ctx.lineTo(dropdownX + r, dropdownBaseY + dropdownH);
+    ctx.arcTo(dropdownX, dropdownBaseY + dropdownH, dropdownX, dropdownBaseY + dropdownH - r, r);
+    ctx.lineTo(dropdownX, dropdownBaseY + r);
+    ctx.arcTo(dropdownX, dropdownBaseY, dropdownX + r, dropdownBaseY, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    let optY = dropdownBaseY + padH + optionLineH * 0.7;
+    for (let j = 0; j < dd.optionLabels.length; j++) {
+      const isSelected = j === dd.currentIdx;
+      const prefix = isSelected ? "● " : "  ";
+      ctx.textAlign = "left";
+      ctx.fillStyle = isSelected ? "#ffd700" : "#ccc";
+      ctx.font = `${optionFontSize}px arial`;
+      ctx.fillText(prefix + t(dd.optionLabels[j]), dropdownX + padW, optY);
+
+      settingHitAreas.push({
+        x: dropdownX,
+        w: dropdownW,
+        y: optY - optionLineH * 0.7,
+        h: optionLineH * 0.9,
+        type: "option",
+        itemIndex: dd.itemIndex,
+        optionIndex: j,
+      });
+      optY += optionLineH;
+    }
+  }
+
   ctx.restore();
 }
 
 // 处理设置界面点击
-function handleSettingsClick(clickY: number): "option" | "back" | null {
+function handleSettingsClick(clickX: number, clickY: number): "option" | "back" | null {
+  // 优先匹配下拉面板选项（最上层，防止穿透到底层元素）
   for (const area of settingHitAreas) {
-    if (clickY >= area.y && clickY < area.y + area.h) {
+    if (area.type !== "option") continue;
+    if (clickX >= area.x && clickX < area.x + area.w &&
+        clickY >= area.y && clickY < area.y + area.h) {
+      const item = getSettingItems()[area.itemIndex];
+      item.select!(area.optionIndex);
+      expandedItem = -1;
+      return "option";
+    }
+  }
+
+  // 检查是否点击在下拉面板区域内（点击面板空白处收起，不穿透）
+  const checkedItemIndices = new Set<number>();
+  for (const area of settingHitAreas) {
+    if (area.type !== "option") continue;
+    if (checkedItemIndices.has(area.itemIndex)) continue;
+    checkedItemIndices.add(area.itemIndex);
+    // 找到面板的边界（所有同 itemIndex 的 option 区域的并集）
+    const panelAreas = settingHitAreas.filter(a => a.type === "option" && a.itemIndex === area.itemIndex);
+    if (panelAreas.length === 0) continue;
+    const panelX = Math.min(...panelAreas.map(a => a.x));
+    const panelW = Math.max(...panelAreas.map(a => a.x + a.w)) - panelX;
+    const panelY = Math.min(...panelAreas.map(a => a.y));
+    const panelH = Math.max(...panelAreas.map(a => a.y + a.h)) - panelY;
+    if (clickX >= panelX && clickX < panelX + panelW &&
+        clickY >= panelY && clickY < panelY + panelH) {
+      // 点击在面板区域内但不在选项上 → 收起面板，不穿透
+      expandedItem = -1;
+      return null;
+    }
+  }
+
+  // 匹配其他元素（toggle / back）
+  for (const area of settingHitAreas) {
+    if (area.type === "option") continue;
+    if (clickX >= area.x && clickX < area.x + area.w &&
+        clickY >= area.y && clickY < area.y + area.h) {
       if (area.type === "back") {
         expandedItem = -1;
         return "back";
@@ -480,19 +582,10 @@ function handleSettingsClick(clickY: number): "option" | "back" | null {
       if (area.type === "toggle") {
         const item = getSettingItems()[area.itemIndex];
         if (item.toggle !== undefined) {
-          // 开关型：直接切换
           item.onToggle!();
         } else {
-          // 下拉型：点击已展开的项则收起，否则展开
           expandedItem = expandedItem === area.itemIndex ? -1 : area.itemIndex;
         }
-        return "option";
-      }
-      if (area.type === "option") {
-        // 选中某选项
-        const item = getSettingItems()[area.itemIndex];
-        item.select!(area.optionIndex);
-        expandedItem = -1;
         return "option";
       }
     }

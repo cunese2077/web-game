@@ -150,7 +150,7 @@ function start(): void {
     if (curPhase === PHASE_READY) {
       // 设置界面打开时：处理设置项点击或返回
       if (isSettingsOpen()) {
-        const result = handleSettingsClick(clickY);
+        const result = handleSettingsClick(clickX, clickY);
         if (result === "back") {
           closeSettings();
         }
