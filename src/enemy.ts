@@ -34,6 +34,7 @@ import type { MoveType, BuffState, HpBarConfig, EnemyType } from "./types.js";
 
 const liveEnemy: Enemy[] = [];
 let nextEnemyId: number = 0;
+let sessionKillCount: number = 0;  // 本局击杀敌机计数
 
 let bigEnemyCoolDown: number = 0;
 
@@ -449,6 +450,7 @@ class Enemy {
 
         if (this.lives <= 0) {
           this.die = true;
+          sessionKillCount++;
           addGameScore(this.score);
           addExp(getExpReward(this.type));
           addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), this.score);
@@ -561,6 +563,14 @@ class Enemy {
     nextEnemyId = 0;
   }
 
+  static getSessionKillCount(): number {
+    return sessionKillCount;
+  }
+
+  static resetSessionKillCount(): void {
+    sessionKillCount = 0;
+  }
+
   // 外部伤害接口：特殊武器调用此方法对敌机造成伤害
   // skipHitSound=true 时跳过通用受击音效（由调用方播放专属音效）
   static applyDamage(enemyId: number, damage: number, isCrit: boolean, skipHitSound: boolean = false): void {
@@ -570,6 +580,7 @@ class Enemy {
     enemy.lives -= damage;
     if (enemy.lives <= 0) {
       enemy.die = true;
+      sessionKillCount++;
       addGameScore(enemy.score);
       addExp(getExpReward(enemy.type));
       addScoreEffect(enemy.x + enemy.width / 2, Math.max(enemy.y + enemy.height / 2, Math.round(30 * fontScale)), enemy.score);

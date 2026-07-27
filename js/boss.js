@@ -11,11 +11,17 @@ import { addExp } from "./level.js";
 import { playBossHit, playBossDestroy } from "./audio.js";
 import { t } from "./i18n.js";
 import { triggerBossLegendary } from "./upgrade.js";
+// 根据 bossIndex 决定类型（循环：0=突击 1=堡垒 2=母舰）
+function getBossType(bossIndex) {
+    const types = ["assault", "fortress", "carrier"];
+    return types[bossIndex % 3];
+}
 class Boss {
     constructor(bossIndex) {
-        // 受击（合并伤害，带音效冷却）
+        // 受击（合并伤害，带音效冷却；堡垒型先扣护盾）
         this.hitSoundCooldown = 0;
         this.bossIndex = bossIndex;
+        this.bossType = getBossType(bossIndex);
         this.bossWidth = Math.round(width * bossConfig.widthRatio);
         this.bossHeight = Math.round(height * bossConfig.heightRatio);
         this.x = width / 2;
@@ -25,11 +31,44 @@ class Boss {
         this.hp = bossConfig.baseHp * (1 + bossConfig.hpGrowthFactor * bossIndex) * diffConfig.enemyHpMultiplier * diffConfig.bossHpMultiplier;
         this.maxHp = this.hp;
         this.moveDirection = 1;
-        this.moveSpeed = bossConfig.moveSpeed;
         this.attackPhase = 1;
         this.attackTimer = 0;
         this.circleTimer = 0;
         this.alive = true;
+        // 类型特有属性
+        this.isDiving = false;
+        this.diveSpeed = 0;
+        this.diveTargetY = 0;
+        this.diveCooldown = 0;
+        this.shieldHp = 0;
+        this.shieldMaxHp = 0;
+        this.shieldRegenTimer = 0;
+        this.droneTimer = 0;
+        this.droneCount = 0;
+        switch (this.bossType) {
+            case "assault":
+                // 突击型：移速快，HP略低，有俯冲
+                this.moveSpeed = bossConfig.moveSpeed * 1.6;
+                this.hp *= 0.85;
+                this.maxHp = this.hp;
+                this.diveCooldown = 120; // 6秒后首次俯冲
+                break;
+            case "fortress":
+                // 堡垒型：移速慢，有护盾
+                this.moveSpeed = bossConfig.moveSpeed * 0.6;
+                this.shieldMaxHp = this.maxHp * 0.2; // 护盾=20%最大HP
+                this.shieldHp = this.shieldMaxHp;
+                this.shieldRegenTimer = 0;
+                break;
+            case "carrier":
+                // 母舰型：中速，释放无人机
+                this.moveSpeed = bossConfig.moveSpeed * 0.9;
+                this.hp *= 1.1;
+                this.maxHp = this.hp;
+                this.droneTimer = 80; // 4秒后首次释放
+                this.droneCount = 0;
+                break;
+        }
     }
     update() {
         if (!this.alive)
@@ -37,15 +76,19 @@ class Boss {
         // 受击音效冷却递减
         if (this.hitSoundCooldown > 0)
             this.hitSoundCooldown--;
-        // 水平巡逻移动
-        this.x += this.moveSpeed * this.moveDirection;
-        if (this.x - this.bossWidth / 2 <= 0) {
-            this.x = this.bossWidth / 2;
-            this.moveDirection = 1;
-        }
-        if (this.x + this.bossWidth / 2 >= width) {
-            this.x = width - this.bossWidth / 2;
-            this.moveDirection = -1;
+        // === 类型特有行为更新 ===
+        this._updateTypeBehavior();
+        // 水平巡逻移动（突击型俯冲时不巡逻）
+        if (!(this.bossType === "assault" && this.isDiving)) {
+            this.x += this.moveSpeed * this.moveDirection;
+            if (this.x - this.bossWidth / 2 <= 0) {
+                this.x = this.bossWidth / 2;
+                this.moveDirection = 1;
+            }
+            if (this.x + this.bossWidth / 2 >= width) {
+                this.x = width - this.bossWidth / 2;
+                this.moveDirection = -1;
+            }
         }
         // 根据血量比例更新攻击阶段
         const hpRatio = this.hp / this.maxHp;
@@ -70,29 +113,152 @@ class Boss {
             this._firePattern();
         }
     }
-    // 弹幕发射模式（随 bossIndex 递增弹幕量）
+    // 类型特有行为更新
+    _updateTypeBehavior() {
+        switch (this.bossType) {
+            case "assault":
+                this._updateAssault();
+                break;
+            case "fortress":
+                this._updateFortress();
+                break;
+            case "carrier":
+                this._updateCarrier();
+                break;
+        }
+    }
+    // 突击型：周期性俯冲到玩家附近再返回
+    _updateAssault() {
+        if (this.isDiving) {
+            // 俯冲中：快速向目标Y移动
+            this.y += this.diveSpeed;
+            if (this.y >= this.diveTargetY) {
+                // 到达最低点，发射近距离密集弹幕
+                this._fireFan(6 + this.bossIndex, Math.PI * 0.8, 4, 6, "#f80");
+                this.isDiving = false;
+                this.diveCooldown = 150; // 7.5秒后再次俯冲
+            }
+        }
+        else {
+            // 返回顶部
+            const homeY = this.bossHeight / 2 + Math.round(20 * fontScale);
+            if (this.y > homeY) {
+                this.y -= 3; // 缓慢返回
+                if (this.y < homeY)
+                    this.y = homeY;
+            }
+            // 俯冲冷却倒计时
+            this.diveCooldown--;
+            if (this.diveCooldown <= 0 && this.attackPhase >= 2) {
+                this.isDiving = true;
+                this.diveSpeed = 6;
+                this.diveTargetY = getHeroY() - 60; // 俯冲到玩家上方60px
+            }
+        }
+    }
+    // 堡垒型：护盾自动恢复
+    _updateFortress() {
+        if (this.shieldHp < this.shieldMaxHp) {
+            this.shieldRegenTimer++;
+            if (this.shieldRegenTimer >= 60) { // 3秒恢复一次
+                this.shieldHp = Math.min(this.shieldMaxHp, this.shieldHp + this.shieldMaxHp * 0.1);
+                this.shieldRegenTimer = 0;
+            }
+        }
+    }
+    // 母舰型：周期性释放自爆无人机（以敌机弹幕形式）
+    _updateCarrier() {
+        this.droneTimer--;
+        if (this.droneTimer <= 0) {
+            // 释放 2+1 架自爆无人机（朝玩家方向）
+            const droneCount = 2 + Math.floor(this.bossIndex / 2);
+            const heroX = getHeroX();
+            const heroY = getHeroY();
+            for (let i = 0; i < droneCount; i++) {
+                const offsetX = (i - (droneCount - 1) / 2) * 25;
+                const angle = Math.atan2(heroY - this.y, heroX - (this.x + offsetX));
+                // 无人机：较大较慢的追踪弹
+                addBullet(this.x + offsetX, this.y + this.bossHeight / 2, Math.cos(angle) * 2, Math.sin(angle) * 2, 8, // 大半径
+                "#8f4");
+            }
+            this.droneCount++;
+            // 间隔随阶段缩短
+            const baseDroneInterval = this.attackPhase >= 3 ? 60 : 100;
+            this.droneTimer = baseDroneInterval - Math.min(this.bossIndex * 5, 30);
+        }
+    }
+    // 弹幕发射模式（随 bossIndex 递增弹幕量，类型差异化）
     _firePattern() {
         const bulletCfg = bossConfig.bullet;
         // 后续 BOSS 弹幕量递增
-        const fanCount = bulletCfg.fanCount + Math.floor(this.bossIndex / 2); // 每2个BOSS +1发
-        const aimedCount = bulletCfg.aimedCount + Math.floor(this.bossIndex / 3); // 每3个BOSS +1发
-        // Phase 1: 扇形弹幕
+        const fanCount = bulletCfg.fanCount + Math.floor(this.bossIndex / 2);
+        const aimedCount = bulletCfg.aimedCount + Math.floor(this.bossIndex / 3);
+        switch (this.bossType) {
+            case "assault":
+                this._firePatternAssault(fanCount, aimedCount, bulletCfg);
+                break;
+            case "fortress":
+                this._firePatternFortress(fanCount, bulletCfg);
+                break;
+            case "carrier":
+                this._firePatternCarrier(fanCount, aimedCount, bulletCfg);
+                break;
+        }
+    }
+    // 突击型：侧重扇形+定向，节奏快
+    _firePatternAssault(fanCount, aimedCount, bulletCfg) {
+        // Phase 1: 双扇形（上下交错）
+        if (this.attackPhase >= 1) {
+            this._fireFan(fanCount, bulletCfg.fanSpreadAngle, bulletCfg.speed * 1.2, bulletCfg.size, "#f44");
+        }
+        // Phase 2+: 快速定向射击
+        if (this.attackPhase >= 2) {
+            this._fireAimed(aimedCount + 1, bulletCfg.speed * 1.5, bulletCfg.size, "#fa0");
+        }
+        // Phase 3: 扇形+定向全开
+        if (this.attackPhase >= 3) {
+            this._fireFan(fanCount - 1, bulletCfg.fanSpreadAngle * 0.6, bulletCfg.speed * 1.3, bulletCfg.size * 0.8, "#ff0");
+        }
+    }
+    // 堡垒型：侧重圆形弹幕+弹幕雨，全方位防御
+    _firePatternFortress(fanCount, bulletCfg) {
+        // Phase 1: 扇形（较宽）
+        if (this.attackPhase >= 1) {
+            this._fireFan(fanCount, bulletCfg.fanSpreadAngle * 1.3, bulletCfg.speed * 0.8, bulletCfg.size * 1.2, "#48f");
+        }
+        // Phase 2+: 弹幕雨 + 圆形弹幕
+        if (this.attackPhase >= 2) {
+            this._fireRain(5, bulletCfg.speed * 0.6, bulletCfg.size, "#a4f");
+            this.circleTimer++;
+            if (this.circleTimer >= 3) {
+                this.circleTimer = 0;
+                this._fireCircle(8 + this.bossIndex, bulletCfg.speed * 0.5, bulletCfg.size * 0.8, "#f4f");
+            }
+        }
+        // Phase 3: 全方位弹幕 + 定向
+        if (this.attackPhase >= 3) {
+            this._fireCircle(10 + this.bossIndex, bulletCfg.speed * 0.4, bulletCfg.size * 0.6, "#4ff");
+        }
+    }
+    // 母舰型：侧重弹幕雨+追踪弹，压制玩家走位
+    _firePatternCarrier(fanCount, aimedCount, bulletCfg) {
+        // Phase 1: 扇形
         if (this.attackPhase >= 1) {
             this._fireFan(fanCount, bulletCfg.fanSpreadAngle, bulletCfg.speed, bulletCfg.size, "#f44");
         }
-        // Phase 2+: 定向射击 + 少量弹幕雨
+        // Phase 2+: 弹幕雨 + 追踪定向
         if (this.attackPhase >= 2) {
-            this._fireAimed(aimedCount, bulletCfg.speed * 1.2, bulletCfg.size, "#fa0");
-            this._fireRain(3, bulletCfg.speed * 0.7, bulletCfg.size * 0.8, "#c8f");
+            this._fireRain(4, bulletCfg.speed * 0.7, bulletCfg.size * 0.8, "#c8f");
+            this._fireAimed(aimedCount, bulletCfg.speed * 1.1, bulletCfg.size, "#fa0");
         }
-        // Phase 3: 圆形弹幕（每2次攻击才发1次，避免过于密集）
+        // Phase 3: 圆形 + 额外弹幕雨
         if (this.attackPhase >= 3) {
             this.circleTimer++;
             if (this.circleTimer >= 2) {
                 this.circleTimer = 0;
-                const circleCount = 6 + Math.floor(this.bossIndex / 2);
-                this._fireCircle(circleCount, bulletCfg.speed * 0.5, bulletCfg.size * 0.7, "#f0f");
+                this._fireCircle(6 + this.bossIndex, bulletCfg.speed * 0.5, bulletCfg.size * 0.7, "#f0f");
             }
+            this._fireRain(3, bulletCfg.speed * 0.9, bulletCfg.size * 0.6, "#ff8");
         }
     }
     // 圆形弹幕：360 度均匀发射
@@ -137,6 +303,24 @@ class Boss {
     takeDamage(damage) {
         if (!this.alive)
             return;
+        // 堡垒型：先扣护盾
+        if (this.bossType === "fortress" && this.shieldHp > 0) {
+            if (damage <= this.shieldHp) {
+                this.shieldHp -= damage;
+                this.shieldRegenTimer = 0; // 受击重置恢复计时
+                if (this.hitSoundCooldown <= 0) {
+                    playBossHit();
+                    this.hitSoundCooldown = 6;
+                }
+                return; // 护盾完全吸收
+            }
+            else {
+                const overflow = damage - this.shieldHp;
+                this.shieldHp = 0;
+                this.shieldRegenTimer = 0;
+                damage = overflow; // 溢出伤害打到本体
+            }
+        }
         this.hp -= damage;
         if (this.hitSoundCooldown <= 0) {
             playBossHit();
@@ -150,6 +334,7 @@ class Boss {
     }
     // 击败奖励
     _onDefeat() {
+        sessionBossKillCount++;
         playBossDestroy();
         // 触发传说道具保底：下次升级选项保证至少 1 个传说道具
         triggerBossLegendary();
@@ -167,66 +352,233 @@ class Boss {
         const left = this.x - this.bossWidth / 2;
         const top = this.y - this.bossHeight / 2;
         ctx.save();
-        // === BOSS 主体绘制 ===
-        // 外发光脉冲
-        const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.005);
-        ctx.shadowColor = this.attackPhase === 3 ? "#f00" : "#f66";
-        ctx.shadowBlur = 12 * pulse;
-        // 主体：深色装甲底板
-        ctx.fillStyle = "#411";
-        ctx.fillRect(left, top, this.bossWidth, this.bossHeight);
-        // 装甲板：交替深浅条纹
-        const stripeH = this.bossHeight / 5;
-        for (let i = 0; i < 5; i++) {
-            ctx.fillStyle = i % 2 === 0 ? "#822" : "#633";
-            ctx.fillRect(left, top + i * stripeH, this.bossWidth, stripeH);
-        }
-        // 左右翼展（三角形突出）
-        ctx.fillStyle = "#733";
-        // 左翼
-        ctx.beginPath();
-        ctx.moveTo(left, top + this.bossHeight * 0.3);
-        ctx.lineTo(left - this.bossWidth * 0.1, this.y);
-        ctx.lineTo(left, top + this.bossHeight * 0.7);
-        ctx.fill();
-        // 右翼
-        ctx.beginPath();
-        ctx.moveTo(left + this.bossWidth, top + this.bossHeight * 0.3);
-        ctx.lineTo(left + this.bossWidth * 1.1, this.y);
-        ctx.lineTo(left + this.bossWidth, top + this.bossHeight * 0.7);
-        ctx.fill();
-        // 中心核心发光
-        const coreSize = this.bossWidth * 0.12;
-        ctx.fillStyle = this.attackPhase === 3 ? "#ff0" : "#f88";
-        ctx.shadowColor = this.attackPhase === 3 ? "#fa0" : "#f88";
-        ctx.shadowBlur = 20;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, coreSize, 0, Math.PI * 2);
-        ctx.fill();
-        // 核心内圈
-        ctx.fillStyle = "#fff";
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, coreSize * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-        // 引擎发光点（底部两侧）
-        ctx.shadowColor = "#4af";
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = "#4af";
-        const engineY = top + this.bossHeight;
-        ctx.beginPath();
-        ctx.arc(this.x - this.bossWidth * 0.25, engineY, 3 * fontScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(this.x + this.bossWidth * 0.25, engineY, 3 * fontScale, 0, Math.PI * 2);
-        ctx.fill();
-        // 阶段 3 狂暴闪烁
-        if (this.attackPhase === 3) {
-            ctx.fillStyle = `rgba(255, 50, 50, ${0.2 + 0.3 * Math.sin(Date.now() * 0.01)})`;
-            ctx.fillRect(left - this.bossWidth * 0.1, top, this.bossWidth * 1.2, this.bossHeight);
+        // === BOSS 主体绘制（类型差异化外观） ===
+        switch (this.bossType) {
+            case "assault":
+                this._drawAssaultBody(left, top);
+                break;
+            case "fortress":
+                this._drawFortressBody(left, top);
+                break;
+            case "carrier":
+                this._drawCarrierBody(left, top);
+                break;
         }
         ctx.restore();
         // BOSS 血条
         this._drawHpBar();
+        // 堡垒型：护盾条
+        if (this.bossType === "fortress" && this.shieldMaxHp > 0) {
+            this._drawShieldBar();
+        }
+    }
+    // 突击型外观：红色流线型 + 尖锐翼
+    _drawAssaultBody(left, top) {
+        const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.008);
+        ctx.shadowColor = this.attackPhase === 3 ? "#f00" : "#f66";
+        ctx.shadowBlur = 14 * pulse;
+        // 主体：深红装甲
+        ctx.fillStyle = "#411";
+        ctx.fillRect(left, top, this.bossWidth, this.bossHeight);
+        // 装甲条纹（锐利对角线）
+        const stripeH = this.bossHeight / 5;
+        for (let i = 0; i < 5; i++) {
+            ctx.fillStyle = i % 2 === 0 ? "#922" : "#733";
+            ctx.fillRect(left, top + i * stripeH, this.bossWidth, stripeH);
+        }
+        // 尖锐翼展（前掠翼）
+        ctx.fillStyle = "#a33";
+        ctx.beginPath();
+        ctx.moveTo(left, top + this.bossHeight * 0.2);
+        ctx.lineTo(left - this.bossWidth * 0.15, top);
+        ctx.lineTo(left, top + this.bossHeight * 0.6);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(left + this.bossWidth, top + this.bossHeight * 0.2);
+        ctx.lineTo(left + this.bossWidth * 1.15, top);
+        ctx.lineTo(left + this.bossWidth, top + this.bossHeight * 0.6);
+        ctx.fill();
+        // 核心发光（红橙色）
+        const coreSize = this.bossWidth * 0.1;
+        ctx.fillStyle = this.attackPhase === 3 ? "#ff0" : "#f80";
+        ctx.shadowColor = this.attackPhase === 3 ? "#fa0" : "#f80";
+        ctx.shadowBlur = 24;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreSize * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        // 尾焰（底部3个）
+        ctx.shadowColor = "#f80";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "#f80";
+        const engineY = top + this.bossHeight;
+        for (const offX of [-0.3, 0, 0.3]) {
+            ctx.beginPath();
+            ctx.arc(this.x + this.bossWidth * offX, engineY, 2 * fontScale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // 俯冲时拖尾
+        if (this.isDiving) {
+            ctx.fillStyle = `rgba(255, 100, 0, ${0.3 + 0.2 * Math.sin(Date.now() * 0.02)})`;
+            ctx.fillRect(left - this.bossWidth * 0.05, top - this.bossHeight, this.bossWidth * 1.1, this.bossHeight);
+        }
+        // 阶段3狂暴闪烁
+        if (this.attackPhase === 3) {
+            ctx.fillStyle = `rgba(255, 50, 50, ${0.2 + 0.3 * Math.sin(Date.now() * 0.01)})`;
+            ctx.fillRect(left - this.bossWidth * 0.1, top, this.bossWidth * 1.2, this.bossHeight);
+        }
+    }
+    // 堡垒型外观：蓝色厚重装甲 + 六边形护盾
+    _drawFortressBody(left, top) {
+        const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.004);
+        ctx.shadowColor = this.attackPhase === 3 ? "#f0f" : "#48f";
+        ctx.shadowBlur = 10 * pulse;
+        // 主体：深蓝装甲
+        ctx.fillStyle = "#114";
+        ctx.fillRect(left, top, this.bossWidth, this.bossHeight);
+        // 厚重装甲板（深浅交替）
+        const stripeH = this.bossHeight / 4;
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = i % 2 === 0 ? "#236" : "#348";
+            ctx.fillRect(left, top + i * stripeH, this.bossWidth, stripeH);
+        }
+        // 厚重翼展（矩形突出）
+        ctx.fillStyle = "#347";
+        ctx.fillRect(left - this.bossWidth * 0.12, top + this.bossHeight * 0.2, this.bossWidth * 0.12, this.bossHeight * 0.6);
+        ctx.fillRect(left + this.bossWidth, top + this.bossHeight * 0.2, this.bossWidth * 0.12, this.bossHeight * 0.6);
+        // 核心发光（蓝色）
+        const coreSize = this.bossWidth * 0.14;
+        ctx.fillStyle = this.attackPhase === 3 ? "#f0f" : "#4af";
+        ctx.shadowColor = this.attackPhase === 3 ? "#f0f" : "#4af";
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreSize * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        // 护盾光圈（半透明六边形轮廓）
+        if (this.shieldHp > 0) {
+            const shieldAlpha = 0.3 + 0.15 * (this.shieldHp / this.shieldMaxHp);
+            ctx.strokeStyle = `rgba(100, 180, 255, ${shieldAlpha})`;
+            ctx.shadowColor = "#4af";
+            ctx.shadowBlur = 12;
+            ctx.lineWidth = 2 + (this.shieldHp / this.shieldMaxHp) * 2;
+            ctx.beginPath();
+            // 六边形
+            const hw = this.bossWidth * 0.6;
+            const hh = this.bossHeight * 1.2;
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI * 2 / 6) * i - Math.PI / 2;
+                const px = this.x + Math.cos(angle) * hw;
+                const py = this.y + Math.sin(angle) * hh;
+                if (i === 0)
+                    ctx.moveTo(px, py);
+                else
+                    ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+        // 阶段3狂暴闪烁
+        if (this.attackPhase === 3) {
+            ctx.fillStyle = `rgba(200, 50, 255, ${0.2 + 0.3 * Math.sin(Date.now() * 0.01)})`;
+            ctx.fillRect(left - this.bossWidth * 0.1, top, this.bossWidth * 1.2, this.bossHeight);
+        }
+    }
+    // 母舰型外观：绿色+机库开口 + 无人机挂架
+    _drawCarrierBody(left, top) {
+        const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.006);
+        ctx.shadowColor = this.attackPhase === 3 ? "#ff0" : "#4f8";
+        ctx.shadowBlur = 10 * pulse;
+        // 主体：深绿装甲
+        ctx.fillStyle = "#142";
+        ctx.fillRect(left, top, this.bossWidth, this.bossHeight);
+        // 装甲板
+        const stripeH = this.bossHeight / 5;
+        for (let i = 0; i < 5; i++) {
+            ctx.fillStyle = i % 2 === 0 ? "#253" : "#364";
+            ctx.fillRect(left, top + i * stripeH, this.bossWidth, stripeH);
+        }
+        // 翼展（宽大矩形+圆形挂架）
+        ctx.fillStyle = "#354";
+        ctx.fillRect(left - this.bossWidth * 0.15, top + this.bossHeight * 0.15, this.bossWidth * 0.15, this.bossHeight * 0.7);
+        ctx.fillRect(left + this.bossWidth, top + this.bossHeight * 0.15, this.bossWidth * 0.15, this.bossHeight * 0.7);
+        // 无人机挂架点（两侧各2个）
+        ctx.fillStyle = "#8f4";
+        ctx.shadowColor = "#4f8";
+        ctx.shadowBlur = 6;
+        for (const offX of [-0.22, -0.08, 0.08, 0.22]) {
+            ctx.beginPath();
+            ctx.arc(this.x + this.bossWidth * offX, top + this.bossHeight * 0.8, 2.5 * fontScale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // 核心发光（绿色）
+        const coreSize = this.bossWidth * 0.11;
+        ctx.fillStyle = this.attackPhase === 3 ? "#ff0" : "#4f8";
+        ctx.shadowColor = this.attackPhase === 3 ? "#fa0" : "#4f8";
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreSize * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        // 机库开口（底部中央）
+        ctx.fillStyle = "#020";
+        ctx.fillRect(this.x - this.bossWidth * 0.15, top + this.bossHeight * 0.7, this.bossWidth * 0.3, this.bossHeight * 0.3);
+        // 机库绿灯
+        ctx.fillStyle = "#4f8";
+        ctx.shadowColor = "#4f8";
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(this.x, top + this.bossHeight * 0.85, 2 * fontScale, 0, Math.PI * 2);
+        ctx.fill();
+        // 阶段3狂暴闪烁
+        if (this.attackPhase === 3) {
+            ctx.fillStyle = `rgba(255, 200, 0, ${0.2 + 0.3 * Math.sin(Date.now() * 0.01)})`;
+            ctx.fillRect(left - this.bossWidth * 0.1, top, this.bossWidth * 1.2, this.bossHeight);
+        }
+    }
+    // 护盾条（堡垒型专属）
+    _drawShieldBar() {
+        const barHeight = Math.round(4 * fontScale);
+        const barY = Math.round(8 * fontScale) + Math.round(16 * fontScale); // 在HP条文字下方
+        const barPadding = Math.round(4 * fontScale);
+        const barWidth = width - barPadding * 2;
+        const ratio = Math.max(0, this.shieldHp / this.shieldMaxHp);
+        ctx.save();
+        // 背景
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(barPadding, barY, barWidth, barHeight);
+        // 护盾条
+        if (ratio > 0) {
+            ctx.fillStyle = `rgba(100, 180, 255, ${0.5 + 0.5 * ratio})`;
+            ctx.shadowColor = "#4af";
+            ctx.shadowBlur = 4;
+            ctx.fillRect(barPadding, barY, barWidth * ratio, barHeight);
+        }
+        // 标签
+        ctx.font = `${Math.round(9 * fontScale)}px arial`;
+        ctx.fillStyle = "#8cf";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.shadowBlur = 0;
+        ctx.fillText(t("boss.shield"), barPadding + 2, barY + barHeight / 2);
+        ctx.restore();
+    }
+    // 获取类型标签 i18n key
+    _getTypeLabel() {
+        switch (this.bossType) {
+            case "assault": return "boss.type.assault";
+            case "fortress": return "boss.type.fortress";
+            case "carrier": return "boss.type.carrier";
+        }
     }
     // BOSS 血条
     _drawHpBar() {
@@ -265,7 +617,7 @@ class Boss {
         ctx.stroke();
         // BOSS 名称 + HP 文字（背景条）
         const labelY = barY + barHeight + Math.round(12 * fontScale);
-        const label = `${t("boss.title")}  Lv.${getLevel()}`;
+        const label = `${t("boss.title")} ${t(this._getTypeLabel())}  Lv.${getLevel()}`;
         const hpText = `${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`;
         // 文字背景
         ctx.fillStyle = "rgba(0,0,0,0.5)";
@@ -299,6 +651,7 @@ class Boss {
 let activeBoss = null;
 let bossWarningTimer = 0; // 预警倒计时帧数
 let triggeredBossLevels = new Set(); // 已触发的 BOSS 等级
+let sessionBossKillCount = 0; // 本局击败 BOSS 计数
 // 检查是否应触发 BOSS（在升级时调用）
 function checkBossTrigger(level) {
     if (level < bossConfig.firstTriggerLevel)
@@ -363,9 +716,14 @@ function clearBoss() {
     activeBoss = null;
     bossWarningTimer = 0;
     triggeredBossLevels = new Set();
+    sessionBossKillCount = 0;
 }
 // 获取预警剩余帧数
 function getBossWarningTimer() {
     return bossWarningTimer;
 }
-export { Boss, checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, };
+// 获取本局击败 BOSS 数
+function getSessionBossKillCount() {
+    return sessionBossKillCount;
+}
+export { Boss, checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, };

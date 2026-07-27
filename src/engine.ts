@@ -13,20 +13,22 @@ import {
   PHASE_BOSS,
 } from "./constants.js";
 import { Hero, getSoundIconArea, getHeroBuffs } from "./hero.js";
-import { resetGameScore } from "./score.js";
+import { getGameScore, resetGameScore } from "./score.js";
 import { resetLevel, getLevel, getExp, getExpToNext, addExp } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
-import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss } from "./boss.js";
+import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets, getBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 import { t } from "./i18n.js";
+import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
+import { recordGameEnd, getStats, getAchievementDefs, isUnlocked } from "./achievement.js";
 import { isDebugMode, isDebugPanelVisible, getDebugInfo, getDebugPanelArea, getDebugToggleArea, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
 import type { GamePhase } from "./types.js";
 
@@ -35,6 +37,7 @@ let hero: Hero | null = null;
 let pBg: (() => void) | null = null;
 let loadAnim: (() => GamePhase) | null = null;
 let gameOverSoundPlayed: boolean = false;
+let gameOverRecordUpdated: boolean = false;
 
 // 进化全屏闪光动画（选中进化道具时触发）
 let evolutionFlashFrames: number = 0;
@@ -138,6 +141,9 @@ function setCurPhase(phase: GamePhase): void {
 
 function start(): void {
   curPhase = PHASE_READY;
+  canvas.onmousemove = function (e: MouseEvent): void {
+    setMousePosition(e.offsetX, e.offsetY);
+  };
   canvas.onclick = function (e: MouseEvent): void {
     resumeAudio();
     const clickX = e.offsetX;
@@ -148,6 +154,11 @@ function start(): void {
     if (handleDebugToggleClick(clickX, clickY)) return;
 
     if (curPhase === PHASE_READY) {
+      // 游戏数据页面打开时：处理游戏数据页面点击
+      if (isGameDataOpen()) {
+        handleGameDataClick(clickX, clickY);
+        return;
+      }
       // 设置界面打开时：处理设置项点击或返回
       if (isSettingsOpen()) {
         const result = handleSettingsClick(clickX, clickY);
@@ -158,8 +169,16 @@ function start(): void {
       }
       // 检查是否点击了设置按钮
       const btnArea = getSettingsBtnArea();
-      if (clickY >= btnArea.y && clickY < btnArea.y + btnArea.h) {
+      if (clickX >= btnArea.x && clickX < btnArea.x + btnArea.w &&
+          clickY >= btnArea.y && clickY < btnArea.y + btnArea.h) {
         openSettings();
+        return;
+      }
+      // 检查是否点击了游戏数据按钮
+      const gdArea = getGameDataBtnArea();
+      if (clickX >= gdArea.x && clickX < gdArea.x + gdArea.w &&
+          clickY >= gdArea.y && clickY < gdArea.y + gdArea.h) {
+        openGameData();
         return;
       }
       // 否则进入加载阶段
@@ -202,6 +221,7 @@ function start(): void {
       Bullet.clear();
       Enemy.clear();
       Enemy.resetNextId();
+      Enemy.resetSessionKillCount();
       Item.clear();
       Bullet.clear();
       clearSpecialWeapons();
@@ -211,6 +231,7 @@ function start(): void {
       clearDamageEffects();
       clearUpgradeUI();
       gameOverSoundPlayed = false;
+      gameOverRecordUpdated = false;
       evolutionFlashFrames = 0;
       curPhase = PHASE_READY;
     }
@@ -228,7 +249,9 @@ function gameEngine(): void {
   switch (curPhase) {
     case PHASE_READY:
       if (pBg) pBg();
-      if (isSettingsOpen()) {
+      if (isGameDataOpen()) {
+        drawGameData();
+      } else if (isSettingsOpen()) {
         drawSettings();
       } else {
         paintLogo();
@@ -336,6 +359,12 @@ function gameEngine(): void {
       drawPause();
       break;
     case PHASE_GAME_OVER:
+      if (!gameOverRecordUpdated) {
+        tryUpdateHighScore(getGameScore());
+        tryUpdateHighLevel(getLevel());
+        recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount());
+        gameOverRecordUpdated = true;
+      }
       if (pBg) pBg();
       drawGameOver();
       if (!gameOverSoundPlayed) {

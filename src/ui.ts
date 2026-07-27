@@ -4,6 +4,10 @@ import { bg, pause, gameLoad, heroImg } from "./resources.js";
 import { PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_GAME_OVER } from "./constants.js";
 import { getGameScore, resetGameScore } from "./score.js";
 import { getLevel, getTotalExp } from "./level.js";
+import { getBuildSummary } from "./upgrade.js";
+import { getHighScore, getHighLevel, resetHighScoreRecords } from "./record.js";
+import { getStats, getLastGame, getAchievementDefs, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord } from "./achievement.js";
+import type { GameRecord } from "./achievement.js";
 import { t } from "./i18n.js";
 import type { TextKey } from "./i18n.js";
 import type { GamePhase } from "./types.js";
@@ -304,25 +308,50 @@ function paintLogo(): void {
   ctx.shadowBlur = 6;
   ctx.fillText(t("start.clickToStart"), cx, cy + Math.round(75 * fontScale));
 
-  // ===== 设置按钮：底部居中 =====
+  // ===== 底部按钮：设置 + 游戏数据 =====
   ctx.globalAlpha = 0.7;
   ctx.shadowBlur = 4;
   ctx.shadowColor = "#000";
   ctx.fillStyle = "#ccc";
   ctx.font = `${Math.round(18 * fontScale)}px arial`;
+
+  // 设置按钮（左侧）
+  const btnGap = Math.round(60 * fontScale);
   settingsBtnY = height - Math.round(40 * fontScale);
-  ctx.fillText(t("start.settings"), cx, settingsBtnY);
+  ctx.fillText(t("start.settings"), cx - btnGap / 2, settingsBtnY);
   settingsBtnHitH = Math.round(30 * fontScale);
+  // 记录设置按钮的水平范围
+  const settingsTextWidth = ctx.measureText(t("start.settings")).width;
+  settingsBtnX = cx - btnGap / 2 - settingsTextWidth / 2;
+  settingsBtnW = settingsTextWidth;
+
+  // 游戏数据按钮（右侧）
+  const gameDataTextY = settingsBtnY;  // 与设置按钮同一行
+  ctx.fillText(t("start.gameData"), cx + btnGap / 2, gameDataTextY);
+  const gameDataTextWidth = ctx.measureText(t("start.gameData")).width;
+  gameDataBtnX = cx + btnGap / 2 - gameDataTextWidth / 2;
+  gameDataBtnW = gameDataTextWidth;
 
   ctx.restore();
 }
 
 // 设置按钮点击区域（供 engine.ts 判断点击）
+let settingsBtnX: number = 0;
+let settingsBtnW: number = 0;
 let settingsBtnY: number = 0;
 let settingsBtnHitH: number = 0;
 
-function getSettingsBtnArea(): { y: number; h: number } {
-  return { y: settingsBtnY - settingsBtnHitH, h: settingsBtnHitH };
+function getSettingsBtnArea(): { x: number; y: number; w: number; h: number } {
+  return { x: settingsBtnX, y: settingsBtnY - settingsBtnHitH, w: settingsBtnW, h: settingsBtnHitH };
+}
+
+// 游戏数据按钮点击区域
+let gameDataBtnX: number = 0;
+let gameDataBtnW: number = 0;
+
+function getGameDataBtnArea(): { x: number; y: number; w: number; h: number } {
+  const y = settingsBtnY;  // 与设置按钮同一行
+  return { x: gameDataBtnX, y: y - settingsBtnHitH, w: gameDataBtnW, h: settingsBtnHitH };
 }
 
 // ========== 设置界面绘制 ==========
@@ -615,28 +644,604 @@ function drawPause(): void {
   ctx.drawImage(pause, (width - pause.width) / 2, (height - pause.height) / 2);
 }
 
-// 画游戏结束界面
+// 画游戏结束界面（含 Build 摘要）
 function drawGameOver(): void {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${Math.round(40 * fontScale)}px arial`;
+  const cx = width / 2;
+  let curY = height * 0.12;
+
+  ctx.save();
   ctx.textAlign = "center";
-  ctx.fillText(t("gameOver.title"), width / 2, height / 2 - 80);
 
-  ctx.font = `${Math.round(28 * fontScale)}px arial`;
-  ctx.fillText(t("gameOver.score") + getGameScore(), width / 2, height / 2 - 30);
+  // 标题
+  ctx.fillStyle = "#f44";
+  ctx.font = `bold ${Math.round(36 * fontScale)}px arial`;
+  ctx.shadowColor = "#f00";
+  ctx.shadowBlur = 10;
+  ctx.fillText(t("gameOver.title"), cx, curY);
+  ctx.shadowBlur = 0;
+  curY += Math.round(40 * fontScale);
 
+  // 得分
+  ctx.fillStyle = "#fff";
+  ctx.font = `bold ${Math.round(26 * fontScale)}px arial`;
+  ctx.fillText(t("gameOver.score") + getGameScore(), cx, curY);
+  curY += Math.round(28 * fontScale);
+
+  // 最高分/最高等级（新纪录时高亮）
+  const score = getGameScore();
+  const level = getLevel();
+  const highScore = getHighScore();
+  const highLevel = getHighLevel();
+  const isNewScore = score >= highScore && score > 0;
+  const isNewLevel = level >= highLevel && level > 1;
+
+  ctx.font = `${Math.round(16 * fontScale)}px arial`;
+  ctx.fillStyle = "#888";
+  if (highScore > 0 || isNewScore) {
+    ctx.fillStyle = isNewScore ? "#ffd700" : "#888";
+    ctx.fillText(t("gameOver.highScore") + highScore + (isNewScore ? " " + t("gameOver.newRecord") : ""), cx, curY);
+    curY += Math.round(22 * fontScale);
+  }
+  if (highLevel > 0 || isNewLevel) {
+    ctx.fillStyle = isNewLevel ? "#ffd700" : "#888";
+    ctx.fillText(t("gameOver.highLevel") + highLevel + (isNewLevel ? " " + t("gameOver.newRecord") : ""), cx, curY);
+    curY += Math.round(22 * fontScale);
+  }
+
+  curY += Math.round(4 * fontScale);
+
+  // 等级 + 总经验
   ctx.fillStyle = "#fd0";
-  ctx.font = `${Math.round(24 * fontScale)}px arial`;
-  ctx.fillText(t("gameOver.level") + getLevel() + t("gameOver.totalExp") + getTotalExp(), width / 2, height / 2 + 10);
-
   ctx.font = `${Math.round(20 * fontScale)}px arial`;
-  ctx.fillStyle = "#ccc";
-  ctx.fillText(t("gameOver.restart"), width / 2, height / 2 + 60);
+  ctx.fillText(t("gameOver.level") + getLevel() + t("gameOver.totalExp") + getTotalExp(), cx, curY);
+  curY += Math.round(20 * fontScale);
 
-  ctx.textAlign = "left";
+  // === Build 摘要 ===
+  const build = getBuildSummary();
+  if (build.length > 0) {
+    // 分隔线
+    ctx.strokeStyle = "rgba(255, 215, 0, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - width * 0.35, curY);
+    ctx.lineTo(cx + width * 0.35, curY);
+    ctx.stroke();
+    curY += Math.round(28 * fontScale);  // 分隔线到标题的间距
+
+    // Build 摘要标题
+    ctx.fillStyle = "#ffd700";
+    ctx.font = `bold ${Math.round(18 * fontScale)}px arial`;
+    ctx.fillText(t("gameOver.build"), cx, curY);
+    curY += Math.round(22 * fontScale);
+
+    // 分为武器和被动两组
+    const weapons = build.filter(e => e.type === "weapon");
+    const passives = build.filter(e => e.type !== "weapon");
+
+    const itemFontSize = Math.round(14 * fontScale);
+    const lineHeight = Math.round(20 * fontScale);
+    const colGap = Math.round(10 * fontScale);
+    const halfW = width * 0.42;
+
+    // 稀有度颜色
+    function rarityColor(rarity: string): string {
+      if (rarity === "legendary") return "#ffd700";
+      if (rarity === "epic") return "#c64fff";
+      if (rarity === "rare") return "#4a9eff";
+      return "#ccc";
+    }
+
+    // 绘制一组条目（左侧标题+右侧条目列表）
+    function drawGroup(title: TextKey, entries: typeof build, startY: number): number {
+      if (entries.length === 0) return startY;
+      ctx.font = `bold ${itemFontSize}px arial`;
+      ctx.fillStyle = "#aaa";
+      ctx.textAlign = "left";
+      ctx.fillText(t(title), cx - halfW, startY);
+      let y = startY + lineHeight;
+      for (const entry of entries) {
+        const nameStr = t(entry.label);
+        const levelStr = entry.type === "weapon" ? `Lv${entry.level}` : `×${entry.level}`;
+        ctx.fillStyle = rarityColor(entry.rarity);
+        ctx.font = `${itemFontSize}px arial`;
+        ctx.fillText(nameStr, cx - halfW + Math.round(4 * fontScale), y);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(levelStr, cx + halfW, y);
+        ctx.textAlign = "left";
+        y += lineHeight;
+      }
+      return y;
+    }
+
+    // 左列：武器，右列：被动
+    const leftStartY = curY;
+    const rightStartY = curY;
+
+    // 先计算两列高度，取较大值
+    const leftH = weapons.length > 0 ? (1 + weapons.length) * lineHeight : 0;
+    const rightH = passives.length > 0 ? (1 + passives.length) * lineHeight : 0;
+
+    // 绘制左列
+    let nextY = leftStartY;
+    if (weapons.length > 0) {
+      nextY = drawGroup("gameOver.weapons", weapons, nextY);
+    }
+
+    // 绘制右列（如果两列不并排，就顺序放）
+    if (passives.length > 0) {
+      drawGroup("gameOver.passives", passives, nextY);
+      nextY += (1 + passives.length) * lineHeight;
+    } else {
+      // nextY 已经是武器列底部
+    }
+
+    // 如果武器列和被动列都有内容，使用顺序排列
+    // 重新绘制：不使用双列布局（避免复杂对齐），改为从上到下依次展示
+    // 已在上面顺序绘制
+
+    curY = Math.max(nextY, leftStartY + Math.max(leftH, rightH)) + Math.round(8 * fontScale);
+  }
+
+  // === 成就展示（本局新解锁的成就） ===
+  const stats = getStats();
+  const lastGame = getLastGame();
+  const achDefs = getAchievementDefs();
+  const achHalfW = width * 0.42;
+  // 只显示本局新解锁的成就
+  const newAchievements = achDefs.filter(d => lastGame.newAchievementIds.includes(d.id));
+  if (newAchievements.length > 0) {
+    // 分隔线
+    ctx.strokeStyle = "rgba(255, 215, 0, 0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - width * 0.35, curY);
+    ctx.lineTo(cx + width * 0.35, curY);
+    ctx.stroke();
+    curY += Math.round(28 * fontScale);  // 分隔线到标题的间距
+
+    ctx.fillStyle = "#ffd700";
+    ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(t("gameOver.achievements") + " " + newAchievements.length, cx, curY);
+    curY += Math.round(18 * fontScale);
+
+    // 本局新解锁成就列表
+    const achFontSize = Math.round(12 * fontScale);
+    const achLineH = Math.round(16 * fontScale);
+    ctx.font = `${achFontSize}px arial`;
+    for (const ach of newAchievements) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#ffd700";
+      ctx.fillText("★", cx - achHalfW, curY);
+      ctx.fillStyle = "#ccc";
+      ctx.fillText(t(ach.label), cx - achHalfW + Math.round(12 * fontScale), curY);
+      curY += achLineH;
+      // 限制显示数量，避免界面过长
+      if (curY > height * 0.82) break;
+    }
+    curY += Math.round(4 * fontScale);
+  }
+
+  // === 统计摘要（本局数据） ===
+  {
+    ctx.font = `${Math.round(12 * fontScale)}px arial`;
+    ctx.fillStyle = "#777";
+    ctx.textAlign = "center";
+    const statLine = `${t("gameOver.stats")}${stats.totalGames}：${t("gameOver.level")}${lastGame.level} | ${lastGame.kills} | BOSS×${lastGame.bossKills}`;
+    ctx.fillText(statLine, cx, curY);
+    curY += Math.round(14 * fontScale);
+  }
+
+  // 重新开始提示
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ccc";
+  ctx.font = `${Math.round(18 * fontScale)}px arial`;
+  const blinkAlpha = 0.5 + 0.5 * Math.sin(Date.now() * 0.004);
+  ctx.globalAlpha = blinkAlpha;
+  ctx.fillText(t("gameOver.restart"), cx, height * 0.88);
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
 }
 
-export { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects };
+// ========== 游戏数据页面 ==========
+let gameDataOpen: boolean = false;
+let deleteConfirmVisible: boolean = false;
+let currentPage: number = 1;
+const PAGE_SIZE = 10;
+
+// Tooltip 系统
+let mouseX: number = -1;
+let mouseY: number = -1;
+let tooltipText: string = "";
+let tooltipX: number = 0;
+let tooltipY: number = 0;
+let tooltipVisible: boolean = false;
+
+interface InfoIconArea {
+  x: number;
+  y: number;
+  r: number;  // 半径
+  desc: string;
+}
+
+let infoIconAreas: InfoIconArea[] = [];
+
+function setMousePosition(x: number, y: number): void {
+  mouseX = x;
+  mouseY = y;
+}
+
+interface GameDataHitArea {
+  x: number;
+  w: number;
+  y: number;
+  h: number;
+  type: "back" | "deleteOne" | "deleteAll" | "confirm" | "cancel" | "prevPage" | "nextPage" | "deleteRecord";
+  achievementId?: string;
+  recordId?: number;
+}
+
+let gameDataHitAreas: GameDataHitArea[] = [];
+
+function isGameDataOpen(): boolean {
+  return gameDataOpen;
+}
+
+function openGameData(): void {
+  gameDataOpen = true;
+  deleteConfirmVisible = false;
+  currentPage = 1;
+}
+
+function closeGameData(): void {
+  gameDataOpen = false;
+  deleteConfirmVisible = false;
+}
+
+function drawGameData(): void {
+  const cx = width / 2;
+  const stats = getStats();
+  const achDefs = getAchievementDefs();
+  const allRecords = getRecords();
+
+  gameDataHitAreas = [];
+
+  ctx.save();
+
+  // 半透明遮罩
+  ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+  ctx.fillRect(0, 0, width, height);
+
+  // 返回按钮（左上角）
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ccc";
+  ctx.font = `${Math.round(16 * fontScale)}px arial`;
+  ctx.fillText(t("gameData.back"), Math.round(16 * fontScale), Math.round(30 * fontScale));
+  gameDataHitAreas.push({
+    x: 0, w: Math.round(100 * fontScale),
+    y: 0, h: Math.round(40 * fontScale),
+    type: "back",
+  });
+
+  // 标题
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffd700";
+  ctx.font = `bold ${Math.round(26 * fontScale)}px arial`;
+  ctx.shadowColor = "#ff8c00";
+  ctx.shadowBlur = 10;
+  ctx.fillText(t("gameData.title"), cx, Math.round(30 * fontScale));
+  ctx.shadowBlur = 0;
+
+  // 内容区域
+  let curY = Math.round(50 * fontScale);
+  const leftX = Math.round(16 * fontScale);
+  const rightX = width - Math.round(16 * fontScale);
+  const contentW = rightX - leftX;
+
+  // === 汇总统计（紧凑单行） ===
+  ctx.font = `${Math.round(12 * fontScale)}px arial`;
+  ctx.fillStyle = "#999";
+  ctx.textAlign = "center";
+  const summaryLine = `${t("gameData.highScore")}:${stats.highestScore}  ${t("gameData.highLevel")}:${stats.highestLevel}  ${t("gameData.totalGames")}:${stats.totalGames}  ${t("gameData.totalKills")}:${stats.totalKills}  ${t("gameData.totalBossKills")}:${stats.totalBossKills}`;
+  ctx.fillText(summaryLine, cx, curY);
+  curY += Math.round(20 * fontScale);
+
+  // === 成就列表 ===
+  const unlockedCount = achDefs.filter(d => isUnlocked(d.id)).length;
+  ctx.fillStyle = "#ffd700";
+  ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
+  ctx.fillText(t("gameData.achievements") + " " + unlockedCount + "/" + achDefs.length, cx, curY);
+  curY += Math.round(16 * fontScale);
+
+  // 成就详情列表（紧凑排列，两列居中布局 + info 图标）
+  infoIconAreas = [];
+  const achFontSize = Math.round(11 * fontScale);
+  const achLineH = Math.round(18 * fontScale);
+  ctx.font = `${achFontSize}px arial`;
+  const achColW = Math.round(150 * fontScale);  // 每列宽度
+  const achTotalW = achColW * 2;
+  const achStartX = cx - achTotalW / 2;          // 整体居中起点
+  let colIdx = 0;
+  for (const ach of achDefs) {
+    const unlocked = isUnlocked(ach.id);
+    const col = colIdx % 2;
+    const row = Math.floor(colIdx / 2);
+    const x = achStartX + col * achColW;
+    const y = curY + row * achLineH;
+
+    // 成就名
+    ctx.textAlign = "left";
+    ctx.fillStyle = unlocked ? "#ffd700" : "#444";
+    const prefix = unlocked ? "★ " : "☆ ";
+    const nameStr = prefix + t(ach.label);
+    ctx.fillText(nameStr, x, y);
+
+    // info 图标（ⓘ）
+    const nameW = ctx.measureText(nameStr).width;
+    const iconR = Math.round(6 * fontScale);
+    const iconCx = x + nameW + iconR + Math.round(4 * fontScale);
+    const iconCy = y - Math.round(3 * fontScale);
+
+    // 绘制圆形 info 图标
+    ctx.beginPath();
+    ctx.arc(iconCx, iconCy, iconR, 0, Math.PI * 2);
+    ctx.fillStyle = unlocked ? "rgba(255, 215, 0, 0.3)" : "rgba(100, 100, 100, 0.3)";
+    ctx.fill();
+    ctx.fillStyle = unlocked ? "#ffd700" : "#666";
+    ctx.font = `bold ${Math.round(9 * fontScale)}px arial`;
+    ctx.textAlign = "center";
+    ctx.fillText("i", iconCx, iconCy + Math.round(3 * fontScale));
+    ctx.font = `${achFontSize}px arial`;  // 恢复字体
+
+    // 记录 info 图标区域
+    infoIconAreas.push({
+      x: iconCx,
+      y: iconCy,
+      r: iconR + Math.round(2 * fontScale),  // 扩大点击/悬停区域
+      desc: t(ach.desc),
+    });
+
+    colIdx++;
+  }
+  const achRows = Math.ceil(achDefs.length / 2);
+  curY += achRows * achLineH + Math.round(8 * fontScale);
+
+  // === 分隔线 ===
+  ctx.strokeStyle = "rgba(255, 215, 0, 0.3)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(leftX, curY);
+  ctx.lineTo(rightX, curY);
+  ctx.stroke();
+  curY += Math.round(14 * fontScale);
+
+  // === 对局记录列表 ===
+  if (allRecords.length === 0) {
+    ctx.fillStyle = "#666";
+    ctx.font = `${Math.round(14 * fontScale)}px arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(t("gameData.noData"), cx, curY + Math.round(30 * fontScale));
+  } else {
+    // 分页
+    const totalPages = Math.ceil(allRecords.length / PAGE_SIZE);
+    if (currentPage > totalPages) currentPage = totalPages;
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    const pageRecords = allRecords.slice(startIdx, startIdx + PAGE_SIZE);
+    const totalGames = stats.totalGames;
+
+    const rowFontSize = Math.round(11 * fontScale);
+    const rowH = Math.round(22 * fontScale);
+
+    for (let i = 0; i < pageRecords.length; i++) {
+      const rec = pageRecords[i];
+
+      // 行背景（交替色）
+      if (i % 2 === 0) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+        ctx.fillRect(leftX, curY - rowH + Math.round(4 * fontScale), contentW, rowH);
+      }
+
+      // 局号
+      ctx.textAlign = "left";
+      ctx.font = `bold ${rowFontSize}px arial`;
+      ctx.fillStyle = "#aaa";
+      const noText = t("gameData.gameNo").replace("{N}", String(totalGames - startIdx - i));
+      ctx.fillText(noText, leftX + Math.round(2 * fontScale), curY);
+
+      // 数据标签：等级 得分 击杀 BOSS
+      ctx.font = `${rowFontSize}px arial`;
+      ctx.fillStyle = "#ccc";
+      const infoText = `${t("gameData.highLevel")}${rec.level}  ${t("gameData.score")}${rec.score}  ${t("gameData.kills")}×${rec.kills}  BOSS×${rec.bossKills}`;
+      ctx.fillText(infoText, leftX + Math.round(58 * fontScale), curY);
+
+      // 删除按钮
+      const delText = t("gameData.deleteRecord");
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#f66";
+      ctx.font = `${Math.round(10 * fontScale)}px arial`;
+      ctx.fillText(delText, rightX - Math.round(2 * fontScale), curY);
+      const delW = ctx.measureText(delText).width + Math.round(6 * fontScale);
+      gameDataHitAreas.push({
+        x: rightX - Math.round(2 * fontScale) - delW, w: delW,
+        y: curY - rowH + Math.round(4 * fontScale), h: rowH,
+        type: "deleteRecord",
+        recordId: rec.id,
+      });
+
+      curY += rowH;
+    }
+
+    // === 分页控制 ===
+    curY += Math.round(8 * fontScale);
+    ctx.textAlign = "center";
+    ctx.font = `${Math.round(14 * fontScale)}px arial`;
+
+    // 上一页
+    if (currentPage > 1) {
+      ctx.fillStyle = "#4af";
+      ctx.fillText(t("gameData.prevPage"), cx - Math.round(70 * fontScale), curY);
+      const prevW = ctx.measureText(t("gameData.prevPage")).width + Math.round(12 * fontScale);
+      gameDataHitAreas.push({
+        x: cx - Math.round(70 * fontScale) - prevW / 2, w: prevW,
+        y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
+        type: "prevPage",
+      });
+    }
+
+    // 页码
+    ctx.fillStyle = "#aaa";
+    const pageInfo = t("gameData.pageInfo").replace("{P}", String(currentPage)).replace("{T}", String(totalPages));
+    ctx.fillText(pageInfo, cx, curY);
+
+    // 下一页
+    if (currentPage < totalPages) {
+      ctx.fillStyle = "#4af";
+      ctx.fillText(t("gameData.nextPage"), cx + Math.round(70 * fontScale), curY);
+      const nextW = ctx.measureText(t("gameData.nextPage")).width + Math.round(12 * fontScale);
+      gameDataHitAreas.push({
+        x: cx + Math.round(70 * fontScale) - nextW / 2, w: nextW,
+        y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
+        type: "nextPage",
+      });
+    }
+  }
+
+  // === 底部：删除全部数据 ===
+  const bottomBtnY = height - Math.round(24 * fontScale);
+  ctx.textAlign = "center";
+
+  if (!deleteConfirmVisible) {
+    ctx.fillStyle = "#f66";
+    ctx.font = `${Math.round(14 * fontScale)}px arial`;
+    ctx.fillText(t("gameData.deleteAll"), cx, bottomBtnY);
+    const delAllW = ctx.measureText(t("gameData.deleteAll")).width + Math.round(16 * fontScale);
+    gameDataHitAreas.push({
+      x: cx - delAllW / 2, w: delAllW,
+      y: bottomBtnY - Math.round(22 * fontScale), h: Math.round(26 * fontScale),
+      type: "deleteAll",
+    });
+  } else {
+    // 确认对话框
+    ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+    const dlgW = Math.round(260 * fontScale);
+    const dlgH = Math.round(110 * fontScale);
+    const dlgX = cx - dlgW / 2;
+    const dlgY = height / 2 - dlgH / 2;
+    ctx.fillRect(dlgX, dlgY, dlgW, dlgH);
+    ctx.strokeStyle = "#f66";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(dlgX, dlgY, dlgW, dlgH);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
+    ctx.fillText(t("gameData.deleteAllConfirm"), cx, dlgY + Math.round(38 * fontScale));
+
+    // 确认
+    ctx.fillStyle = "#f66";
+    ctx.font = `${Math.round(13 * fontScale)}px arial`;
+    ctx.fillText(t("gameData.confirm"), cx - Math.round(50 * fontScale), dlgY + Math.round(75 * fontScale));
+    const confirmW = ctx.measureText(t("gameData.confirm")).width + Math.round(12 * fontScale);
+    gameDataHitAreas.push({
+      x: cx - Math.round(50 * fontScale) - confirmW / 2, w: confirmW,
+      y: dlgY + Math.round(58 * fontScale), h: Math.round(26 * fontScale),
+      type: "confirm",
+    });
+
+    // 取消
+    ctx.fillStyle = "#aaa";
+    ctx.fillText(t("gameData.cancel"), cx + Math.round(50 * fontScale), dlgY + Math.round(75 * fontScale));
+    const cancelW = ctx.measureText(t("gameData.cancel")).width + Math.round(12 * fontScale);
+    gameDataHitAreas.push({
+      x: cx + Math.round(50 * fontScale) - cancelW / 2, w: cancelW,
+      y: dlgY + Math.round(58 * fontScale), h: Math.round(26 * fontScale),
+      type: "cancel",
+    });
+  }
+
+  // === Tooltip 绘制（鼠标悬停在 info 图标上） ===
+  tooltipVisible = false;
+  if (mouseX >= 0 && mouseY >= 0) {
+    for (const icon of infoIconAreas) {
+      const dx = mouseX - icon.x;
+      const dy = mouseY - icon.y;
+      if (dx * dx + dy * dy <= icon.r * icon.r) {
+        tooltipText = icon.desc;
+        tooltipX = mouseX;
+        tooltipY = mouseY;
+        tooltipVisible = true;
+        break;
+      }
+    }
+  }
+
+  if (tooltipVisible) {
+    const tipFontSize = Math.round(12 * fontScale);
+    ctx.font = `${tipFontSize}px arial`;
+    const tipW = ctx.measureText(tooltipText).width + Math.round(16 * fontScale);
+    const tipH = Math.round(24 * fontScale);
+    let tipX = tooltipX + Math.round(10 * fontScale);
+    let tipY = tooltipY - tipH - Math.round(4 * fontScale);
+    if (tipX + tipW > width) tipX = width - tipW - Math.round(4 * fontScale);
+    if (tipY < 0) tipY = tooltipY + Math.round(16 * fontScale);
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.fillRect(tipX, tipY, tipW, tipH);
+    ctx.strokeStyle = "rgba(255, 215, 0, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(tipX, tipY, tipW, tipH);
+
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "left";
+    ctx.fillText(tooltipText, tipX + Math.round(8 * fontScale), tipY + Math.round(16 * fontScale));
+  }
+
+  ctx.restore();
+}
+
+// 处理游戏数据页面的点击事件
+function handleGameDataClick(clickX: number, clickY: number): string | null {
+  for (const area of gameDataHitAreas) {
+    if (clickX >= area.x && clickX < area.x + area.w &&
+        clickY >= area.y && clickY < area.y + area.h) {
+      switch (area.type) {
+        case "back":
+          closeGameData();
+          return "back";
+        case "deleteOne":
+          if (area.achievementId) {
+            deleteAchievement(area.achievementId);
+          }
+          return "deleteOne";
+        case "deleteRecord":
+          if (area.recordId !== undefined) {
+            deleteRecord(area.recordId);
+          }
+          return "deleteRecord";
+        case "deleteAll":
+          deleteConfirmVisible = true;
+          return "deleteAll";
+        case "confirm":
+          resetAllData();
+          deleteConfirmVisible = false;
+          return "confirm";
+        case "cancel":
+          deleteConfirmVisible = false;
+          return "cancel";
+        case "prevPage":
+          if (currentPage > 1) currentPage--;
+          return "prevPage";
+        case "nextPage":
+          currentPage++;
+          return "nextPage";
+      }
+    }
+  }
+  return null;
+}
+
+export { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, setMousePosition, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects };

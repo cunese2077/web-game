@@ -38,10 +38,63 @@ export type TextKey =
   | "gameOver.level"     // "等级: " / "LEVEL: "
   | "gameOver.totalExp"  // "  |  总经验: " / "  |  TOTAL EXP: "
   | "gameOver.restart"   // "点击重新开始" / "Click to Restart"
+  | "gameOver.build"     // "Build 摘要" / "BUILD SUMMARY"
+  | "gameOver.weapons"   // "武器" / "WEAPONS"
+  | "gameOver.passives"  // "被动" / "PASSIVES"
+  | "gameOver.highScore" // "最高分: " / "HIGH SCORE: "
+  | "gameOver.highLevel" // "最高等级: " / "HIGH LEVEL: "
+  | "gameOver.newRecord" // "新纪录!" / "NEW RECORD!"
+  // 成就
+  | "achievement.firstGame"          // "初次出击" / "FIRST SORTIE"
+  | "achievement.firstGame.desc"     // "完成第一局游戏" / "Complete your first game"
+  | "achievement.score1000"          // "千分先锋" / "SCORE PIONEER"
+  | "achievement.score1000.desc"     // "单局得分达到 1000" / "Score 1000 in a single run"
+  | "achievement.score5000"          // "得分王者" / "SCORE KING"
+  | "achievement.score5000.desc"     // "单局得分达到 5000" / "Score 5000 in a single run"
+  | "achievement.level10"            // "成长之路" / "GROWING PATH"
+  | "achievement.level10.desc"       // "达到 10 级" / "Reach level 10"
+  | "achievement.level20"            // "老兵" / "VETERAN"
+  | "achievement.level20.desc"       // "达到 20 级" / "Reach level 20"
+  | "achievement.bossKill1"          // "BOSS 猎人" / "BOSS HUNTER"
+  | "achievement.bossKill1.desc"     // "击败 1 个 BOSS" / "Defeat 1 BOSS"
+  | "achievement.bossKill5"          // "BOSS 克星" / "BOSS SLAYER"
+  | "achievement.bossKill5.desc"     // "累计击败 5 个 BOSS" / "Defeat 5 BOSSes total"
+  | "achievement.kills100"           // "百斩" / "CENTURION"
+  | "achievement.kills100.desc"      // "累计击杀 100 架敌机" / "Kill 100 enemies total"
+  | "achievement.kills500"           // "五百斩" / "DEMOLISHER"
+  | "achievement.kills500.desc"      // "累计击杀 500 架敌机" / "Kill 500 enemies total"
+  | "achievement.games10"            // "常客" / "REGULAR"
+  | "achievement.games10.desc"       // "完成 10 局游戏" / "Complete 10 games"
+  | "gameOver.achievements"          // "成就" / "ACHIEVEMENTS"
+  | "gameOver.stats"                 // "统计" / "STATS"
   // 开始界面（ui.ts paintLogo）
   | "start.title"        // "飞机大战" / "PLANE WAR"
   | "start.clickToStart" // "点击开始游戏" / "Click to Start"
   | "start.settings"     // "设置" / "SETTINGS"
+  | "start.gameData"     // "游戏数据" / "GAME DATA"
+  // 游戏数据页面
+  | "gameData.title"             // "游戏数据" / "GAME DATA"
+  | "gameData.highScore"         // "最高分" / "HIGH SCORE"
+  | "gameData.highLevel"         // "最高等级" / "HIGH LEVEL"
+  | "gameData.totalGames"        // "总局数" / "TOTAL GAMES"
+  | "gameData.totalKills"        // "总击杀" / "TOTAL KILLS"
+  | "gameData.totalBossKills"    // "总BOSS击败" / "TOTAL BOSS KILLS"
+  | "gameData.achievements"      // "成就" / "ACHIEVEMENTS"
+  | "gameData.unlocked"          // "已解锁" / "UNLOCKED"
+  | "gameData.deleteOne"         // "删除" / "DELETE"
+  | "gameData.deleteAll"         // "删除全部数据" / "DELETE ALL DATA"
+  | "gameData.deleteAllConfirm"  // "确认删除全部数据？" / "DELETE ALL DATA?"
+  | "gameData.confirm"           // "确认" / "CONFIRM"
+  | "gameData.cancel"            // "取消" / "CANCEL"
+  | "gameData.back"              // "返回" / "BACK"
+  | "gameData.gameNo"            // "第N局" / "GAME #N"
+  | "gameData.prevPage"          // "上一页" / "PREV"
+  | "gameData.nextPage"          // "下一页" / "NEXT"
+  | "gameData.pageInfo"          // "1/2" / "1/2"
+  | "gameData.deleteRecord"      // "删除此局" / "DELETE"
+  | "gameData.noData"            // "暂无游戏记录" / "NO RECORDS"
+  | "gameData.score"             // "得分" / "SCORE"
+  | "gameData.kills"             // "击杀" / "KILLS"
   // 设置界面（ui.ts drawSettings）
   | "settings.title"     // "游戏设置" / "SETTINGS"
   | "settings.language"  // "语言" / "LANGUAGE"
@@ -140,6 +193,10 @@ export type TextKey =
   // BOSS
   | "boss.title"              // "BOSS" / "BOSS"
   | "boss.warning"            // "⚠ BOSS 来袭!" / "⚠ BOSS INCOMING!"
+  | "boss.shield"             // "护盾" / "SHIELD"
+  | "boss.type.assault"       // "突击型" / "ASSAULT"
+  | "boss.type.fortress"      // "堡垒型" / "FORTRESS"
+  | "boss.type.carrier"       // "母舰型" / "CARRIER"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"
@@ -168,9 +225,60 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.level": "等级: ",
     "gameOver.totalExp": "  |  总经验: ",
     "gameOver.restart": "点击重新开始",
+    "gameOver.build": "Build 摘要",
+    "gameOver.weapons": "武器",
+    "gameOver.passives": "被动",
+    "gameOver.highScore": "最高分: ",
+    "gameOver.highLevel": "最高等级: ",
+    "gameOver.newRecord": "新纪录!",
+    "achievement.firstGame": "初次出击",
+    "achievement.firstGame.desc": "完成第一局游戏",
+    "achievement.score1000": "千分先锋",
+    "achievement.score1000.desc": "单局得分达到 1000",
+    "achievement.score5000": "得分王者",
+    "achievement.score5000.desc": "单局得分达到 5000",
+    "achievement.level10": "成长之路",
+    "achievement.level10.desc": "达到 10 级",
+    "achievement.level20": "老兵",
+    "achievement.level20.desc": "达到 20 级",
+    "achievement.bossKill1": "BOSS 猎人",
+    "achievement.bossKill1.desc": "击败 1 个 BOSS",
+    "achievement.bossKill5": "BOSS 克星",
+    "achievement.bossKill5.desc": "累计击败 5 个 BOSS",
+    "achievement.kills100": "百斩",
+    "achievement.kills100.desc": "累计击杀 100 架敌机",
+    "achievement.kills500": "五百斩",
+    "achievement.kills500.desc": "累计击杀 500 架敌机",
+    "achievement.games10": "常客",
+    "achievement.games10.desc": "完成 10 局游戏",
+    "gameOver.achievements": "成就",
+    "gameOver.stats": "统计",
     "start.title": "飞机大战",
     "start.clickToStart": "点击开始游戏",
     "start.settings": "设置",
+    "start.gameData": "游戏数据",
+    "gameData.title": "游戏数据",
+    "gameData.highScore": "最高分",
+    "gameData.highLevel": "最高等级",
+    "gameData.totalGames": "总局数",
+    "gameData.totalKills": "总击杀",
+    "gameData.totalBossKills": "总BOSS击败",
+    "gameData.achievements": "成就",
+    "gameData.unlocked": "已解锁",
+    "gameData.deleteOne": "删除",
+    "gameData.deleteAll": "删除全部数据",
+    "gameData.deleteAllConfirm": "确认删除全部数据？",
+    "gameData.confirm": "确认",
+    "gameData.cancel": "取消",
+    "gameData.back": "返回",
+    "gameData.gameNo": "第{N}局",
+    "gameData.prevPage": "上一页",
+    "gameData.nextPage": "下一页",
+    "gameData.pageInfo": "{P}/{T}",
+    "gameData.deleteRecord": "删除此局",
+    "gameData.noData": "暂无游戏记录",
+    "gameData.score": "得分",
+    "gameData.kills": "击杀",
     "settings.title": "游戏设置",
     "settings.language": "语言",
     "settings.lang.zh": "中文",
@@ -260,6 +368,10 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "html.unsupported": "您的浏览器不支持canvas绘图!!!",
     "boss.title": "BOSS",
     "boss.warning": "⚠ BOSS 来袭!",
+    "boss.shield": "护盾",
+    "boss.type.assault": "突击型",
+    "boss.type.fortress": "堡垒型",
+    "boss.type.carrier": "母舰型",
   },
   en: {
     "hud.score": "SCORE:",
@@ -283,9 +395,60 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.level": "LEVEL: ",
     "gameOver.totalExp": "  |  TOTAL EXP: ",
     "gameOver.restart": "Click to Restart",
+    "gameOver.build": "BUILD SUMMARY",
+    "gameOver.weapons": "WEAPONS",
+    "gameOver.passives": "PASSIVES",
+    "gameOver.highScore": "HIGH SCORE: ",
+    "gameOver.highLevel": "HIGH LEVEL: ",
+    "gameOver.newRecord": "NEW RECORD!",
+    "achievement.firstGame": "FIRST SORTIE",
+    "achievement.firstGame.desc": "Complete your first game",
+    "achievement.score1000": "SCORE PIONEER",
+    "achievement.score1000.desc": "Score 1000 in a single run",
+    "achievement.score5000": "SCORE KING",
+    "achievement.score5000.desc": "Score 5000 in a single run",
+    "achievement.level10": "GROWING PATH",
+    "achievement.level10.desc": "Reach level 10",
+    "achievement.level20": "VETERAN",
+    "achievement.level20.desc": "Reach level 20",
+    "achievement.bossKill1": "BOSS HUNTER",
+    "achievement.bossKill1.desc": "Defeat 1 BOSS",
+    "achievement.bossKill5": "BOSS SLAYER",
+    "achievement.bossKill5.desc": "Defeat 5 BOSSes total",
+    "achievement.kills100": "CENTURION",
+    "achievement.kills100.desc": "Kill 100 enemies total",
+    "achievement.kills500": "DEMOLISHER",
+    "achievement.kills500.desc": "Kill 500 enemies total",
+    "achievement.games10": "REGULAR",
+    "achievement.games10.desc": "Complete 10 games",
+    "gameOver.achievements": "ACHIEVEMENTS",
+    "gameOver.stats": "STATS",
     "start.title": "PLANE WAR",
     "start.clickToStart": "Click to Start",
     "start.settings": "SETTINGS",
+    "start.gameData": "GAME DATA",
+    "gameData.title": "GAME DATA",
+    "gameData.highScore": "HIGH SCORE",
+    "gameData.highLevel": "HIGH LEVEL",
+    "gameData.totalGames": "TOTAL GAMES",
+    "gameData.totalKills": "TOTAL KILLS",
+    "gameData.totalBossKills": "TOTAL BOSS KILLS",
+    "gameData.achievements": "ACHIEVEMENTS",
+    "gameData.unlocked": "UNLOCKED",
+    "gameData.deleteOne": "DELETE",
+    "gameData.deleteAll": "DELETE ALL DATA",
+    "gameData.deleteAllConfirm": "DELETE ALL DATA?",
+    "gameData.confirm": "CONFIRM",
+    "gameData.cancel": "CANCEL",
+    "gameData.back": "BACK",
+    "gameData.gameNo": "GAME #{N}",
+    "gameData.prevPage": "PREV",
+    "gameData.nextPage": "NEXT",
+    "gameData.pageInfo": "{P}/{T}",
+    "gameData.deleteRecord": "DELETE",
+    "gameData.noData": "NO RECORDS",
+    "gameData.score": "SCORE",
+    "gameData.kills": "KILLS",
     "settings.title": "SETTINGS",
     "settings.language": "LANGUAGE",
     "settings.lang.zh": "Chinese",
@@ -375,6 +538,10 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "html.unsupported": "Your browser does not support canvas!!!",
     "boss.title": "BOSS",
     "boss.warning": "⚠ BOSS INCOMING!",
+    "boss.shield": "SHIELD",
+    "boss.type.assault": "ASSAULT",
+    "boss.type.fortress": "FORTRESS",
+    "boss.type.carrier": "CARRIER",
   },
   ja: {
     "hud.score": "得点:",
@@ -398,9 +565,60 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.level": "レベル: ",
     "gameOver.totalExp": "  |  総経験値: ",
     "gameOver.restart": "クリックでリスタート",
+    "gameOver.build": "ビルド概要",
+    "gameOver.weapons": "ウェポン",
+    "gameOver.passives": "パッシブ",
+    "gameOver.highScore": "ハイスコア: ",
+    "gameOver.highLevel": "最高レベル: ",
+    "gameOver.newRecord": "新記録!",
+    "achievement.firstGame": "初出撃",
+    "achievement.firstGame.desc": "初めてのゲームをクリア",
+    "achievement.score1000": "スコアパイオニア",
+    "achievement.score1000.desc": "1プレイで1000点達成",
+    "achievement.score5000": "スコアキング",
+    "achievement.score5000.desc": "1プレイで5000点達成",
+    "achievement.level10": "成長の道",
+    "achievement.level10.desc": "レベル10に到達",
+    "achievement.level20": "ベテラン",
+    "achievement.level20.desc": "レベル20に到達",
+    "achievement.bossKill1": "BOSSハンター",
+    "achievement.bossKill1.desc": "BOSSを1体撃破",
+    "achievement.bossKill5": "BOSSスレイヤー",
+    "achievement.bossKill5.desc": "BOSSを累計5体撃破",
+    "achievement.kills100": "百斬り",
+    "achievement.kills100.desc": "敵機を累計100機撃破",
+    "achievement.kills500": "五百斬り",
+    "achievement.kills500.desc": "敵機を累計500機撃破",
+    "achievement.games10": "常連",
+    "achievement.games10.desc": "10回ゲームクリア",
+    "gameOver.achievements": "実績",
+    "gameOver.stats": "統計",
     "start.title": "エアバトル",
     "start.clickToStart": "クリックでスタート",
     "start.settings": "設定",
+    "start.gameData": "ゲームデータ",
+    "gameData.title": "ゲームデータ",
+    "gameData.highScore": "ハイスコア",
+    "gameData.highLevel": "最高レベル",
+    "gameData.totalGames": "総プレイ数",
+    "gameData.totalKills": "総撃破数",
+    "gameData.totalBossKills": "総BOSS撃破",
+    "gameData.achievements": "実績",
+    "gameData.unlocked": "解除済み",
+    "gameData.deleteOne": "削除",
+    "gameData.deleteAll": "全データ削除",
+    "gameData.deleteAllConfirm": "全データを削除しますか？",
+    "gameData.confirm": "確認",
+    "gameData.cancel": "キャンセル",
+    "gameData.back": "戻る",
+    "gameData.gameNo": "第{N}局",
+    "gameData.prevPage": "前へ",
+    "gameData.nextPage": "次へ",
+    "gameData.pageInfo": "{P}/{T}",
+    "gameData.deleteRecord": "削除",
+    "gameData.noData": "記録なし",
+    "gameData.score": "スコア",
+    "gameData.kills": "撃破",
     "settings.title": "設定",
     "settings.language": "言語",
     "settings.lang.zh": "中国語",
@@ -490,6 +708,10 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "html.unsupported": "お使いのブラウザはcanvasに対応していません!!!",
     "boss.title": "BOSS",
     "boss.warning": "⚠ BOSS 来襲!",
+    "boss.shield": "シールド",
+    "boss.type.assault": "突撃型",
+    "boss.type.fortress": "要塞型",
+    "boss.type.carrier": "母艦型",
   },
 };
 

@@ -3,6 +3,7 @@ import { upgradePool, heroConfig, bulletConfig, buffConfig, getDifficultyConfig,
 import { getDifficulty } from "./settings.js";
 import { getLevel } from "./level.js";
 import type { UpgradeDef, UpgradeOffer } from "./types.js";
+import type { TextKey } from "./i18n.js";
 
 // ========== 升级状态 ==========
 // weapons: weaponId → level (1~5)
@@ -477,6 +478,34 @@ function getMaxHp(): number {
   return heroConfig.maxHp + getExtraHp();
 }
 
+// Build 摘要数据（供游戏结束界面展示当前升级组合）
+interface BuildEntry {
+  id: string;
+  label: TextKey;
+  level: number;      // 武器等级(1~5) 或 被动层数
+  rarity: string;     // 稀有度
+  type: string;       // "weapon" | "passive"
+}
+
+function getBuildSummary(): BuildEntry[] {
+  const result: BuildEntry[] = [];
+  // 武器
+  for (const [id, lv] of weapons) {
+    if (lv <= 0) continue;
+    const def = upgradePool.find(d => d.id === id);
+    if (!def) continue;
+    result.push({ id, label: def.label, level: lv, rarity: def.rarity, type: def.type });
+  }
+  // 被动
+  for (const [id, stacks] of passives) {
+    if (stacks <= 0) continue;
+    const def = upgradePool.find(d => d.id === id);
+    if (!def) continue;
+    result.push({ id, label: def.label, level: stacks, rarity: def.rarity, type: def.type });
+  }
+  return result;
+}
+
 export {
   initUpgrades,
   getWeaponLevel,
@@ -518,4 +547,5 @@ export {
   getBulletDamage,
   getBulletDamageWithBuff,
   getMaxHp,
+  getBuildSummary,
 };

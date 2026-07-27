@@ -413,4 +413,26 @@ function getBulletDamageWithBuff(firepowerActive) {
 function getMaxHp() {
     return heroConfig.maxHp + getExtraHp();
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, };
+function getBuildSummary() {
+    const result = [];
+    // 武器
+    for (const [id, lv] of weapons) {
+        if (lv <= 0)
+            continue;
+        const def = upgradePool.find(d => d.id === id);
+        if (!def)
+            continue;
+        result.push({ id, label: def.label, level: lv, rarity: def.rarity, type: def.type });
+    }
+    // 被动
+    for (const [id, stacks] of passives) {
+        if (stacks <= 0)
+            continue;
+        const def = upgradePool.find(d => d.id === id);
+        if (!def)
+            continue;
+        result.push({ id, label: def.label, level: stacks, rarity: def.rarity, type: def.type });
+    }
+    return result;
+}
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, };

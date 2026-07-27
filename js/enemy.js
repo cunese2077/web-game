@@ -14,6 +14,7 @@ import { enemyConfig, enemySpawnScaling, hitEffect, getScaledEnemyStat, getDiffi
 import { getDifficulty } from "./settings.js";
 const liveEnemy = [];
 let nextEnemyId = 0;
+let sessionKillCount = 0; // 本局击杀敌机计数
 let bigEnemyCoolDown = 0;
 function tickCoolDown() {
     if (bigEnemyCoolDown > 0)
@@ -377,6 +378,7 @@ class Enemy {
                 }
                 if (this.lives <= 0) {
                     this.die = true;
+                    sessionKillCount++;
                     addGameScore(this.score);
                     addExp(getExpReward(this.type));
                     addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), this.score);
@@ -477,6 +479,12 @@ class Enemy {
     static resetNextId() {
         nextEnemyId = 0;
     }
+    static getSessionKillCount() {
+        return sessionKillCount;
+    }
+    static resetSessionKillCount() {
+        sessionKillCount = 0;
+    }
     // 外部伤害接口：特殊武器调用此方法对敌机造成伤害
     // skipHitSound=true 时跳过通用受击音效（由调用方播放专属音效）
     static applyDamage(enemyId, damage, isCrit, skipHitSound = false) {
@@ -486,6 +494,7 @@ class Enemy {
         enemy.lives -= damage;
         if (enemy.lives <= 0) {
             enemy.die = true;
+            sessionKillCount++;
             addGameScore(enemy.score);
             addExp(getExpReward(enemy.type));
             addScoreEffect(enemy.x + enemy.width / 2, Math.max(enemy.y + enemy.height / 2, Math.round(30 * fontScale)), enemy.score);

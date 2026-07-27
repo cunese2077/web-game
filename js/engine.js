@@ -3,26 +3,29 @@ import { ctx, canvas, fontScale, width, height } from "./canvas.js";
 import { download, heroImg } from "./resources.js";
 import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP, PHASE_BOSS_WARNING, PHASE_BOSS, } from "./constants.js";
 import { Hero, getSoundIconArea, getHeroBuffs } from "./hero.js";
-import { resetGameScore } from "./score.js";
+import { getGameScore, resetGameScore } from "./score.js";
 import { resetLevel, getLevel } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, handleSettingsClick, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, drawGameData, handleGameDataClick, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
-import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss } from "./boss.js";
+import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
 import { t } from "./i18n.js";
+import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
+import { recordGameEnd } from "./achievement.js";
 import { isDebugMode, isDebugPanelVisible, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
 let curPhase = PHASE_DOWNLOAD;
 let hero = null;
 let pBg = null;
 let loadAnim = null;
 let gameOverSoundPlayed = false;
+let gameOverRecordUpdated = false;
 // 进化全屏闪光动画（选中进化道具时触发）
 let evolutionFlashFrames = 0;
 const EVOLUTION_FLASH_DURATION = 30; // 1.5秒@20fps
@@ -105,6 +108,9 @@ function setCurPhase(phase) {
 }
 function start() {
     curPhase = PHASE_READY;
+    canvas.onmousemove = function (e) {
+        setMousePosition(e.offsetX, e.offsetY);
+    };
     canvas.onclick = function (e) {
         resumeAudio();
         const clickX = e.offsetX;
@@ -115,6 +121,11 @@ function start() {
         if (handleDebugToggleClick(clickX, clickY))
             return;
         if (curPhase === PHASE_READY) {
+            // 游戏数据页面打开时：处理游戏数据页面点击
+            if (isGameDataOpen()) {
+                handleGameDataClick(clickX, clickY);
+                return;
+            }
             // 设置界面打开时：处理设置项点击或返回
             if (isSettingsOpen()) {
                 const result = handleSettingsClick(clickX, clickY);
@@ -125,8 +136,16 @@ function start() {
             }
             // 检查是否点击了设置按钮
             const btnArea = getSettingsBtnArea();
-            if (clickY >= btnArea.y && clickY < btnArea.y + btnArea.h) {
+            if (clickX >= btnArea.x && clickX < btnArea.x + btnArea.w &&
+                clickY >= btnArea.y && clickY < btnArea.y + btnArea.h) {
                 openSettings();
+                return;
+            }
+            // 检查是否点击了游戏数据按钮
+            const gdArea = getGameDataBtnArea();
+            if (clickX >= gdArea.x && clickX < gdArea.x + gdArea.w &&
+                clickY >= gdArea.y && clickY < gdArea.y + gdArea.h) {
+                openGameData();
                 return;
             }
             // 否则进入加载阶段
@@ -174,6 +193,7 @@ function start() {
             Bullet.clear();
             Enemy.clear();
             Enemy.resetNextId();
+            Enemy.resetSessionKillCount();
             Item.clear();
             Bullet.clear();
             clearSpecialWeapons();
@@ -183,6 +203,7 @@ function start() {
             clearDamageEffects();
             clearUpgradeUI();
             gameOverSoundPlayed = false;
+            gameOverRecordUpdated = false;
             evolutionFlashFrames = 0;
             curPhase = PHASE_READY;
         }
@@ -200,7 +221,10 @@ function gameEngine() {
         case PHASE_READY:
             if (pBg)
                 pBg();
-            if (isSettingsOpen()) {
+            if (isGameDataOpen()) {
+                drawGameData();
+            }
+            else if (isSettingsOpen()) {
                 drawSettings();
             }
             else {
@@ -302,6 +326,12 @@ function gameEngine() {
             drawPause();
             break;
         case PHASE_GAME_OVER:
+            if (!gameOverRecordUpdated) {
+                tryUpdateHighScore(getGameScore());
+                tryUpdateHighLevel(getLevel());
+                recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount());
+                gameOverRecordUpdated = true;
+            }
             if (pBg)
                 pBg();
             drawGameOver();
