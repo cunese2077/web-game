@@ -95,6 +95,9 @@ export type TextKey =
   | "gameData.noData"            // "暂无游戏记录" / "NO RECORDS"
   | "gameData.score"             // "得分" / "SCORE"
   | "gameData.kills"             // "击杀" / "KILLS"
+  | "gameData.killsCol"          // "击杀敌机数" / "ENEMY KILLS"（表格列标题）
+  | "gameData.bossKillsCol"      // "击杀BOSS数" / "BOSS KILLS"（表格列标题）
+  | "gameData.recordTitle"       // "对局记录" / "GAME RECORDS"（表格标题）
   // 设置界面（ui.ts drawSettings）
   | "settings.title"     // "游戏设置" / "SETTINGS"
   | "settings.language"  // "语言" / "LANGUAGE"
@@ -228,8 +231,8 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.build": "Build 摘要",
     "gameOver.weapons": "武器",
     "gameOver.passives": "被动",
-    "gameOver.highScore": "最高分: ",
-    "gameOver.highLevel": "最高等级: ",
+    "gameOver.highScore": "历史最高分: ",
+    "gameOver.highLevel": "历史最高等级: ",
     "gameOver.newRecord": "新纪录!",
     "achievement.firstGame": "初次出击",
     "achievement.firstGame.desc": "完成第一局游戏",
@@ -279,6 +282,9 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameData.noData": "暂无游戏记录",
     "gameData.score": "得分",
     "gameData.kills": "击杀",
+    "gameData.killsCol": "击杀敌机数",
+    "gameData.bossKillsCol": "击杀BOSS数",
+    "gameData.recordTitle": "对局记录",
     "settings.title": "游戏设置",
     "settings.language": "语言",
     "settings.lang.zh": "中文",
@@ -398,8 +404,8 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.build": "BUILD SUMMARY",
     "gameOver.weapons": "WEAPONS",
     "gameOver.passives": "PASSIVES",
-    "gameOver.highScore": "HIGH SCORE: ",
-    "gameOver.highLevel": "HIGH LEVEL: ",
+    "gameOver.highScore": "ALL-TIME HIGH SCORE: ",
+    "gameOver.highLevel": "ALL-TIME HIGH LEVEL: ",
     "gameOver.newRecord": "NEW RECORD!",
     "achievement.firstGame": "FIRST SORTIE",
     "achievement.firstGame.desc": "Complete your first game",
@@ -449,6 +455,9 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameData.noData": "NO RECORDS",
     "gameData.score": "SCORE",
     "gameData.kills": "KILLS",
+    "gameData.killsCol": "ENEMY KILLS",
+    "gameData.bossKillsCol": "BOSS KILLS",
+    "gameData.recordTitle": "GAME RECORDS",
     "settings.title": "SETTINGS",
     "settings.language": "LANGUAGE",
     "settings.lang.zh": "Chinese",
@@ -568,8 +577,8 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.build": "ビルド概要",
     "gameOver.weapons": "ウェポン",
     "gameOver.passives": "パッシブ",
-    "gameOver.highScore": "ハイスコア: ",
-    "gameOver.highLevel": "最高レベル: ",
+    "gameOver.highScore": "歴代ハイスコア: ",
+    "gameOver.highLevel": "歴代最高レベル: ",
     "gameOver.newRecord": "新記録!",
     "achievement.firstGame": "初出撃",
     "achievement.firstGame.desc": "初めてのゲームをクリア",
@@ -619,6 +628,9 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameData.noData": "記録なし",
     "gameData.score": "スコア",
     "gameData.kills": "撃破",
+    "gameData.killsCol": "敵機撃破数",
+    "gameData.bossKillsCol": "BOSS撃破数",
+    "gameData.recordTitle": "対局記録",
     "settings.title": "設定",
     "settings.language": "言語",
     "settings.lang.zh": "中国語",

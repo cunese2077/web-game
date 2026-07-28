@@ -571,7 +571,12 @@ function drawGameOver() {
     ctx.font = `bold ${Math.round(26 * fontScale)}px arial`;
     ctx.fillText(t("gameOver.score") + getGameScore(), cx, curY);
     curY += Math.round(28 * fontScale);
-    // 最高分/最高等级（新纪录时高亮）
+    // 等级 + 总经验
+    ctx.fillStyle = "#fd0";
+    ctx.font = `${Math.round(20 * fontScale)}px arial`;
+    ctx.fillText(t("gameOver.level") + getLevel() + t("gameOver.totalExp") + getTotalExp(), cx, curY);
+    curY += Math.round(24 * fontScale);
+    // 历史最高分/最高等级（新纪录时高亮）
     const score = getGameScore();
     const level = getLevel();
     const highScore = getHighScore();
@@ -579,7 +584,6 @@ function drawGameOver() {
     const isNewScore = score >= highScore && score > 0;
     const isNewLevel = level >= highLevel && level > 1;
     ctx.font = `${Math.round(16 * fontScale)}px arial`;
-    ctx.fillStyle = "#888";
     if (highScore > 0 || isNewScore) {
         ctx.fillStyle = isNewScore ? "#ffd700" : "#888";
         ctx.fillText(t("gameOver.highScore") + highScore + (isNewScore ? " " + t("gameOver.newRecord") : ""), cx, curY);
@@ -591,11 +595,6 @@ function drawGameOver() {
         curY += Math.round(22 * fontScale);
     }
     curY += Math.round(4 * fontScale);
-    // 等级 + 总经验
-    ctx.fillStyle = "#fd0";
-    ctx.font = `${Math.round(20 * fontScale)}px arial`;
-    ctx.fillText(t("gameOver.level") + getLevel() + t("gameOver.totalExp") + getTotalExp(), cx, curY);
-    curY += Math.round(20 * fontScale);
     // === Build 摘要 ===
     const build = getBuildSummary();
     if (build.length > 0) {
@@ -719,7 +718,7 @@ function drawGameOver() {
         ctx.font = `${Math.round(12 * fontScale)}px arial`;
         ctx.fillStyle = "#777";
         ctx.textAlign = "center";
-        const statLine = `${t("gameOver.stats")}${stats.totalGames}：${t("gameOver.level")}${lastGame.level} | ${lastGame.kills} | BOSS×${lastGame.bossKills}`;
+        const statLine = `${t("gameOver.stats")}${stats.totalGames}：${t("gameData.highLevel")} ${lastGame.level} | ${t("gameData.killsCol")} ${lastGame.kills} | ${t("gameData.bossKillsCol")} ${lastGame.bossKills}`;
         ctx.fillText(statLine, cx, curY);
         curY += Math.round(14 * fontScale);
     }
@@ -863,7 +862,7 @@ function drawGameData() {
     ctx.moveTo(leftX, curY);
     ctx.lineTo(rightX, curY);
     ctx.stroke();
-    curY += Math.round(14 * fontScale);
+    curY += Math.round(22 * fontScale);
     // === 对局记录列表 ===
     if (allRecords.length === 0) {
         ctx.fillStyle = "#666";
@@ -881,6 +880,29 @@ function drawGameData() {
         const totalGames = stats.totalGames;
         const rowFontSize = Math.round(11 * fontScale);
         const rowH = Math.round(22 * fontScale);
+        // 固定列宽布局（局号 | 等级 | 得分 | 击杀敌机数 | 击杀BOSS数 | 删除）
+        const colNo = leftX + Math.round(2 * fontScale); // 局号列起始
+        const colLv = colNo + Math.round(36 * fontScale); // 等级列起始
+        const colSc = colLv + Math.round(66 * fontScale); // 得分列起始
+        const colKl = colSc + Math.round(56 * fontScale); // 击杀敌机数列起始
+        const colBo = colKl + Math.round(72 * fontScale); // 击杀BOSS数列起始
+        const delAreaRight = rightX - Math.round(2 * fontScale);
+        // 表格标题
+        ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ccc";
+        ctx.fillText(t("gameData.recordTitle"), cx, curY);
+        curY += Math.round(20 * fontScale);
+        // 表头
+        ctx.font = `bold ${rowFontSize}px arial`;
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#666";
+        ctx.fillText("#", colNo, curY);
+        ctx.fillText(t("gameData.highLevel"), colLv, curY);
+        ctx.fillText(t("gameData.score"), colSc, curY);
+        ctx.fillText(t("gameData.killsCol"), colKl, curY);
+        ctx.fillText(t("gameData.bossKillsCol"), colBo, curY);
+        curY += rowH;
         for (let i = 0; i < pageRecords.length; i++) {
             const rec = pageRecords[i];
             // 行背景（交替色）
@@ -890,24 +912,24 @@ function drawGameData() {
             }
             // 局号
             ctx.textAlign = "left";
-            ctx.font = `bold ${rowFontSize}px arial`;
-            ctx.fillStyle = "#aaa";
-            const noText = t("gameData.gameNo").replace("{N}", String(totalGames - startIdx - i));
-            ctx.fillText(noText, leftX + Math.round(2 * fontScale), curY);
-            // 数据标签：等级 得分 击杀 BOSS
             ctx.font = `${rowFontSize}px arial`;
+            ctx.fillStyle = "#aaa";
+            ctx.fillText(String(totalGames - startIdx - i), colNo, curY);
+            // 各列数据（左对齐固定列宽）
             ctx.fillStyle = "#ccc";
-            const infoText = `${t("gameData.highLevel")}${rec.level}  ${t("gameData.score")}${rec.score}  ${t("gameData.kills")}×${rec.kills}  BOSS×${rec.bossKills}`;
-            ctx.fillText(infoText, leftX + Math.round(58 * fontScale), curY);
+            ctx.fillText(String(rec.level), colLv, curY);
+            ctx.fillText(String(rec.score), colSc, curY);
+            ctx.fillText("×" + rec.kills, colKl, curY);
+            ctx.fillText("×" + rec.bossKills, colBo, curY);
             // 删除按钮
             const delText = t("gameData.deleteRecord");
             ctx.textAlign = "right";
             ctx.fillStyle = "#f66";
             ctx.font = `${Math.round(10 * fontScale)}px arial`;
-            ctx.fillText(delText, rightX - Math.round(2 * fontScale), curY);
+            ctx.fillText(delText, delAreaRight, curY);
             const delW = ctx.measureText(delText).width + Math.round(6 * fontScale);
             gameDataHitAreas.push({
-                x: rightX - Math.round(2 * fontScale) - delW, w: delW,
+                x: delAreaRight - delW, w: delW,
                 y: curY - rowH + Math.round(4 * fontScale), h: rowH,
                 type: "deleteRecord",
                 recordId: rec.id,
