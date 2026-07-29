@@ -84,6 +84,7 @@ export type TextKey =
   | "gameData.deleteOne"         // "删除" / "DELETE"
   | "gameData.deleteAll"         // "删除全部数据" / "DELETE ALL DATA"
   | "gameData.deleteAllConfirm"  // "确认删除全部数据？" / "DELETE ALL DATA?"
+  | "gameData.deleteRecordConfirm" // "确认删除该对局记录？" / "DELETE THIS RECORD?"
   | "gameData.confirm"           // "确认" / "CONFIRM"
   | "gameData.cancel"            // "取消" / "CANCEL"
   | "gameData.back"              // "返回" / "BACK"
@@ -271,6 +272,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameData.deleteOne": "删除",
     "gameData.deleteAll": "删除全部数据",
     "gameData.deleteAllConfirm": "确认删除全部数据？",
+    "gameData.deleteRecordConfirm": "确认删除该对局记录？",
     "gameData.confirm": "确认",
     "gameData.cancel": "取消",
     "gameData.back": "返回",
@@ -444,6 +446,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameData.deleteOne": "DELETE",
     "gameData.deleteAll": "DELETE ALL DATA",
     "gameData.deleteAllConfirm": "DELETE ALL DATA?",
+    "gameData.deleteRecordConfirm": "DELETE THIS RECORD?",
     "gameData.confirm": "CONFIRM",
     "gameData.cancel": "CANCEL",
     "gameData.back": "BACK",
@@ -617,6 +620,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameData.deleteOne": "削除",
     "gameData.deleteAll": "全データ削除",
     "gameData.deleteAllConfirm": "全データを削除しますか？",
+    "gameData.deleteRecordConfirm": "この対局記録を削除しますか？",
     "gameData.confirm": "確認",
     "gameData.cancel": "キャンセル",
     "gameData.back": "戻る",
