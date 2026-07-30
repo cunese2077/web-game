@@ -866,232 +866,239 @@ function drawGameData() {
     ctx.stroke();
     curY += Math.round(22 * fontScale);
     // === 对局记录列表 ===
-    // 计算通用参数
-    const rowFontSize = Math.round(11 * fontScale);
-    const rowH = Math.round(22 * fontScale);
-    const totalPages = allRecords.length > 0 ? Math.ceil(allRecords.length / PAGE_SIZE) : 1;
-    if (currentPage > totalPages)
-        currentPage = totalPages;
-    const startIdx = (currentPage - 1) * PAGE_SIZE;
-    const pageRecords = allRecords.length > 0 ? allRecords.slice(startIdx, startIdx + PAGE_SIZE) : [];
-    const totalGames = stats.totalGames;
-    // 固定列宽布局（局号 | 等级 | 得分 | 击杀敌机数 | 击杀BOSS数 | 删除）
-    const colNo = leftX + Math.round(2 * fontScale); // 局号列起始
-    const colLv = colNo + Math.round(36 * fontScale); // 等级列起始
-    const colSc = colLv + Math.round(66 * fontScale); // 得分列起始
-    const colKl = colSc + Math.round(56 * fontScale); // 击杀敌机数列起始
-    const colBo = colKl + Math.round(72 * fontScale); // 击杀BOSS数列起始
-    const delAreaRight = rightX - Math.round(2 * fontScale);
-    // 表格标题
-    ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#ccc";
-    ctx.fillText(t("gameData.recordTitle"), cx, curY);
-    curY += Math.round(20 * fontScale);
-    // 表头
-    ctx.font = `bold ${rowFontSize}px arial`;
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#666";
-    ctx.fillText("#", colNo, curY);
-    ctx.fillText(t("gameData.highLevel"), colLv, curY);
-    ctx.fillText(t("gameData.score"), colSc, curY);
-    ctx.fillText(t("gameData.killsCol"), colKl, curY);
-    ctx.fillText(t("gameData.bossKillsCol"), colBo, curY);
-    curY += rowH;
-    // 数据行区域：固定10行高度（不使用 clip，避免裁剪文字 ascent）
-    const dataContainerH = PAGE_SIZE * rowH;
-    const dataContentY = curY;
-    // 无数据时在数据区域内居中显示提示
-    if (pageRecords.length === 0) {
+    if (allRecords.length === 0) {
+        // 无数据：仅在固定高度区域内居中显示提示
+        const rowH = Math.round(22 * fontScale);
+        const dataContainerH = PAGE_SIZE * rowH;
         ctx.textAlign = "center";
         ctx.fillStyle = "#666";
         ctx.font = `${Math.round(14 * fontScale)}px arial`;
-        ctx.fillText(t("gameData.noData"), cx, dataContentY + dataContainerH / 2);
-    }
-    for (let i = 0; i < pageRecords.length; i++) {
-        const rec = pageRecords[i];
-        // 行背景（交替色）
-        if (i % 2 === 0) {
-            ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-            ctx.fillRect(leftX, curY - rowH + Math.round(4 * fontScale), contentW, rowH);
-        }
-        // 局号
-        ctx.textAlign = "left";
-        ctx.font = `${rowFontSize}px arial`;
-        ctx.fillStyle = "#aaa";
-        ctx.fillText(String(totalGames - startIdx - i), colNo, curY);
-        // 各列数据（左对齐固定列宽）
-        ctx.fillStyle = "#ccc";
-        ctx.fillText(String(rec.level), colLv, curY);
-        ctx.fillText(String(rec.score), colSc, curY);
-        ctx.fillText("×" + rec.kills, colKl, curY);
-        ctx.fillText("×" + rec.bossKills, colBo, curY);
-        // 删除按钮
-        const delText = t("gameData.deleteRecord");
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#f66";
-        ctx.font = `${Math.round(10 * fontScale)}px arial`;
-        ctx.fillText(delText, delAreaRight, curY);
-        const delW = ctx.measureText(delText).width + Math.round(6 * fontScale);
-        gameDataHitAreas.push({
-            x: delAreaRight - delW, w: delW,
-            y: curY - rowH + Math.round(4 * fontScale), h: rowH,
-            type: "deleteRecord",
-            recordId: rec.id,
-        });
-        curY += rowH;
-    }
-    curY = dataContentY + dataContainerH;
-    // === 分页控制（固定在表格底部下方） ===
-    curY += Math.round(8 * fontScale);
-    ctx.textAlign = "center";
-    ctx.font = `${Math.round(14 * fontScale)}px arial`;
-    // 上一页
-    if (currentPage > 1) {
-        ctx.fillStyle = "#4af";
-        ctx.fillText(t("gameData.prevPage"), cx - Math.round(70 * fontScale), curY);
-        const prevW = ctx.measureText(t("gameData.prevPage")).width + Math.round(12 * fontScale);
-        gameDataHitAreas.push({
-            x: cx - Math.round(70 * fontScale) - prevW / 2, w: prevW,
-            y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
-            type: "prevPage",
-        });
-    }
-    // 页码
-    ctx.fillStyle = "#aaa";
-    const pageInfo = t("gameData.pageInfo").replace("{P}", String(currentPage)).replace("{T}", String(totalPages));
-    ctx.fillText(pageInfo, cx, curY);
-    // 下一页
-    if (currentPage < totalPages) {
-        ctx.fillStyle = "#4af";
-        ctx.fillText(t("gameData.nextPage"), cx + Math.round(70 * fontScale), curY);
-        const nextW = ctx.measureText(t("gameData.nextPage")).width + Math.round(12 * fontScale);
-        gameDataHitAreas.push({
-            x: cx + Math.round(70 * fontScale) - nextW / 2, w: nextW,
-            y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
-            type: "nextPage",
-        });
-    }
-    // === 底部：删除全部数据 ===
-    const bottomBtnY = height - Math.round(24 * fontScale);
-    ctx.textAlign = "center";
-    if (!deleteConfirmVisible) {
-        ctx.fillStyle = "#f66";
-        ctx.font = `${Math.round(14 * fontScale)}px arial`;
-        ctx.fillText(t("gameData.deleteAll"), cx, bottomBtnY);
-        const delAllW = ctx.measureText(t("gameData.deleteAll")).width + Math.round(16 * fontScale);
-        gameDataHitAreas.push({
-            x: cx - delAllW / 2, w: delAllW,
-            y: bottomBtnY - Math.round(22 * fontScale), h: Math.round(26 * fontScale),
-            type: "deleteAll",
-        });
+        ctx.fillText(t("gameData.noData"), cx, curY + dataContainerH / 2);
+        curY += dataContainerH;
     }
     else {
-        // 确认对话框 — 圆角卡片 + 半透明遮罩 + 按钮样式
-        // 半透明遮罩
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, width, height);
-        const dlgW = Math.round(280 * fontScale);
-        const dlgH = Math.round(140 * fontScale);
-        const dlgX = cx - dlgW / 2;
-        const dlgY = height / 2 - dlgH / 2;
-        const radius = Math.round(12 * fontScale);
-        // 卡片背景
-        ctx.fillStyle = "rgba(30, 30, 50, 0.95)";
-        ctx.beginPath();
-        ctx.moveTo(dlgX + radius, dlgY);
-        ctx.lineTo(dlgX + dlgW - radius, dlgY);
-        ctx.quadraticCurveTo(dlgX + dlgW, dlgY, dlgX + dlgW, dlgY + radius);
-        ctx.lineTo(dlgX + dlgW, dlgY + dlgH - radius);
-        ctx.quadraticCurveTo(dlgX + dlgW, dlgY + dlgH, dlgX + dlgW - radius, dlgY + dlgH);
-        ctx.lineTo(dlgX + radius, dlgY + dlgH);
-        ctx.quadraticCurveTo(dlgX, dlgY + dlgH, dlgX, dlgY + dlgH - radius);
-        ctx.lineTo(dlgX, dlgY + radius);
-        ctx.quadraticCurveTo(dlgX, dlgY, dlgX + radius, dlgY);
-        ctx.closePath();
-        ctx.fill();
-        // 边框
-        ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // 顶部警告色条
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(dlgX + radius, dlgY);
-        ctx.lineTo(dlgX + dlgW - radius, dlgY);
-        ctx.quadraticCurveTo(dlgX + dlgW, dlgY, dlgX + dlgW, dlgY + radius);
-        ctx.lineTo(dlgX + dlgW, dlgY + radius);
-        ctx.lineTo(dlgX, dlgY + radius);
-        ctx.lineTo(dlgX, dlgY + radius);
-        ctx.quadraticCurveTo(dlgX, dlgY, dlgX + radius, dlgY);
-        ctx.closePath();
-        ctx.clip();
-        const barH = Math.round(4 * fontScale);
-        const barGrad = ctx.createLinearGradient(dlgX, dlgY, dlgX + dlgW, dlgY);
-        barGrad.addColorStop(0, "#f66");
-        barGrad.addColorStop(1, "#f90");
-        ctx.fillStyle = barGrad;
-        ctx.fillRect(dlgX, dlgY, dlgW, barH + radius);
-        ctx.restore();
-        // 提示文字
-        ctx.fillStyle = "#fff";
+        // 有数据：显示表格标题 + 表头 + 数据行 + 分页
+        const totalPages = Math.ceil(allRecords.length / PAGE_SIZE);
+        if (currentPage > totalPages)
+            currentPage = totalPages;
+        const startIdx = (currentPage - 1) * PAGE_SIZE;
+        const pageRecords = allRecords.slice(startIdx, startIdx + PAGE_SIZE);
+        const totalGames = stats.totalGames;
+        const rowFontSize = Math.round(11 * fontScale);
+        const rowH = Math.round(22 * fontScale);
+        // 固定列宽布局（局号 | 等级 | 得分 | 击杀敌机数 | 击杀BOSS数 | 删除）
+        const colNo = leftX + Math.round(2 * fontScale); // 局号列起始
+        const colLv = colNo + Math.round(36 * fontScale); // 等级列起始
+        const colSc = colLv + Math.round(66 * fontScale); // 得分列起始
+        const colKl = colSc + Math.round(56 * fontScale); // 击杀敌机数列起始
+        const colBo = colKl + Math.round(72 * fontScale); // 击杀BOSS数列起始
+        const delAreaRight = rightX - Math.round(2 * fontScale);
+        // 表格标题
         ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
         ctx.textAlign = "center";
-        ctx.fillText(pendingDeleteRecordId !== null ? t("gameData.deleteRecordConfirm") : t("gameData.deleteAllConfirm"), cx, dlgY + Math.round(52 * fontScale));
-        // 按钮区域
-        const btnW = Math.round(90 * fontScale);
-        const btnH = Math.round(32 * fontScale);
-        const btnY = dlgY + dlgH - Math.round(46 * fontScale);
-        const btnGap = Math.round(20 * fontScale);
-        const confirmX = cx - btnW - btnGap / 2;
-        const cancelX = cx + btnGap / 2;
-        // 确认按钮 — 红色填充
-        ctx.fillStyle = "#c44";
-        ctx.beginPath();
-        const btnR = Math.round(6 * fontScale);
-        ctx.moveTo(confirmX + btnR, btnY);
-        ctx.lineTo(confirmX + btnW - btnR, btnY);
-        ctx.quadraticCurveTo(confirmX + btnW, btnY, confirmX + btnW, btnY + btnR);
-        ctx.lineTo(confirmX + btnW, btnY + btnH - btnR);
-        ctx.quadraticCurveTo(confirmX + btnW, btnY + btnH, confirmX + btnW - btnR, btnY + btnH);
-        ctx.lineTo(confirmX + btnR, btnY + btnH);
-        ctx.quadraticCurveTo(confirmX, btnY + btnH, confirmX, btnY + btnH - btnR);
-        ctx.lineTo(confirmX, btnY + btnR);
-        ctx.quadraticCurveTo(confirmX, btnY, confirmX + btnR, btnY);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
-        ctx.fillText(t("gameData.confirm"), confirmX + btnW / 2, btnY + btnH / 2 + Math.round(5 * fontScale));
-        gameDataHitAreas.push({
-            x: confirmX, w: btnW,
-            y: btnY, h: btnH,
-            type: "confirm",
-        });
-        // 取消按钮 — 边框样式
-        ctx.strokeStyle = "#888";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(cancelX + btnR, btnY);
-        ctx.lineTo(cancelX + btnW - btnR, btnY);
-        ctx.quadraticCurveTo(cancelX + btnW, btnY, cancelX + btnW, btnY + btnR);
-        ctx.lineTo(cancelX + btnW, btnY + btnH - btnR);
-        ctx.quadraticCurveTo(cancelX + btnW, btnY + btnH, cancelX + btnW - btnR, btnY + btnH);
-        ctx.lineTo(cancelX + btnR, btnY + btnH);
-        ctx.quadraticCurveTo(cancelX, btnY + btnH, cancelX, btnY + btnH - btnR);
-        ctx.lineTo(cancelX, btnY + btnR);
-        ctx.quadraticCurveTo(cancelX, btnY, cancelX + btnR, btnY);
-        ctx.closePath();
-        ctx.stroke();
         ctx.fillStyle = "#ccc";
-        ctx.font = `${Math.round(13 * fontScale)}px arial`;
-        ctx.fillText(t("gameData.cancel"), cancelX + btnW / 2, btnY + btnH / 2 + Math.round(5 * fontScale));
-        gameDataHitAreas.push({
-            x: cancelX, w: btnW,
-            y: btnY, h: btnH,
-            type: "cancel",
-        });
+        ctx.fillText(t("gameData.recordTitle"), cx, curY);
+        curY += Math.round(20 * fontScale);
+        // 表头
+        ctx.font = `bold ${rowFontSize}px arial`;
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#666";
+        ctx.fillText("#", colNo, curY);
+        ctx.fillText(t("gameData.highLevel"), colLv, curY);
+        ctx.fillText(t("gameData.score"), colSc, curY);
+        ctx.fillText(t("gameData.killsCol"), colKl, curY);
+        ctx.fillText(t("gameData.bossKillsCol"), colBo, curY);
+        curY += rowH;
+        // 数据行区域：固定10行高度
+        const dataContainerH = PAGE_SIZE * rowH;
+        const dataContentY = curY;
+        for (let i = 0; i < pageRecords.length; i++) {
+            const rec = pageRecords[i];
+            // 行背景（交替色）
+            if (i % 2 === 0) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+                ctx.fillRect(leftX, curY - rowH + Math.round(4 * fontScale), contentW, rowH);
+            }
+            // 局号
+            ctx.textAlign = "left";
+            ctx.font = `${rowFontSize}px arial`;
+            ctx.fillStyle = "#aaa";
+            ctx.fillText(String(totalGames - startIdx - i), colNo, curY);
+            // 各列数据（左对齐固定列宽）
+            ctx.fillStyle = "#ccc";
+            ctx.fillText(String(rec.level), colLv, curY);
+            ctx.fillText(String(rec.score), colSc, curY);
+            ctx.fillText("×" + rec.kills, colKl, curY);
+            ctx.fillText("×" + rec.bossKills, colBo, curY);
+            // 删除按钮
+            const delText = t("gameData.deleteRecord");
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#f66";
+            ctx.font = `${Math.round(10 * fontScale)}px arial`;
+            ctx.fillText(delText, delAreaRight, curY);
+            const delW = ctx.measureText(delText).width + Math.round(6 * fontScale);
+            gameDataHitAreas.push({
+                x: delAreaRight - delW, w: delW,
+                y: curY - rowH + Math.round(4 * fontScale), h: rowH,
+                type: "deleteRecord",
+                recordId: rec.id,
+            });
+            curY += rowH;
+        }
+        curY = dataContentY + dataContainerH;
+        // === 分页控制（固定在表格底部下方） ===
+        curY += Math.round(8 * fontScale);
+        ctx.textAlign = "center";
+        ctx.font = `${Math.round(14 * fontScale)}px arial`;
+        // 上一页
+        if (currentPage > 1) {
+            ctx.fillStyle = "#4af";
+            ctx.fillText(t("gameData.prevPage"), cx - Math.round(70 * fontScale), curY);
+            const prevW = ctx.measureText(t("gameData.prevPage")).width + Math.round(12 * fontScale);
+            gameDataHitAreas.push({
+                x: cx - Math.round(70 * fontScale) - prevW / 2, w: prevW,
+                y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
+                type: "prevPage",
+            });
+        }
+        // 页码
+        ctx.fillStyle = "#aaa";
+        const pageInfo = t("gameData.pageInfo").replace("{P}", String(currentPage)).replace("{T}", String(totalPages));
+        ctx.fillText(pageInfo, cx, curY);
+        // 下一页
+        if (currentPage < totalPages) {
+            ctx.fillStyle = "#4af";
+            ctx.fillText(t("gameData.nextPage"), cx + Math.round(70 * fontScale), curY);
+            const nextW = ctx.measureText(t("gameData.nextPage")).width + Math.round(12 * fontScale);
+            gameDataHitAreas.push({
+                x: cx + Math.round(70 * fontScale) - nextW / 2, w: nextW,
+                y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
+                type: "nextPage",
+            });
+        }
     }
+    // === 底部：删除全部数据（无数据时隐藏） ===
+    if (allRecords.length > 0) {
+        const bottomBtnY = height - Math.round(24 * fontScale);
+        ctx.textAlign = "center";
+        if (!deleteConfirmVisible) {
+            ctx.fillStyle = "#f66";
+            ctx.font = `${Math.round(14 * fontScale)}px arial`;
+            ctx.fillText(t("gameData.deleteAll"), cx, bottomBtnY);
+            const delAllW = ctx.measureText(t("gameData.deleteAll")).width + Math.round(16 * fontScale);
+            gameDataHitAreas.push({
+                x: cx - delAllW / 2, w: delAllW,
+                y: bottomBtnY - Math.round(22 * fontScale), h: Math.round(26 * fontScale),
+                type: "deleteAll",
+            });
+        }
+        else {
+            // 确认对话框 — 圆角卡片 + 半透明遮罩 + 按钮样式
+            // 半透明遮罩
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.fillRect(0, 0, width, height);
+            const dlgW = Math.round(280 * fontScale);
+            const dlgH = Math.round(140 * fontScale);
+            const dlgX = cx - dlgW / 2;
+            const dlgY = height / 2 - dlgH / 2;
+            const radius = Math.round(12 * fontScale);
+            // 卡片背景
+            ctx.fillStyle = "rgba(30, 30, 50, 0.95)";
+            ctx.beginPath();
+            ctx.moveTo(dlgX + radius, dlgY);
+            ctx.lineTo(dlgX + dlgW - radius, dlgY);
+            ctx.quadraticCurveTo(dlgX + dlgW, dlgY, dlgX + dlgW, dlgY + radius);
+            ctx.lineTo(dlgX + dlgW, dlgY + dlgH - radius);
+            ctx.quadraticCurveTo(dlgX + dlgW, dlgY + dlgH, dlgX + dlgW - radius, dlgY + dlgH);
+            ctx.lineTo(dlgX + radius, dlgY + dlgH);
+            ctx.quadraticCurveTo(dlgX, dlgY + dlgH, dlgX, dlgY + dlgH - radius);
+            ctx.lineTo(dlgX, dlgY + radius);
+            ctx.quadraticCurveTo(dlgX, dlgY, dlgX + radius, dlgY);
+            ctx.closePath();
+            ctx.fill();
+            // 边框
+            ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // 顶部警告色条
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(dlgX + radius, dlgY);
+            ctx.lineTo(dlgX + dlgW - radius, dlgY);
+            ctx.quadraticCurveTo(dlgX + dlgW, dlgY, dlgX + dlgW, dlgY + radius);
+            ctx.lineTo(dlgX + dlgW, dlgY + radius);
+            ctx.lineTo(dlgX, dlgY + radius);
+            ctx.lineTo(dlgX, dlgY + radius);
+            ctx.quadraticCurveTo(dlgX, dlgY, dlgX + radius, dlgY);
+            ctx.closePath();
+            ctx.clip();
+            const barH = Math.round(4 * fontScale);
+            const barGrad = ctx.createLinearGradient(dlgX, dlgY, dlgX + dlgW, dlgY);
+            barGrad.addColorStop(0, "#f66");
+            barGrad.addColorStop(1, "#f90");
+            ctx.fillStyle = barGrad;
+            ctx.fillRect(dlgX, dlgY, dlgW, barH + radius);
+            ctx.restore();
+            // 提示文字
+            ctx.fillStyle = "#fff";
+            ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
+            ctx.textAlign = "center";
+            ctx.fillText(pendingDeleteRecordId !== null ? t("gameData.deleteRecordConfirm") : t("gameData.deleteAllConfirm"), cx, dlgY + Math.round(52 * fontScale));
+            // 按钮区域
+            const btnW = Math.round(90 * fontScale);
+            const btnH = Math.round(32 * fontScale);
+            const btnY = dlgY + dlgH - Math.round(46 * fontScale);
+            const btnGap = Math.round(20 * fontScale);
+            const confirmX = cx - btnW - btnGap / 2;
+            const cancelX = cx + btnGap / 2;
+            // 确认按钮 — 红色填充
+            ctx.fillStyle = "#c44";
+            ctx.beginPath();
+            const btnR = Math.round(6 * fontScale);
+            ctx.moveTo(confirmX + btnR, btnY);
+            ctx.lineTo(confirmX + btnW - btnR, btnY);
+            ctx.quadraticCurveTo(confirmX + btnW, btnY, confirmX + btnW, btnY + btnR);
+            ctx.lineTo(confirmX + btnW, btnY + btnH - btnR);
+            ctx.quadraticCurveTo(confirmX + btnW, btnY + btnH, confirmX + btnW - btnR, btnY + btnH);
+            ctx.lineTo(confirmX + btnR, btnY + btnH);
+            ctx.quadraticCurveTo(confirmX, btnY + btnH, confirmX, btnY + btnH - btnR);
+            ctx.lineTo(confirmX, btnY + btnR);
+            ctx.quadraticCurveTo(confirmX, btnY, confirmX + btnR, btnY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#fff";
+            ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
+            ctx.fillText(t("gameData.confirm"), confirmX + btnW / 2, btnY + btnH / 2 + Math.round(5 * fontScale));
+            gameDataHitAreas.push({
+                x: confirmX, w: btnW,
+                y: btnY, h: btnH,
+                type: "confirm",
+            });
+            // 取消按钮 — 边框样式
+            ctx.strokeStyle = "#888";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cancelX + btnR, btnY);
+            ctx.lineTo(cancelX + btnW - btnR, btnY);
+            ctx.quadraticCurveTo(cancelX + btnW, btnY, cancelX + btnW, btnY + btnR);
+            ctx.lineTo(cancelX + btnW, btnY + btnH - btnR);
+            ctx.quadraticCurveTo(cancelX + btnW, btnY + btnH, cancelX + btnW - btnR, btnY + btnH);
+            ctx.lineTo(cancelX + btnR, btnY + btnH);
+            ctx.quadraticCurveTo(cancelX, btnY + btnH, cancelX, btnY + btnH - btnR);
+            ctx.lineTo(cancelX, btnY + btnR);
+            ctx.quadraticCurveTo(cancelX, btnY, cancelX + btnR, btnY);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = "#ccc";
+            ctx.font = `${Math.round(13 * fontScale)}px arial`;
+            ctx.fillText(t("gameData.cancel"), cancelX + btnW / 2, btnY + btnH / 2 + Math.round(5 * fontScale));
+            gameDataHitAreas.push({
+                x: cancelX, w: btnW,
+                y: btnY, h: btnH,
+                type: "cancel",
+            });
+        }
+    } // end if allRecords.length > 0
     // === Tooltip 绘制（鼠标悬停在 info 图标上） ===
     tooltipVisible = false;
     if (mouseX >= 0 && mouseY >= 0) {

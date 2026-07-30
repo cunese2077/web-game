@@ -1022,133 +1022,138 @@ function drawGameData(): void {
   curY += Math.round(22 * fontScale);
 
   // === 对局记录列表 ===
-  // 计算通用参数
-  const rowFontSize = Math.round(11 * fontScale);
-  const rowH = Math.round(22 * fontScale);
-  const totalPages = allRecords.length > 0 ? Math.ceil(allRecords.length / PAGE_SIZE) : 1;
-  if (currentPage > totalPages) currentPage = totalPages;
-  const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const pageRecords = allRecords.length > 0 ? allRecords.slice(startIdx, startIdx + PAGE_SIZE) : [];
-  const totalGames = stats.totalGames;
-
-  // 固定列宽布局（局号 | 等级 | 得分 | 击杀敌机数 | 击杀BOSS数 | 删除）
-  const colNo = leftX + Math.round(2 * fontScale);        // 局号列起始
-  const colLv = colNo + Math.round(36 * fontScale);       // 等级列起始
-  const colSc = colLv + Math.round(66 * fontScale);       // 得分列起始
-  const colKl = colSc + Math.round(56 * fontScale);       // 击杀敌机数列起始
-  const colBo = colKl + Math.round(72 * fontScale);       // 击杀BOSS数列起始
-  const delAreaRight = rightX - Math.round(2 * fontScale);
-
-  // 表格标题
-  ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#ccc";
-  ctx.fillText(t("gameData.recordTitle"), cx, curY);
-  curY += Math.round(20 * fontScale);
-
-  // 表头
-  ctx.font = `bold ${rowFontSize}px arial`;
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#666";
-  ctx.fillText("#", colNo, curY);
-  ctx.fillText(t("gameData.highLevel"), colLv, curY);
-  ctx.fillText(t("gameData.score"), colSc, curY);
-  ctx.fillText(t("gameData.killsCol"), colKl, curY);
-  ctx.fillText(t("gameData.bossKillsCol"), colBo, curY);
-  curY += rowH;
-
-  // 数据行区域：固定10行高度（不使用 clip，避免裁剪文字 ascent）
-  const dataContainerH = PAGE_SIZE * rowH;
-  const dataContentY = curY;
-
-  // 无数据时在数据区域内居中显示提示
-  if (pageRecords.length === 0) {
+  if (allRecords.length === 0) {
+    // 无数据：仅在固定高度区域内居中显示提示
+    const rowH = Math.round(22 * fontScale);
+    const dataContainerH = PAGE_SIZE * rowH;
     ctx.textAlign = "center";
     ctx.fillStyle = "#666";
     ctx.font = `${Math.round(14 * fontScale)}px arial`;
-    ctx.fillText(t("gameData.noData"), cx, dataContentY + dataContainerH / 2);
-  }
+    ctx.fillText(t("gameData.noData"), cx, curY + dataContainerH / 2);
+    curY += dataContainerH;
+  } else {
+    // 有数据：显示表格标题 + 表头 + 数据行 + 分页
+    const totalPages = Math.ceil(allRecords.length / PAGE_SIZE);
+    if (currentPage > totalPages) currentPage = totalPages;
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    const pageRecords = allRecords.slice(startIdx, startIdx + PAGE_SIZE);
+    const totalGames = stats.totalGames;
 
-  for (let i = 0; i < pageRecords.length; i++) {
-    const rec = pageRecords[i];
+    const rowFontSize = Math.round(11 * fontScale);
+    const rowH = Math.round(22 * fontScale);
 
-    // 行背景（交替色）
-    if (i % 2 === 0) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-      ctx.fillRect(leftX, curY - rowH + Math.round(4 * fontScale), contentW, rowH);
+    // 固定列宽布局（局号 | 等级 | 得分 | 击杀敌机数 | 击杀BOSS数 | 删除）
+    const colNo = leftX + Math.round(2 * fontScale);        // 局号列起始
+    const colLv = colNo + Math.round(36 * fontScale);       // 等级列起始
+    const colSc = colLv + Math.round(66 * fontScale);       // 得分列起始
+    const colKl = colSc + Math.round(56 * fontScale);       // 击杀敌机数列起始
+    const colBo = colKl + Math.round(72 * fontScale);       // 击杀BOSS数列起始
+    const delAreaRight = rightX - Math.round(2 * fontScale);
+
+    // 表格标题
+    ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ccc";
+    ctx.fillText(t("gameData.recordTitle"), cx, curY);
+    curY += Math.round(20 * fontScale);
+
+    // 表头
+    ctx.font = `bold ${rowFontSize}px arial`;
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#666";
+    ctx.fillText("#", colNo, curY);
+    ctx.fillText(t("gameData.highLevel"), colLv, curY);
+    ctx.fillText(t("gameData.score"), colSc, curY);
+    ctx.fillText(t("gameData.killsCol"), colKl, curY);
+    ctx.fillText(t("gameData.bossKillsCol"), colBo, curY);
+    curY += rowH;
+
+    // 数据行区域：固定10行高度
+    const dataContainerH = PAGE_SIZE * rowH;
+    const dataContentY = curY;
+
+    for (let i = 0; i < pageRecords.length; i++) {
+      const rec = pageRecords[i];
+
+      // 行背景（交替色）
+      if (i % 2 === 0) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+        ctx.fillRect(leftX, curY - rowH + Math.round(4 * fontScale), contentW, rowH);
+      }
+
+      // 局号
+      ctx.textAlign = "left";
+      ctx.font = `${rowFontSize}px arial`;
+      ctx.fillStyle = "#aaa";
+      ctx.fillText(String(totalGames - startIdx - i), colNo, curY);
+
+      // 各列数据（左对齐固定列宽）
+      ctx.fillStyle = "#ccc";
+      ctx.fillText(String(rec.level), colLv, curY);
+      ctx.fillText(String(rec.score), colSc, curY);
+      ctx.fillText("×" + rec.kills, colKl, curY);
+      ctx.fillText("×" + rec.bossKills, colBo, curY);
+
+      // 删除按钮
+      const delText = t("gameData.deleteRecord");
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#f66";
+      ctx.font = `${Math.round(10 * fontScale)}px arial`;
+      ctx.fillText(delText, delAreaRight, curY);
+      const delW = ctx.measureText(delText).width + Math.round(6 * fontScale);
+      gameDataHitAreas.push({
+        x: delAreaRight - delW, w: delW,
+        y: curY - rowH + Math.round(4 * fontScale), h: rowH,
+        type: "deleteRecord",
+        recordId: rec.id,
+      });
+
+      curY += rowH;
     }
 
-    // 局号
-    ctx.textAlign = "left";
-    ctx.font = `${rowFontSize}px arial`;
+    curY = dataContentY + dataContainerH;
+
+    // === 分页控制（固定在表格底部下方） ===
+    curY += Math.round(8 * fontScale);
+    ctx.textAlign = "center";
+    ctx.font = `${Math.round(14 * fontScale)}px arial`;
+
+    // 上一页
+    if (currentPage > 1) {
+      ctx.fillStyle = "#4af";
+      ctx.fillText(t("gameData.prevPage"), cx - Math.round(70 * fontScale), curY);
+      const prevW = ctx.measureText(t("gameData.prevPage")).width + Math.round(12 * fontScale);
+      gameDataHitAreas.push({
+        x: cx - Math.round(70 * fontScale) - prevW / 2, w: prevW,
+        y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
+        type: "prevPage",
+      });
+    }
+
+    // 页码
     ctx.fillStyle = "#aaa";
-    ctx.fillText(String(totalGames - startIdx - i), colNo, curY);
+    const pageInfo = t("gameData.pageInfo").replace("{P}", String(currentPage)).replace("{T}", String(totalPages));
+    ctx.fillText(pageInfo, cx, curY);
 
-    // 各列数据（左对齐固定列宽）
-    ctx.fillStyle = "#ccc";
-    ctx.fillText(String(rec.level), colLv, curY);
-    ctx.fillText(String(rec.score), colSc, curY);
-    ctx.fillText("×" + rec.kills, colKl, curY);
-    ctx.fillText("×" + rec.bossKills, colBo, curY);
-
-    // 删除按钮
-    const delText = t("gameData.deleteRecord");
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#f66";
-    ctx.font = `${Math.round(10 * fontScale)}px arial`;
-    ctx.fillText(delText, delAreaRight, curY);
-    const delW = ctx.measureText(delText).width + Math.round(6 * fontScale);
-    gameDataHitAreas.push({
-      x: delAreaRight - delW, w: delW,
-      y: curY - rowH + Math.round(4 * fontScale), h: rowH,
-      type: "deleteRecord",
-      recordId: rec.id,
-    });
-
-    curY += rowH;
+    // 下一页
+    if (currentPage < totalPages) {
+      ctx.fillStyle = "#4af";
+      ctx.fillText(t("gameData.nextPage"), cx + Math.round(70 * fontScale), curY);
+      const nextW = ctx.measureText(t("gameData.nextPage")).width + Math.round(12 * fontScale);
+      gameDataHitAreas.push({
+        x: cx + Math.round(70 * fontScale) - nextW / 2, w: nextW,
+        y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
+        type: "nextPage",
+      });
+    }
   }
 
-  curY = dataContentY + dataContainerH;
+  // === 底部：删除全部数据（无数据时隐藏） ===
+  if (allRecords.length > 0) {
+    const bottomBtnY = height - Math.round(24 * fontScale);
+    ctx.textAlign = "center";
 
-  // === 分页控制（固定在表格底部下方） ===
-  curY += Math.round(8 * fontScale);
-  ctx.textAlign = "center";
-  ctx.font = `${Math.round(14 * fontScale)}px arial`;
-
-  // 上一页
-  if (currentPage > 1) {
-    ctx.fillStyle = "#4af";
-    ctx.fillText(t("gameData.prevPage"), cx - Math.round(70 * fontScale), curY);
-    const prevW = ctx.measureText(t("gameData.prevPage")).width + Math.round(12 * fontScale);
-    gameDataHitAreas.push({
-      x: cx - Math.round(70 * fontScale) - prevW / 2, w: prevW,
-      y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
-      type: "prevPage",
-    });
-  }
-
-  // 页码
-  ctx.fillStyle = "#aaa";
-  const pageInfo = t("gameData.pageInfo").replace("{P}", String(currentPage)).replace("{T}", String(totalPages));
-  ctx.fillText(pageInfo, cx, curY);
-
-  // 下一页
-  if (currentPage < totalPages) {
-    ctx.fillStyle = "#4af";
-    ctx.fillText(t("gameData.nextPage"), cx + Math.round(70 * fontScale), curY);
-    const nextW = ctx.measureText(t("gameData.nextPage")).width + Math.round(12 * fontScale);
-    gameDataHitAreas.push({
-      x: cx + Math.round(70 * fontScale) - nextW / 2, w: nextW,
-      y: curY - Math.round(20 * fontScale), h: Math.round(24 * fontScale),
-      type: "nextPage",
-    });
-  }
-
-  // === 底部：删除全部数据 ===
-  const bottomBtnY = height - Math.round(24 * fontScale);
-  ctx.textAlign = "center";
-
-  if (!deleteConfirmVisible) {
+    if (!deleteConfirmVisible) {
     ctx.fillStyle = "#f66";
     ctx.font = `${Math.round(14 * fontScale)}px arial`;
     ctx.fillText(t("gameData.deleteAll"), cx, bottomBtnY);
@@ -1275,6 +1280,7 @@ function drawGameData(): void {
       type: "cancel",
     });
   }
+  } // end if allRecords.length > 0
 
   // === Tooltip 绘制（鼠标悬停在 info 图标上） ===
   tooltipVisible = false;
