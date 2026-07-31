@@ -671,12 +671,12 @@ function drawGameOver(): void {
   curY += Math.round(28 * fontScale);
 
   // 等级 + 总经验
-  ctx.fillStyle = "#fd0";
+  ctx.fillStyle = "#fff";
   ctx.font = `${Math.round(20 * fontScale)}px arial`;
   ctx.fillText(t("gameOver.level") + getLevel() + t("gameOver.totalExp") + getTotalExp(), cx, curY);
   curY += Math.round(24 * fontScale);
 
-  // 历史最高分/最高等级（新纪录时高亮）
+  // 历史最高分/最高等级（新纪录时醒目提示）
   const score = getGameScore();
   const level = getLevel();
   const highScore = getHighScore();
@@ -684,15 +684,35 @@ function drawGameOver(): void {
   const isNewScore = score >= highScore && score > 0;
   const isNewLevel = level >= highLevel && level > 1;
 
+  if (isNewScore || isNewLevel) {
+    // 新纪录醒目提示：大字 + 发光 + 星号装饰（增大与上方的距离）
+    curY += Math.round(6 * fontScale);
+    ctx.save();
+    ctx.font = `bold ${Math.round(24 * fontScale)}px arial`;
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#ffd700";
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = "#ffd700";
+    if (isNewScore && isNewLevel) {
+      ctx.fillText("★ " + t("gameOver.newRecord") + " ★", cx, curY);
+    } else if (isNewScore) {
+      ctx.fillText(t("gameOver.highScore") + " " + t("gameOver.newRecord"), cx, curY);
+    } else {
+      ctx.fillText(t("gameOver.highLevel") + " " + t("gameOver.newRecord"), cx, curY);
+    }
+    ctx.restore();
+    curY += Math.round(30 * fontScale);
+  }
+
   ctx.font = `${Math.round(16 * fontScale)}px arial`;
-  if (highScore > 0 || isNewScore) {
-    ctx.fillStyle = isNewScore ? "#ffd700" : "#888";
-    ctx.fillText(t("gameOver.highScore") + highScore + (isNewScore ? " " + t("gameOver.newRecord") : ""), cx, curY);
+  if (highScore > 0) {
+    ctx.fillStyle = "#888";
+    ctx.fillText(t("gameOver.highScore") + highScore, cx, curY);
     curY += Math.round(22 * fontScale);
   }
-  if (highLevel > 0 || isNewLevel) {
-    ctx.fillStyle = isNewLevel ? "#ffd700" : "#888";
-    ctx.fillText(t("gameOver.highLevel") + highLevel + (isNewLevel ? " " + t("gameOver.newRecord") : ""), cx, curY);
+  if (highLevel > 0) {
+    ctx.fillStyle = "#888";
+    ctx.fillText(t("gameOver.highLevel") + highLevel, cx, curY);
     curY += Math.round(22 * fontScale);
   }
 
