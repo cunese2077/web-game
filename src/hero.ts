@@ -36,6 +36,7 @@ import type { GamePhase, BuffState, BuffFloat, ItemType } from "./types.js";
 
 let activeHero: Hero | null = null;
 let eventsBound: boolean = false;
+let _pauseBtnArea: { x: number; y: number; w: number; h: number } = { x: 0, y: 0, w: 0, h: 0 };
 
 function bindEventsOnce(): void {
   if (eventsBound) return;
@@ -44,17 +45,19 @@ function bindEventsOnce(): void {
   const move = (e: MouseEvent | TouchEvent): void => {
     if (!activeHero) return;
     const curPhase = activeHero._getCurrentPhase();
-    if (curPhase === PHASE_PLAY || curPhase === PHASE_PAUSE || curPhase === PHASE_BOSS_WARNING || curPhase === PHASE_BOSS) {
-      // 仅从暂停恢复到游戏中；BOSS 预警/战斗阶段保持不变
-      if (curPhase === PHASE_PAUSE) {
-        activeHero._setCurrentPhase(PHASE_PLAY);
-      }
+    if (curPhase === PHASE_PLAY || curPhase === PHASE_BOSS_WARNING || curPhase === PHASE_BOSS) {
       const offsetX = e instanceof MouseEvent ? e.offsetX : e.touches[0].pageX;
       const offsetY = e instanceof MouseEvent ? e.offsetY : e.touches[0].pageY;
       // 排除音效按钮区域：点击按钮时不应移动战机
       const sndArea = getSoundIconArea();
       if (offsetX >= sndArea.x && offsetX < sndArea.x + sndArea.w &&
           offsetY >= sndArea.y && offsetY < sndArea.y + sndArea.h) {
+        return;
+      }
+      // 排除暂停按钮区域：点击按钮时不应移动战机
+      const pauseArea = getPauseBtnArea();
+      if (offsetX >= pauseArea.x && offsetX < pauseArea.x + pauseArea.w &&
+          offsetY >= pauseArea.y && offsetY < pauseArea.y + pauseArea.h) {
         return;
       }
       // 排除调试面板区域：点击调试按钮时不应移动战机
@@ -86,6 +89,7 @@ function bindEventsOnce(): void {
   canvas.addEventListener("mousemove", move as EventListener, false);
   canvas.addEventListener("touchmove", move as EventListener, false);
 
+  // Web 端鼠标移出画布时暂停（移动端无 mouseout 事件，通过 HUD 暂停按钮触发）
   canvas.onmouseout = (): void => {
     if (!activeHero) return;
     const phase = activeHero._getCurrentPhase();
@@ -181,7 +185,7 @@ class Hero {
     // 确保 hp 不超过 maxHp
     if (this.hp > this.maxHp) this.hp = this.maxHp;
 
-    if (curPhase !== PHASE_LEVEL_UP) {
+    if (curPhase !== PHASE_LEVEL_UP && curPhase !== PHASE_PAUSE) {
       this._tickBuffs();
       // BOSS 预警/战斗期间延迟升级选择，避免抢夺阶段控制权
       if (curPhase !== PHASE_BOSS_WARNING && curPhase !== PHASE_BOSS) {
@@ -217,7 +221,7 @@ class Hero {
     this._drawBuffFloats();
     this._drawStats();
 
-    if (!this.dying) {
+    if (!this.dying && curPhase !== PHASE_PAUSE) {
       const pickedTypes = Item.checkCollision(this.x, this.y, heroImg[0].width, heroImg[0].height);
       this._handleItemPickup(pickedTypes);
     }
@@ -593,6 +597,44 @@ class Hero {
     }
     ctx.restore();
 
+    // 暂停按钮（音效按钮左侧，远离经验条）
+    const pauseBtnX = btnX - btnW - Math.round(6 * fontScale);
+    const pauseBtnY = btnY;
+    const pauseBtnW = btnW;
+    const pauseBtnH = btnH;
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.beginPath();
+    ctx.moveTo(pauseBtnX + btnR, pauseBtnY);
+    ctx.lineTo(pauseBtnX + pauseBtnW - btnR, pauseBtnY);
+    ctx.arcTo(pauseBtnX + pauseBtnW, pauseBtnY, pauseBtnX + pauseBtnW, pauseBtnY + btnR, btnR);
+    ctx.lineTo(pauseBtnX + pauseBtnW, pauseBtnY + pauseBtnH - btnR);
+    ctx.arcTo(pauseBtnX + pauseBtnW, pauseBtnY + pauseBtnH, pauseBtnX + pauseBtnW - btnR, pauseBtnY + pauseBtnH, btnR);
+    ctx.lineTo(pauseBtnX + btnR, pauseBtnY + pauseBtnH);
+    ctx.arcTo(pauseBtnX, pauseBtnY + pauseBtnH, pauseBtnX, pauseBtnY + pauseBtnH - btnR, btnR);
+    ctx.lineTo(pauseBtnX, pauseBtnY + btnR);
+    ctx.arcTo(pauseBtnX, pauseBtnY, pauseBtnX + btnR, pauseBtnY, btnR);
+    ctx.closePath();
+    ctx.fill();
+    // 双竖线暂停图标
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = Math.round(2.5 * fontScale);
+    ctx.lineCap = "round";
+    const pauseCenterX = pauseBtnX + pauseBtnW / 2;
+    const pauseCenterY = pauseBtnY + pauseBtnH / 2;
+    const barLen = Math.round(6 * fontScale);
+    const barGap = Math.round(3 * fontScale);
+    ctx.beginPath();
+    ctx.moveTo(pauseCenterX - barGap, pauseCenterY - barLen);
+    ctx.lineTo(pauseCenterX - barGap, pauseCenterY + barLen);
+    ctx.moveTo(pauseCenterX + barGap, pauseCenterY - barLen);
+    ctx.lineTo(pauseCenterX + barGap, pauseCenterY + barLen);
+    ctx.stroke();
+    ctx.restore();
+
+    // 记录暂停按钮区域
+    _pauseBtnArea = { x: pauseBtnX, y: pauseBtnY, w: pauseBtnW, h: pauseBtnH };
+
     ctx.textAlign = "left";
   }
 
@@ -873,5 +915,9 @@ function getSoundIconArea(): { x: number; y: number; w: number; h: number } {
   };
 }
 
-export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, initUpgrades };
+function getPauseBtnArea(): { x: number; y: number; w: number; h: number } {
+  return _pauseBtnArea;
+}
+
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, getPauseBtnArea, initUpgrades };
 export default Hero;

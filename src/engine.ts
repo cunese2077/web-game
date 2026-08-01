@@ -12,14 +12,14 @@ import {
   PHASE_BOSS_WARNING,
   PHASE_BOSS,
 } from "./constants.js";
-import { Hero, getSoundIconArea, getHeroBuffs } from "./hero.js";
+import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs } from "./hero.js";
 import { getGameScore, resetGameScore } from "./score.js";
 import { resetLevel, getLevel, getExp, getExpToNext, addExp } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
@@ -190,6 +190,12 @@ function start(): void {
           clickY >= sndArea.y && clickY < sndArea.y + sndArea.h) {
         toggleSound();
       }
+      // 检查是否点击了暂停按钮
+      const pauseArea = getPauseBtnArea();
+      if (clickX >= pauseArea.x && clickX < pauseArea.x + pauseArea.w &&
+          clickY >= pauseArea.y && clickY < pauseArea.y + pauseArea.h) {
+        curPhase = PHASE_PAUSE;
+      }
     } else if (curPhase === PHASE_LEVEL_UP) {
       // 升级选择界面点击处理
       const result = handleUpgradeClick(clickX, clickY);
@@ -212,28 +218,87 @@ function start(): void {
         // 仍有待处理升级时保持 PHASE_LEVEL_UP，新选项已自动生成
       }
       // "rerolled" 或 null 点击：保持当前状态
+    } else if (curPhase === PHASE_PAUSE) {
+      // 检查是否点击了返回主页面按钮
+      const backArea = getPauseBackBtnArea();
+      if (clickX >= backArea.x && clickX < backArea.x + backArea.w &&
+          clickY >= backArea.y && clickY < backArea.y + backArea.h) {
+        resetGameScore();
+        resetLevel();
+        initUpgrades();
+        hero = new Hero();
+        hero.setPhaseCallbacks(getCurPhase, setCurPhase);
+        Bullet.clear();
+        Enemy.clear();
+        Enemy.resetNextId();
+        Enemy.resetSessionKillCount();
+        Item.clear();
+        Bullet.clear();
+        clearSpecialWeapons();
+        clearBoss();
+        clearBullets();
+        clearScoreEffects();
+        clearDamageEffects();
+        clearUpgradeUI();
+        gameOverSoundPlayed = false;
+        gameOverRecordUpdated = false;
+        evolutionFlashFrames = 0;
+        curPhase = PHASE_READY;
+      } else {
+        // 点击其他区域恢复游戏
+        curPhase = PHASE_PLAY;
+      }
     } else if (curPhase === PHASE_GAME_OVER) {
-      resetGameScore();
-      resetLevel();
-      initUpgrades();
-      hero = new Hero();
-      hero.setPhaseCallbacks(getCurPhase, setCurPhase);
-      Bullet.clear();
-      Enemy.clear();
-      Enemy.resetNextId();
-      Enemy.resetSessionKillCount();
-      Item.clear();
-      Bullet.clear();
-      clearSpecialWeapons();
-      clearBoss();
-      clearBullets();
-      clearScoreEffects();
-      clearDamageEffects();
-      clearUpgradeUI();
-      gameOverSoundPlayed = false;
-      gameOverRecordUpdated = false;
-      evolutionFlashFrames = 0;
-      curPhase = PHASE_READY;
+      // 检查是否点击了返回主页按钮
+      const goBackArea = getGameOverBackBtnArea();
+      if (clickX >= goBackArea.x && clickX < goBackArea.x + goBackArea.w &&
+          clickY >= goBackArea.y && clickY < goBackArea.y + goBackArea.h) {
+        // 返回主页（不重新开始）
+        resetGameScore();
+        resetLevel();
+        initUpgrades();
+        hero = new Hero();
+        hero.setPhaseCallbacks(getCurPhase, setCurPhase);
+        Bullet.clear();
+        Enemy.clear();
+        Enemy.resetNextId();
+        Enemy.resetSessionKillCount();
+        Item.clear();
+        Bullet.clear();
+        clearSpecialWeapons();
+        clearBoss();
+        clearBullets();
+        clearScoreEffects();
+        clearDamageEffects();
+        clearUpgradeUI();
+        gameOverSoundPlayed = false;
+        gameOverRecordUpdated = false;
+        evolutionFlashFrames = 0;
+        curPhase = PHASE_READY;
+      } else {
+        // 其他区域点击：重新开始游戏
+        resetGameScore();
+        resetLevel();
+        initUpgrades();
+        hero = new Hero();
+        hero.setPhaseCallbacks(getCurPhase, setCurPhase);
+        Bullet.clear();
+        Enemy.clear();
+        Enemy.resetNextId();
+        Enemy.resetSessionKillCount();
+        Item.clear();
+        Bullet.clear();
+        clearSpecialWeapons();
+        clearBoss();
+        clearBullets();
+        clearScoreEffects();
+        clearDamageEffects();
+        clearUpgradeUI();
+        gameOverSoundPlayed = false;
+        gameOverRecordUpdated = false;
+        evolutionFlashFrames = 0;
+        curPhase = PHASE_LOADING;
+      }
     }
   };
   ctx.fillStyle = "#963";
@@ -356,6 +421,16 @@ function gameEngine(): void {
       drawUpgradeUI();
       break;
     case PHASE_PAUSE:
+      // 先绘制冻结的游戏画面（所有实体只绘制不更新）
+      if (pBg) pBg();
+      Enemy.drawEnemy(true);
+      Item.drawItems(true);
+      Bullet.drawBullet(true);
+      if (hero) hero.draw(curPhase);
+      drawScoreEffects();
+      drawDamageEffects();
+      drawUpgradeUI();
+      // 再叠加暂停 UI
       drawPause();
       break;
     case PHASE_GAME_OVER:

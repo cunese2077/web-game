@@ -44,6 +44,7 @@ export type TextKey =
   | "gameOver.highScore" // "最高分: " / "HIGH SCORE: "
   | "gameOver.highLevel" // "最高等级: " / "HIGH LEVEL: "
   | "gameOver.newRecord" // "新纪录!" / "NEW RECORD!"
+  | "pause.backToMain"  // "返回主页" / "BACK TO MAIN"
   // 成就
   | "achievement.firstGame"          // "初次出击" / "FIRST SORTIE"
   | "achievement.firstGame.desc"     // "完成第一局游戏" / "Complete your first game"
@@ -235,6 +236,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.highScore": "历史最高分: ",
     "gameOver.highLevel": "历史最高等级: ",
     "gameOver.newRecord": "新纪录!",
+    "pause.backToMain": "返回主页",
     "achievement.firstGame": "初次出击",
     "achievement.firstGame.desc": "完成第一局游戏",
     "achievement.score1000": "千分先锋",
@@ -409,6 +411,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.highScore": "ALL-TIME HIGH SCORE: ",
     "gameOver.highLevel": "ALL-TIME HIGH LEVEL: ",
     "gameOver.newRecord": "NEW RECORD!",
+    "pause.backToMain": "BACK TO MAIN",
     "achievement.firstGame": "FIRST SORTIE",
     "achievement.firstGame.desc": "Complete your first game",
     "achievement.score1000": "SCORE PIONEER",
@@ -583,6 +586,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "gameOver.highScore": "歴代ハイスコア: ",
     "gameOver.highLevel": "歴代最高レベル: ",
     "gameOver.newRecord": "新記録!",
+    "pause.backToMain": "メインに戻る",
     "achievement.firstGame": "初出撃",
     "achievement.firstGame.desc": "初めてのゲームをクリア",
     "achievement.score1000": "スコアパイオニア",
