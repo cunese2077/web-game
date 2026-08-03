@@ -270,8 +270,9 @@ class Hero {
     const piercing = hasPiercing();
 
     if (isSpread) {
-      // 散弹 buff：扇形发射，子弹数为散弹配置总数
-      const spreadBulletCount = buffConfig.spread.bulletCount;
+      // 散弹 buff：扇形发射，子弹数取 getBulletCount() 和散弹配置的较大值
+      // 低等级时散弹配置(5) > 当前子弹数(3)，散射增加子弹；高等级/弹幕风暴时不会减少
+      const spreadBulletCount = Math.max(bulletCount, buffConfig.spread.bulletCount);
       const spreadWidth = 48; // 最外侧子弹距中心的像素偏移
       const step = spreadBulletCount > 1 ? (spreadWidth * 2) / (spreadBulletCount - 1) : 0;
       const startOffset = -spreadWidth;

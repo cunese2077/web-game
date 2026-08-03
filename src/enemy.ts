@@ -6,7 +6,7 @@ import { addGameScore } from "./score.js";
 import { addExp, getExpReward, getLevel } from "./level.js";
 import { addBullet } from "./enemyBullet.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs, healHero, getHeroY } from "./hero.js";
-import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance } from "./upgrade.js";
+import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance, getBulletCount } from "./upgrade.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit } from "./audio.js";
@@ -530,7 +530,7 @@ class Enemy {
         Item.add(cx, cy, "shield");
       } else if (rand < shieldProb + firepowerProb) {
         Item.add(cx, cy, "firepower");
-      } else if (rand < shieldProb + firepowerProb + spreadProb) {
+      } else if (rand < shieldProb + firepowerProb + spreadProb && getBulletCount() < 8) {
         Item.add(cx, cy, "spread");
       }
     }
