@@ -648,9 +648,9 @@ class Hero {
       // 累加待处理升级次数
       addPendingLevelUps(levelsGained);
 
-      // 每级升级回血 1 HP（不超过 maxHp）
+      // 每级升级回血 2 HP（不超过 maxHp）
       this.maxHp = getMaxHp();
-      this.hp = Math.min(this.hp + levelsGained, this.maxHp);
+      this.hp = Math.min(this.hp + levelsGained * 2, this.maxHp);
 
       // 升级特效
       this.levelUpAnim = 60;

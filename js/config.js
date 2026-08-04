@@ -51,7 +51,7 @@ const enemyConfig = {
         },
         // 成长配置：中型敌机HP和分数稳步增长，保持中期挑战
         scaling: {
-            hpScale: 0.06, // 30级时 HP ≈ 52（3.5倍），普通难度适中
+            hpScale: 0.05, // 30级时 HP ≈ 45（3倍），配合玩家DPS增长
             speedScale: 0.008, // 每级速度 +0.8%（30级时 4→5.20）
             scoreScale: 0.10, // 30级时分数 ≈ 122（6倍）
         },
@@ -80,9 +80,9 @@ const enemyConfig = {
             midThreshold: 0.5,
             lowThreshold: 0.25,
         },
-        // 成长配置：大型敌机HP增长最快，后期保持压迫感
+        // 成长配置：大型敌机HP增长稳健，后期保持压迫感但不过于肉
         scaling: {
-            hpScale: 0.08, // 30级时 HP ≈ 301（4.3倍），普通难度适中
+            hpScale: 0.06, // 30级时 HP ≈ 238（3.4倍），配合玩家DPS增长
             speedScale: 0.005, // 每级速度 +0.5%（30级时 2→2.29）
             scoreScale: 0.12, // 30级时分数 ≈ 760（7.6倍）
         },
@@ -115,7 +115,7 @@ const enemyConfig = {
         },
         // 成长配置：精英敌机介于中型和大型之间
         scaling: {
-            hpScale: 0.08, // 30级时 HP ≈ 173（4.3倍）
+            hpScale: 0.06, // 30级时 HP ≈ 137（3.4倍），配合玩家DPS增长
             speedScale: 0.010, // 每级速度 +1%（30级时 3→3.87）
             scoreScale: 0.07, // 30级时分数 ≈ 177（3.5倍）
         },
@@ -178,12 +178,12 @@ const difficultyConfig = {
         bossHpMultiplier: 1.0,
         bossAttackSpeedMultiplier: 1.0,
     },
-    // 【中等】敌机 HP +30%、速度 +10%、成长系数 ×1.5、生成更频繁、碰撞伤害 +20%、道具略少、2次刷新
+    // 【中等】敌机 HP +30%、速度 +10%、成长系数 ×1.3、生成更频繁、碰撞伤害 +20%、道具略少、2次刷新
     medium: {
         label: "difficulty.medium",
         enemyHpMultiplier: 1.3,
         enemySpeedMultiplier: 1.1,
-        enemyScalingMultiplier: 1.5,
+        enemyScalingMultiplier: 1.3,
         enemySpawnRateMultiplier: 0.85,
         enemyDamageMultiplier: 1.2,
         dropRateMultiplier: 0.85,
@@ -191,12 +191,12 @@ const difficultyConfig = {
         bossHpMultiplier: 1.3,
         bossAttackSpeedMultiplier: 1.15,
     },
-    // 【困难】敌机 HP +60%、速度 +20%、成长系数 ×2.0、生成大幅加快、碰撞伤害 +50%、道具显著减少、1次刷新
+    // 【困难】敌机 HP +60%、速度 +20%、成长系数 ×1.6、生成大幅加快、碰撞伤害 +50%、道具显著减少、1次刷新
     hard: {
         label: "difficulty.hard",
         enemyHpMultiplier: 1.6,
         enemySpeedMultiplier: 1.2,
-        enemyScalingMultiplier: 2.0,
+        enemyScalingMultiplier: 1.6,
         enemySpawnRateMultiplier: 0.65,
         enemyDamageMultiplier: 1.5,
         dropRateMultiplier: 0.65,
@@ -281,7 +281,7 @@ const itemConfig = {
 };
 // ========== 玩家战机配置 ==========
 const heroConfig = {
-    maxHp: 3,
+    maxHp: 5,
     invincibleFrames: 40,
     bulletInterval: 3,
     enemySpawnInterval: 8,
@@ -299,7 +299,7 @@ const bulletConfig = {
 // BOSS 配置
 const bossConfig = {
     baseHp: 350, // 首次 BOSS（Lv5）基础 HP（较低，入门难度）
-    hpGrowthFactor: 0.7, // 每次递增 70%：Lv10=595, Lv15=840, Lv20=1085...
+    hpGrowthFactor: 0.45, // 每次递增 45%：Lv10=508, Lv15=665, Lv20=823...（平滑增长）
     widthRatio: 0.35, // 宽度占画布 35%
     heightRatio: 0.08, // 高度占画布 8%
     moveSpeed: 1.5, // 水平巡逻速度
