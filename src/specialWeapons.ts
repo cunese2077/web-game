@@ -8,28 +8,28 @@ import { playLaser, playLightning, playMissile, playMissileHit, playWingmanHit }
 import type { GamePhase } from "./types.js";
 
 // ========== 武器等级效果表 ==========
-// 追踪导弹（每 45 帧发射）
-// Lv1: 1枚, 伤害4 | Lv2: 1枚, 伤害5 | Lv3: 2枚, 伤害6 | Lv4: 2枚, 伤害8 | Lv5: 3枚, 伤害10+爆炸
+// 追踪导弹（每 60 帧发射）
+// Lv1: 1枚, 伤害3 | Lv2: 1枚, 伤害4 | Lv3: 2枚, 伤害5 | Lv4: 2枚, 伤害7 | Lv5: 3枚, 伤害8+爆炸
 const MISSILE_LEVELS = [
+  { count: 1, damage: 3, explosionRadius: 0 },
   { count: 1, damage: 4, explosionRadius: 0 },
-  { count: 1, damage: 5, explosionRadius: 0 },
-  { count: 2, damage: 6, explosionRadius: 0 },
-  { count: 2, damage: 8, explosionRadius: 20 },
-  { count: 3, damage: 10, explosionRadius: 35 },
+  { count: 2, damage: 5, explosionRadius: 0 },
+  { count: 2, damage: 7, explosionRadius: 20 },
+  { count: 3, damage: 8, explosionRadius: 35 },
 ];
-const MISSILE_INTERVAL = 45;
+const MISSILE_INTERVAL = 60;
 
-// 能量武器（激光+闪电合体，每 90 帧发激光，每 90 帧发闪电链）
-// Lv1: 激光10/射400, 链1/伤5 | Lv2: 链+1 | Lv3: 激光+4/射500 | Lv4: 链+2/射600 | Lv5: 全屏+链3
+// 能量武器（激光+闪电合体，每 120 帧发激光，每 120 帧发闪电链）
+// Lv1: 激光8/射400, 链1/伤4 | Lv2: 链+1 | Lv3: 激光+3/射500 | Lv4: 链+2/射600 | Lv5: 全屏+链3
 const ENERGY_LEVELS = [
-  { laserDamage: 10, laserLength: 400, lightningDamage: 5, chains: 1 },   // Lv1: 400px 射程
-  { laserDamage: 10, laserLength: 400, lightningDamage: 7, chains: 2 },   // Lv2: chain +1
-  { laserDamage: 14, laserLength: 500, lightningDamage: 9, chains: 2 },   // Lv3: laser dmg +4
-  { laserDamage: 18, laserLength: 600, lightningDamage: 11, chains: 3 },  // Lv4: chain +2, longer laser
-  { laserDamage: 25, laserLength: -1, lightningDamage: 13, chains: 3 },   // Lv5: full screen + chain 3
+  { laserDamage: 8, laserLength: 400, lightningDamage: 4, chains: 1 },   // Lv1: 400px 射程
+  { laserDamage: 8, laserLength: 400, lightningDamage: 6, chains: 2 },   // Lv2: chain +1
+  { laserDamage: 11, laserLength: 500, lightningDamage: 7, chains: 2 },  // Lv3: laser dmg +3
+  { laserDamage: 14, laserLength: 600, lightningDamage: 9, chains: 3 },  // Lv4: chain +2, longer laser
+  { laserDamage: 20, laserLength: -1, lightningDamage: 10, chains: 3 },  // Lv5: full screen + chain 3
 ];
-const LASER_INTERVAL = 90;
-const LIGHTNING_INTERVAL = 90;
+const LASER_INTERVAL = 120;
+const LIGHTNING_INTERVAL = 120;
 const LASER_HIT_HALF_WIDTH = 18;
 const LASER_VISUAL_FRAMES = 16;
 const LIGHTNING_CHAIN_RANGE = 120;
@@ -691,7 +691,7 @@ function updateAndDrawSpecialWeapons(
           if (!nextTarget) break;
           const nx = nextTarget.x + nextTarget.width / 2;
           const ny = nextTarget.y + nextTarget.height / 2;
-          const chainDmg = finalDmg * 0.8; // 链式伤害衰减
+          const chainDmg = finalDmg * 0.7; // 链式伤害衰减
           const chainCrit = Math.random() < getCritChance();
           damageEnemy(nextTarget, chainCrit ? chainDmg * 2.0 : chainDmg, chainCrit, true);
           // 链式跳跃命中闪光
@@ -737,7 +737,7 @@ function updateAndDrawSpecialWeapons(
   // 进化：歼灭编队 — 僚机数量 +2
   const effectiveWingmanCount = wingmanCount + (hasAnnihilateSquad() ? 2 : 0);
   if (effectiveWingmanCount > 0) {
-    const baseDamage = (2 + (wingmanCount - 1) * 0.8) * (1 + getWingmanDamageBonus()) * getDamagePassiveMultiplier() * firepowerMul;
+    const baseDamage = (1 + (wingmanCount - 1) * 0.5) * (1 + getWingmanDamageBonus()) * getDamagePassiveMultiplier() * firepowerMul;
     // 进化：歼灭编队 — 僚机伤害 ×2
     const squadMul = hasAnnihilateSquad() ? 2 : 1;
     const effectiveDamage = baseDamage * squadMul;

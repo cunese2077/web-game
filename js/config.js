@@ -1,9 +1,9 @@
 // ========== 敌机配置 ==========
 const enemyConfig = {
-    // 【小型敌机】快速移动，1HP，得分10，无横向移动
+    // 【小型敌机】快速移动，2HP，得分10，无横向移动
     small: {
         speed: 6,
-        hp: 1,
+        hp: 2,
         score: 10,
         spawnWeight: 15,
         move: {
@@ -20,17 +20,17 @@ const enemyConfig = {
             midThreshold: 0.5, // <=50% 转黄
             lowThreshold: 0.25, // <=25% 转红
         },
-        // 成长配置：小型敌机保持炮灰定位，不涨HP，略微加速增加躲避难度
+        // 成长配置：小型敌机前期不再一击即杀，后期加速增加躲避难度
         scaling: {
-            hpScale: 0, // 不涨 HP（保持一击即杀）
-            speedScale: 0.01, // 每级速度 +1%（30级时 6→7.74）
+            hpScale: 0.02, // 30级时 HP ≈ 3（1.5倍），不再一击即杀
+            speedScale: 0.015, // 每级速度 +1.5%（30级时 6→8.61），更难躲避
             scoreScale: 0.025, // 每级分数 +2.5%（30级时 10→23）
         },
     },
     // 【中型敌机】中等速度，HP提升，得分20，正弦摆动
     medium: {
         speed: 4,
-        hp: 15,
+        hp: 25,
         score: 20,
         spawnWeight: 5,
         move: {
@@ -49,17 +49,17 @@ const enemyConfig = {
             midThreshold: 0.5,
             lowThreshold: 0.25,
         },
-        // 成长配置：中型敌机HP和分数稳步增长，保持中期挑战
+        // 成长配置：中型敌机HP稳步增长，保持中期持续威胁
         scaling: {
-            hpScale: 0.05, // 30级时 HP ≈ 45（3倍），配合玩家DPS增长
-            speedScale: 0.008, // 每级速度 +0.8%（30级时 4→5.20）
+            hpScale: 0.08, // 30级时 HP ≈ 122（4.9倍），中期仍然需要多轮射击
+            speedScale: 0.01, // 每级速度 +1%（30级时 4→5.80）
             scoreScale: 0.10, // 30级时分数 ≈ 122（6倍）
         },
     },
     // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
     big: {
         speed: 2,
-        hp: 70,
+        hp: 120,
         score: 100,
         spawnProbBase: 0.05,
         spawnProbMax: 0.10,
@@ -80,25 +80,25 @@ const enemyConfig = {
             midThreshold: 0.5,
             lowThreshold: 0.25,
         },
-        // 成长配置：大型敌机HP增长稳健，后期保持压迫感但不过于肉
+        // 成长配置：大型敌机HP增长强势，后期保持压迫感
         scaling: {
-            hpScale: 0.06, // 30级时 HP ≈ 238（3.4倍），配合玩家DPS增长
+            hpScale: 0.10, // 30级时 HP ≈ 643（5.4倍），后期需要集火
             speedScale: 0.005, // 每级速度 +0.5%（30级时 2→2.29）
             scoreScale: 0.12, // 30级时分数 ≈ 760（7.6倍）
         },
     },
     // 【精英敌机】中型和大型之间，俯冲移动，8级后出现
     elite: {
-        speed: 3,
-        hp: 40,
+        speed: 3.5,
+        hp: 60,
         score: 50,
         spawnProbBase: 0.03, // 基础 3% 出现概率
         spawnProbMax: 0.10, // 上限 10%
         spawnStartLevel: 8, // 玩家 8 级后开始出现
         move: {
             type: "dive",
-            triggerRange: 200, // 进入玩家上方 200px 范围触发俯冲
-            diveSpeedMultiplier: 2.0, // 俯冲时速度 ×2
+            triggerRange: 250, // 进入玩家上方 250px 范围触发俯冲
+            diveSpeedMultiplier: 2.5, // 俯冲时速度 ×2.5
             wobbleAmplitude: 20, // 阶段1小幅左右摆动振幅
             wobbleFrequency: 0.04, // 阶段1摆动频率
         },
@@ -113,15 +113,15 @@ const enemyConfig = {
             midThreshold: 0.5,
             lowThreshold: 0.25,
         },
-        // 成长配置：精英敌机介于中型和大型之间
+        // 成长配置：精英敌机成长强于中型，接近大型
         scaling: {
-            hpScale: 0.06, // 30级时 HP ≈ 137（3.4倍），配合玩家DPS增长
-            speedScale: 0.010, // 每级速度 +1%（30级时 3→3.87）
+            hpScale: 0.09, // 30级时 HP ≈ 377（6.3倍），精英越来越危险
+            speedScale: 0.012, // 每级速度 +1.2%（30级时 3.5→4.87）
             scoreScale: 0.07, // 30级时分数 ≈ 177（3.5倍）
         },
-        shootInterval: 40, // 每 40 帧发射 1 发子弹（2秒@20fps）
-        bulletSpeed: 3.5, // 子弹速度
-        bulletSize: 4, // 子弹半径
+        shootInterval: 30, // 每 30 帧发射 1 发子弹（1.5秒@20fps，更频繁）
+        bulletSpeed: 4, // 子弹速度提升
+        bulletSize: 5, // 子弹半径增大
     },
 };
 // ========== 敌机受击动效配置（全局，所有敌机共用） ==========
@@ -178,31 +178,31 @@ const difficultyConfig = {
         bossHpMultiplier: 1.0,
         bossAttackSpeedMultiplier: 1.0,
     },
-    // 【中等】敌机 HP +30%、速度 +10%、成长系数 ×1.3、生成更频繁、碰撞伤害 +20%、道具略少、2次刷新
+    // 【中等】敌机 HP +40%、速度 +15%、成长系数 ×1.5、生成更频繁、碰撞伤害 +30%、道具略少、2次刷新
     medium: {
         label: "difficulty.medium",
-        enemyHpMultiplier: 1.3,
-        enemySpeedMultiplier: 1.1,
-        enemyScalingMultiplier: 1.3,
+        enemyHpMultiplier: 1.4,
+        enemySpeedMultiplier: 1.15,
+        enemyScalingMultiplier: 1.5,
         enemySpawnRateMultiplier: 0.85,
-        enemyDamageMultiplier: 1.2,
-        dropRateMultiplier: 0.85,
+        enemyDamageMultiplier: 1.3,
+        dropRateMultiplier: 0.80,
         upgradeRerolls: 2,
-        bossHpMultiplier: 1.3,
-        bossAttackSpeedMultiplier: 1.15,
+        bossHpMultiplier: 1.4,
+        bossAttackSpeedMultiplier: 1.2,
     },
-    // 【困难】敌机 HP +60%、速度 +20%、成长系数 ×1.6、生成大幅加快、碰撞伤害 +50%、道具显著减少、1次刷新
+    // 【困难】敌机 HP +80%、速度 +25%、成长系数 ×2.0、生成大幅加快、碰撞伤害 +60%、道具显著减少、1次刷新
     hard: {
         label: "difficulty.hard",
-        enemyHpMultiplier: 1.6,
-        enemySpeedMultiplier: 1.2,
-        enemyScalingMultiplier: 1.6,
-        enemySpawnRateMultiplier: 0.65,
-        enemyDamageMultiplier: 1.5,
-        dropRateMultiplier: 0.65,
+        enemyHpMultiplier: 1.8,
+        enemySpeedMultiplier: 1.25,
+        enemyScalingMultiplier: 2.0,
+        enemySpawnRateMultiplier: 0.60,
+        enemyDamageMultiplier: 1.6,
+        dropRateMultiplier: 0.55,
         upgradeRerolls: 1,
-        bossHpMultiplier: 1.6,
-        bossAttackSpeedMultiplier: 1.3,
+        bossHpMultiplier: 1.8,
+        bossAttackSpeedMultiplier: 1.4,
     },
 };
 function getDifficultyConfig(difficulty) {
@@ -281,7 +281,7 @@ const itemConfig = {
 };
 // ========== 玩家战机配置 ==========
 const heroConfig = {
-    maxHp: 5,
+    maxHp: 4,
     invincibleFrames: 40,
     bulletInterval: 3,
     enemySpawnInterval: 8,
@@ -298,8 +298,8 @@ const bulletConfig = {
 // Roguelike 升级选择系统需要更多升级次数（50级满级，约20-25分钟一局）
 // BOSS 配置
 const bossConfig = {
-    baseHp: 350, // 首次 BOSS（Lv5）基础 HP（较低，入门难度）
-    hpGrowthFactor: 0.45, // 每次递增 45%：Lv10=508, Lv15=665, Lv20=823...（平滑增长）
+    baseHp: 500, // 首次 BOSS（Lv5）基础 HP（更具挑战性）
+    hpGrowthFactor: 0.6, // 每次递增 60%：Lv10=800, Lv15=1100, Lv20=1400...
     widthRatio: 0.35, // 宽度占画布 35%
     heightRatio: 0.08, // 高度占画布 8%
     moveSpeed: 1.5, // 水平巡逻速度
@@ -307,16 +307,16 @@ const bossConfig = {
     triggerInterval: 5, // 每 5 级触发一次
     firstTriggerLevel: 5, // 首次 Lv5 触发
     bullet: {
-        speed: 3, // 弹幕基础速度
+        speed: 3.5, // 弹幕速度提升
         size: 5, // 弹幕半径
-        fanCount: 4, // 扇形弹幕数量（首个 BOSS 较少）
-        fanSpreadAngle: 0.9, // 扇形张角（弧度，约 52°）
-        aimedCount: 2, // 定向射击数量
-        interval: 40, // 攻击间隔（帧，2 秒@20fps，首个 BOSS 较慢）
+        fanCount: 5, // 扇形弹幕数量（增加基础弹幕量）
+        fanSpreadAngle: 1.0, // 扇形张角增大（约 57°）
+        aimedCount: 3, // 定向射击数量增加
+        interval: 35, // 攻击间隔缩短（1.75 秒@20fps）
     },
     defeatExpMultiplier: 4, // 击败经验 ≈ 1 级经验量（Lv5时约420，Lv10约520）
     defeatItemDropProb: 0.5, // 50% 概率掉落特殊道具
-    enemySpawnRate: 24, // BOSS 战期间每 24 帧生成一个敌机
+    enemySpawnRate: 20, // BOSS 战期间每 20 帧生成一个敌机（更密集）
 };
 const levelConfig = {
     base: 300, // 1→2 级所需经验（降低起步门槛）
@@ -362,13 +362,15 @@ function getDynamicEliteHealDropProb(hpRatio) {
 function getDynamicEliteFirepowerDropProb(hpRatio) {
     return dropConfig.bigEnemy.firepowerBase + (1 - hpRatio) * dropConfig.bigEnemy.firepowerBonus;
 }
-// 敌机碰撞伤害基础值（按类型分级）
+// 敌机碰撞伤害基础值（按类型分级，碰撞更具威胁）
 function getCollisionDamage(enemyType) {
     if (enemyType === "big")
-        return 2;
+        return 3;
     if (enemyType === "elite")
         return 2;
-    return 1; // small, medium
+    if (enemyType === "medium")
+        return 2;
+    return 1; // small
 }
 // ========== 升级池配置 ==========
 // P1：基础武器升级 + 4 种被动
