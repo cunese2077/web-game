@@ -81,7 +81,7 @@ const enemyConfig: EnemyConfig = {
   // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
   big: {
     speed: 2,
-    hp: 120,
+    hp: 90,
     score: 100,
     spawnProbBase: 0.05,
     spawnProbMax: 0.10,
