@@ -12,7 +12,7 @@ import {
   PHASE_BOSS_WARNING,
   PHASE_BOSS,
 } from "./constants.js";
-import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs } from "./hero.js";
+import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs, getDamageTaken } from "./hero.js";
 import { getGameScore, resetGameScore } from "./score.js";
 import { resetLevel, getLevel, getExp, getExpToNext, addExp } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
@@ -25,10 +25,10 @@ import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapo
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets, getBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning } from "./audio.js";
-import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
+import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
 import { t } from "./i18n.js";
 import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
-import { recordGameEnd, getStats, getAchievementDefs, isUnlocked } from "./achievement.js";
+import { recordGameEnd, getStats, getAchievementDefs, getAchievementTier } from "./achievement.js";
 import { isDebugMode, isDebugPanelVisible, getDebugInfo, getDebugPanelArea, getDebugToggleArea, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
 import type { GamePhase } from "./types.js";
 
@@ -437,7 +437,7 @@ function gameEngine(): void {
       if (!gameOverRecordUpdated) {
         tryUpdateHighScore(getGameScore());
         tryUpdateHighLevel(getLevel());
-        recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount());
+        recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount(), getDifficulty(), getDamageTaken());
         gameOverRecordUpdated = true;
       }
       if (pBg) pBg();

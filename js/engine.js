@@ -2,7 +2,7 @@
 import { ctx, canvas, fontScale, width, height } from "./canvas.js";
 import { download, heroImg } from "./resources.js";
 import { PHASE_DOWNLOAD, PHASE_READY, PHASE_LOADING, PHASE_PLAY, PHASE_PAUSE, PHASE_GAME_OVER, PHASE_LEVEL_UP, PHASE_BOSS_WARNING, PHASE_BOSS, } from "./constants.js";
-import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs } from "./hero.js";
+import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs, getDamageTaken } from "./hero.js";
 import { getGameScore, resetGameScore } from "./score.js";
 import { resetLevel, getLevel } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
@@ -15,7 +15,7 @@ import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapo
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning } from "./audio.js";
-import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound } from "./settings.js";
+import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
 import { t } from "./i18n.js";
 import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
 import { recordGameEnd } from "./achievement.js";
@@ -409,7 +409,7 @@ function gameEngine() {
             if (!gameOverRecordUpdated) {
                 tryUpdateHighScore(getGameScore());
                 tryUpdateHighLevel(getLevel());
-                recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount());
+                recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount(), getDifficulty(), getDamageTaken());
                 gameOverRecordUpdated = true;
             }
             if (pBg)

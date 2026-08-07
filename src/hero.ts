@@ -126,6 +126,7 @@ class Hero {
   dying: boolean;
   healAnim: number;
   hpFlash: number;
+  damageTaken: number;
   buffs: BuffState;
   buffFloats: BuffFloat[];
   levelUpAnim: number;  // 升级特效剩余帧数
@@ -146,6 +147,7 @@ class Hero {
     this.dying = false;
     this.healAnim = 0;
     this.hpFlash = 0;
+    this.damageTaken = 0;
     this.buffs = {
       firepower: 0,
       shield: 0,
@@ -800,6 +802,7 @@ class Hero {
         const baseDmg = getCollisionDamage(d.type);
         const finalDmg = Math.max(1, Math.round(baseDmg * diffConfig.enemyDamageMultiplier) - getArmorReduction());
         this.hp -= finalDmg;
+        this.damageTaken++;
         playHit();
         if (this.hp <= 0) {
           this.hp = 0;
@@ -827,6 +830,7 @@ class Hero {
           const diffConfig = getDifficultyConfig(getDifficulty());
           const bossDmg = Math.max(1, Math.round(3 * diffConfig.enemyDamageMultiplier) - getArmorReduction());
           this.hp -= bossDmg;
+          this.damageTaken++;
           playHit();
           if (this.hp <= 0) { this.hp = 0; this.dying = true; this.index = 2; }
           else { this.invincible = heroConfig.invincibleFrames; }
@@ -852,6 +856,7 @@ class Hero {
           const diffConfig = getDifficultyConfig(getDifficulty());
           const bulletDmg = Math.max(1, Math.round(1 * diffConfig.enemyDamageMultiplier));
           this.hp -= bulletDmg;
+          this.damageTaken++;
           playHit();
           b.removable = true;
           if (this.hp <= 0) { this.hp = 0; this.dying = true; this.index = 2; }
@@ -877,6 +882,10 @@ function getHeroMaxHp(): number {
 
 function getHeroBuffs(): BuffState {
   return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
+}
+
+function getDamageTaken(): number {
+  return activeHero ? activeHero.damageTaken : 0;
 }
 
 function getHeroY(): number {
@@ -920,5 +929,5 @@ function getPauseBtnArea(): { x: number; y: number; w: number; h: number } {
   return _pauseBtnArea;
 }
 
-export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, getPauseBtnArea, initUpgrades };
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, getPauseBtnArea, initUpgrades, getDamageTaken };
 export default Hero;

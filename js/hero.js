@@ -115,6 +115,7 @@ class Hero {
         this.dying = false;
         this.healAnim = 0;
         this.hpFlash = 0;
+        this.damageTaken = 0;
         this.buffs = {
             firepower: 0,
             shield: 0,
@@ -697,6 +698,7 @@ class Hero {
                 const baseDmg = getCollisionDamage(d.type);
                 const finalDmg = Math.max(1, Math.round(baseDmg * diffConfig.enemyDamageMultiplier) - getArmorReduction());
                 this.hp -= finalDmg;
+                this.damageTaken++;
                 playHit();
                 if (this.hp <= 0) {
                     this.hp = 0;
@@ -725,6 +727,7 @@ class Hero {
                     const diffConfig = getDifficultyConfig(getDifficulty());
                     const bossDmg = Math.max(1, Math.round(3 * diffConfig.enemyDamageMultiplier) - getArmorReduction());
                     this.hp -= bossDmg;
+                    this.damageTaken++;
                     playHit();
                     if (this.hp <= 0) {
                         this.hp = 0;
@@ -756,6 +759,7 @@ class Hero {
                     const diffConfig = getDifficultyConfig(getDifficulty());
                     const bulletDmg = Math.max(1, Math.round(1 * diffConfig.enemyDamageMultiplier));
                     this.hp -= bulletDmg;
+                    this.damageTaken++;
                     playHit();
                     b.removable = true;
                     if (this.hp <= 0) {
@@ -783,6 +787,9 @@ function getHeroMaxHp() {
 }
 function getHeroBuffs() {
     return activeHero ? activeHero.buffs : { firepower: 0, shield: 0, spread: 0 };
+}
+function getDamageTaken() {
+    return activeHero ? activeHero.damageTaken : 0;
 }
 function getHeroY() {
     return activeHero ? activeHero.y : 0;
@@ -822,5 +829,5 @@ function getSoundIconArea() {
 function getPauseBtnArea() {
     return _pauseBtnArea;
 }
-export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, getPauseBtnArea, initUpgrades };
+export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, getPauseBtnArea, initUpgrades, getDamageTaken };
 export default Hero;

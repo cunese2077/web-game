@@ -6,7 +6,7 @@ import { getGameScore } from "./score.js";
 import { getLevel, getTotalExp } from "./level.js";
 import { getBuildSummary } from "./upgrade.js";
 import { getHighScore, getHighLevel } from "./record.js";
-import { getStats, getLastGame, getAchievementDefs, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord } from "./achievement.js";
+import { getStats, getLastGame, getAchievementDefs, getAchievementTier, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord } from "./achievement.js";
 import { t } from "./i18n.js";
 // ========== 得分动效系统 ==========
 const scoreEffects = [];
@@ -751,14 +751,19 @@ function drawGameOver() {
         // 已在上面顺序绘制
         curY = Math.max(nextY, leftStartY + Math.max(leftH, rightH)) + Math.round(8 * fontScale);
     }
-    // === 成就展示（本局新解锁的成就） ===
+    // === 成就展示（本局新解锁/升档的成就） ===
     const stats = getStats();
     const lastGame = getLastGame();
     const achDefs = getAchievementDefs();
     const achHalfW = width * 0.42;
-    // 只显示本局新解锁的成就
-    const newAchievements = achDefs.filter(d => lastGame.newAchievementIds.includes(d.id));
-    if (newAchievements.length > 0) {
+    // 显示本局新解锁或升档的成就
+    const newTierMap = new Map();
+    for (const nt of lastGame.newAchievementTiers) {
+        newTierMap.set(nt.id, nt.tier);
+    }
+    const tierColors = ["#444", "#cd7f32", "#c0c0c0", "#ffd700"]; // 未解锁/铜/银/金
+    const tierSymbols = ["☆", "◈", "◆", "★"];
+    if (newTierMap.size > 0) {
         // 分隔线
         ctx.strokeStyle = "rgba(255, 215, 0, 0.3)";
         ctx.lineWidth = 1;
@@ -769,18 +774,19 @@ function drawGameOver() {
         curY += Math.round(16 * fontScale); // 分隔线到标题的间距
         ctx.fillStyle = "#ffd700";
         ctx.font = `bold ${Math.round(14 * fontScale)}px arial`;
-        ctx.fillText(t("gameOver.achievements") + " " + newAchievements.length, cx, curY);
+        ctx.fillText(t("gameOver.achievements") + " " + newTierMap.size, cx, curY);
         curY += Math.round(18 * fontScale);
-        // 本局新解锁成就列表
+        // 本局新解锁/升档成就列表
         const achFontSize = Math.round(12 * fontScale);
         const achLineH = Math.round(16 * fontScale);
         ctx.font = `${achFontSize}px arial`;
-        for (const ach of newAchievements) {
+        for (const [achId, tier] of newTierMap) {
+            const ach = achDefs.find(d => d.id === achId);
+            if (!ach)
+                continue;
             ctx.textAlign = "left";
-            ctx.fillStyle = "#ffd700";
-            ctx.fillText("★", cx - achHalfW, curY);
-            ctx.fillStyle = "#ccc";
-            ctx.fillText(t(ach.label), cx - achHalfW + Math.round(12 * fontScale), curY);
+            ctx.fillStyle = tierColors[tier];
+            ctx.fillText(tierSymbols[tier] + " " + t(ach.label), cx - achHalfW, curY);
             curY += achLineH;
             // 限制显示数量，避免界面过长
             if (curY > height * 0.82)
@@ -904,7 +910,7 @@ function drawGameData() {
     ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
     ctx.fillText(t("gameData.achievements") + " " + unlockedCount + "/" + achDefs.length, cx, curY);
     curY += Math.round(16 * fontScale);
-    // 成就详情列表（紧凑排列，两列居中布局 + info 图标）
+    // 成就详情列表（紧凑排列，两列居中布局 + 分档标记 + info 图标）
     infoIconAreas = [];
     const achFontSize = Math.round(11 * fontScale);
     const achLineH = Math.round(18 * fontScale);
@@ -912,23 +918,28 @@ function drawGameData() {
     const achColW = Math.round(150 * fontScale); // 每列宽度
     const achTotalW = achColW * 2;
     const achStartX = cx - achTotalW / 2; // 整体居中起点
+    // 分档颜色和标记
+    const tierColors = ["#444", "#cd7f32", "#c0c0c0", "#ffd700"]; // 未解锁/铜/银/金
+    const tierSymbols = ["☆", "◈", "◆", "★"]; // 未解锁/铜/银/金
     let colIdx = 0;
     for (const ach of achDefs) {
-        const unlocked = isUnlocked(ach.id);
+        const tier = getAchievementTier(ach.id);
+        const unlocked = tier >= 1;
         const col = colIdx % 2;
         const row = Math.floor(colIdx / 2);
         const x = achStartX + col * achColW;
         const y = curY + row * achLineH;
-        // 成就名
+        // 成就名（带分档符号+颜色）
         ctx.textAlign = "left";
-        ctx.fillStyle = unlocked ? "#ffd700" : "#444";
-        const prefix = unlocked ? "★ " : "☆ ";
+        ctx.fillStyle = tierColors[tier];
+        const prefix = tierSymbols[tier] + " ";
         const nameStr = prefix + t(ach.label);
         ctx.fillText(nameStr, x, y);
-        // info 图标（ⓘ）
-        const nameW = ctx.measureText(nameStr).width;
+        const textEndX = x + ctx.measureText(nameStr).width;
+        // info 图标（ⓘ）— 紧跟成就名后面
         const iconR = Math.round(6 * fontScale);
-        const iconCx = x + nameW + iconR + Math.round(4 * fontScale);
+        const iconGap = Math.round(4 * fontScale);
+        const iconCx = textEndX + iconGap + iconR;
         const iconCy = y - Math.round(3 * fontScale);
         // 绘制圆形 info 图标
         ctx.beginPath();
@@ -940,12 +951,42 @@ function drawGameData() {
         ctx.textAlign = "center";
         ctx.fillText("i", iconCx, iconCy + Math.round(3 * fontScale));
         ctx.font = `${achFontSize}px arial`; // 恢复字体
-        // 记录 info 图标区域
+        // info 描述：显示当前档位 + 下一档目标
+        const tierLabels = ["achievement.tier.bronze", "achievement.tier.silver", "achievement.tier.gold"];
+        const clampedTier = Math.min(tier, ach.tiers.length);
+        let tooltip;
+        if (clampedTier >= 1) {
+            // 已解锁：当前档位
+            const curName = t(tierLabels[clampedTier - 1]);
+            const curDesc = t(ach.tiers[clampedTier - 1].desc);
+            const nextIdx = clampedTier; // tiers 是 0-based，下一档索引 = clampedTier
+            if (nextIdx < ach.tiers.length) {
+                // 还有下一档
+                const nextName = t(tierLabels[nextIdx]);
+                const nextDesc = t(ach.tiers[nextIdx].desc);
+                tooltip = `当前：${curName} - ${curDesc}\n下一档：${nextName} - ${nextDesc}`;
+            }
+            else if (ach.tiers.length > 1) {
+                // 多档位成就已满级
+                tooltip = `当前：${curName} - ${curDesc}（已满级）`;
+            }
+            else {
+                // 单档位成就，不显示满级提示
+                tooltip = `当前：${curName} - ${curDesc}`;
+            }
+        }
+        else {
+            // 未解锁：显示首档目标
+            const nextName = t(tierLabels[0]);
+            const nextDesc = t(ach.tiers[0].desc);
+            tooltip = `下一档：${nextName} - ${nextDesc}`;
+        }
         infoIconAreas.push({
             x: iconCx,
             y: iconCy,
-            r: iconR + Math.round(2 * fontScale), // 扩大点击/悬停区域
-            desc: t(ach.desc),
+            r: iconR + Math.round(2 * fontScale),
+            desc: tooltip,
+            achievementId: ach.id,
         });
         colIdx++;
     }
@@ -1211,8 +1252,16 @@ function drawGameData() {
     if (tooltipVisible) {
         const tipFontSize = Math.round(12 * fontScale);
         ctx.font = `${tipFontSize}px arial`;
-        const tipW = ctx.measureText(tooltipText).width + Math.round(16 * fontScale);
-        const tipH = Math.round(24 * fontScale);
+        const tipLines = tooltipText.split("\n");
+        const tipLineH = Math.round(16 * fontScale);
+        let maxLineW = 0;
+        for (const line of tipLines) {
+            const w = ctx.measureText(line).width;
+            if (w > maxLineW)
+                maxLineW = w;
+        }
+        const tipW = maxLineW + Math.round(16 * fontScale);
+        const tipH = tipLines.length * tipLineH + Math.round(8 * fontScale);
         let tipX = tooltipX + Math.round(10 * fontScale);
         let tipY = tooltipY - tipH - Math.round(4 * fontScale);
         if (tipX + tipW > width)
@@ -1226,7 +1275,9 @@ function drawGameData() {
         ctx.strokeRect(tipX, tipY, tipW, tipH);
         ctx.fillStyle = "#fff";
         ctx.textAlign = "left";
-        ctx.fillText(tooltipText, tipX + Math.round(8 * fontScale), tipY + Math.round(16 * fontScale));
+        for (let i = 0; i < tipLines.length; i++) {
+            ctx.fillText(tipLines[i], tipX + Math.round(8 * fontScale), tipY + Math.round(14 * fontScale) + i * tipLineH);
+        }
     }
     ctx.restore();
 }
