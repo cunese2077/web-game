@@ -1,6 +1,6 @@
 // 特殊武器模块 - 管理追踪导弹、能量武器（激光+闪电）、僚机
 import { ctx, width, height } from "./canvas.js";
-import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasNukeWarhead, hasVoidEnergy, getWingmanCount, getWingmanDamageBonus, hasBulletStorm, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad } from "./upgrade.js";
+import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasNukeWarhead, hasVoidEnergy, getWingmanCount, getWingmanDamageBonus, hasBulletStorm, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray } from "./upgrade.js";
 import { getHeroBuffs } from "./hero.js";
 import { buffConfig } from "./config.js";
 import { PHASE_PLAY, PHASE_BOSS_WARNING, PHASE_BOSS } from "./constants.js";
@@ -435,6 +435,7 @@ let missileCooldown = 0;
 let laserCooldown = 0;
 let lightningCooldown = 0;
 let wingmanCooldowns: number[] = [];  // 动态长度，基于僚机数量
+let wingmanMissileCooldown = 0;       // 狼群战术：僚机导弹冷却
 
 function clearSpecialWeapons(): void {
   missiles.length = 0;
@@ -447,6 +448,7 @@ function clearSpecialWeapons(): void {
   laserCooldown = 0;
   lightningCooldown = 0;
   wingmanCooldowns = [];
+  wingmanMissileCooldown = 0;
 }
 
 // ========== 锯齿线生成 ==========
@@ -513,7 +515,9 @@ function updateAndDrawSpecialWeapons(
       const baseExplosion = hasNukeWarhead() ? Math.max(cfg.explosionRadius, 25) : cfg.explosionRadius;
       // 进化：末日弹幕 — 爆炸范围 +30%
       const doomExplosionMul = hasDoomBarrage() ? 1.3 : 1;
-      const explosionRadius = baseExplosion * (1 + getExplosionRadiusBonus()) * (hasNukeWarhead() ? 3 : 1) * doomExplosionMul;
+      // 进化：狼群战术 — 爆炸范围 +50%
+      const wolfExplosionMul = hasWolfPack() ? 1.5 : 1;
+      const explosionRadius = baseExplosion * (1 + getExplosionRadiusBonus()) * (hasNukeWarhead() ? 3 : 1) * doomExplosionMul * wolfExplosionMul;
       // 专属道具：多重导弹
       const totalMissiles = cfg.count + getMultiMissileBonus();
       for (let i = 0; i < totalMissiles; i++) {
@@ -595,9 +599,11 @@ function updateAndDrawSpecialWeapons(
     // 进化：量子歼灭 - 闪电链范围无限
     const effectiveChainRange = (hasVoidEnergy() || hasQuantumAnnihilate()) ? 999 : LIGHTNING_CHAIN_RANGE;
 
-    // 激光部分（每 180 帧）
+    // 激光部分（每 LASER_INTERVAL 帧）
+    // 进化：雷霆穿甲 — 激光冷却 -30%
+    const effectiveLaserInterval = hasThunderPierce() ? Math.round(LASER_INTERVAL * 0.7) : LASER_INTERVAL;
     laserCooldown++;
-    if (laserCooldown >= LASER_INTERVAL) {
+    if (laserCooldown >= effectiveLaserInterval) {
       laserCooldown = 0;
       // 专属道具：虚空能量 - 全屏激光
       const effectiveLaserLength = hasVoidEnergy() ? -1 : cfg.laserLength;
@@ -735,7 +741,8 @@ function updateAndDrawSpecialWeapons(
   // ---- 僚机（基于被动叠加） ----
   const wingmanCount = getWingmanCount();
   // 进化：歼灭编队 — 僚机数量 +2
-  const effectiveWingmanCount = wingmanCount + (hasAnnihilateSquad() ? 2 : 0);
+  // 进化：棱镜阵列 — 僚机数量 +1
+  const effectiveWingmanCount = wingmanCount + (hasAnnihilateSquad() ? 2 : 0) + (hasPrismArray() ? 1 : 0);
   if (effectiveWingmanCount > 0) {
     const baseDamage = (1 + (wingmanCount - 1) * 0.5) * (1 + getWingmanDamageBonus()) * getDamagePassiveMultiplier() * firepowerMul;
     // 进化：歼灭编队 — 僚机伤害 ×2
@@ -778,6 +785,23 @@ function updateAndDrawSpecialWeapons(
       ctx.fill();
       ctx.restore();
     }
+
+    // 进化：狼群战术 — 僚机每 60 帧发射追踪小导弹
+    if (hasWolfPack()) {
+      wingmanMissileCooldown++;
+      if (wingmanMissileCooldown >= 60) {
+        wingmanMissileCooldown = 0;
+        const missileDmg = baseDamage * 0.6;
+        const missileExplosion = 30;
+        const fireCount = Math.min(effectiveWingmanCount, 2);
+        for (let w = 0; w < fireCount; w++) {
+          const sideOffset = (w % 2 === 0 ? -1 : 1) * WINGMAN_OFFSET;
+          const wx = heroCx + sideOffset;
+          missiles.push(new HomingMissile(wx, heroY, missileDmg, missileExplosion));
+        }
+        playMissile();
+      }
+    }
   }
 
   // 更新僚机子弹
@@ -797,6 +821,27 @@ function updateAndDrawSpecialWeapons(
           // 僚机命中闪光 + 专属音效
           hitFlashes.push(new HitFlash(wb.x, wb.y, 10, "#4f8", 8));
           playWingmanHit();
+          // 进化：棱镜阵列 — 僚机子弹触发闪电链（1 跳）
+          if (hasPrismArray()) {
+            let nearestDist = LIGHTNING_CHAIN_RANGE;
+            let nearestEnemy: typeof e | null = null;
+            for (const e2 of allEnemies) {
+              if (e2 === e || e2.die) continue;
+              const e2cx = e2.x + e2.width / 2;
+              const e2cy = e2.y + e2.height / 2;
+              const dist = Math.hypot(e2cx - ecx, e2cy - ecy);
+              if (dist < nearestDist) {
+                nearestDist = dist;
+                nearestEnemy = e2;
+              }
+            }
+            if (nearestEnemy) {
+              const chainDmg = wb.damage * 0.5;
+              damageEnemy(nearestEnemy, chainDmg, false, true);
+              const segs = generateJaggedLine(ecx, ecy, nearestEnemy.x + nearestEnemy.width / 2, nearestEnemy.y + nearestEnemy.height / 2);
+              lightnings.push(new LightningBolt(segs, chainDmg, 0, new Set([nearestEnemy.id])));
+            }
+          }
           wb.removable = true;
           break;
         }

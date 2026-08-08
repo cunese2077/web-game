@@ -15,7 +15,7 @@ import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
 import { getDebugPanelArea, getDebugToggleArea } from "./debug.js";
 import { t } from "./i18n.js";
-import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, } from "./upgrade.js";
+import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, } from "./upgrade.js";
 let activeHero = null;
 let eventsBound = false;
 let _pauseBtnArea = { x: 0, y: 0, w: 0, h: 0 };
@@ -172,7 +172,7 @@ class Hero {
             this._drawShieldAura();
         }
         // 进化光环：持有进化超武时显示专属紫色光环
-        if (hasDoomBarrage() || hasQuantumAnnihilate() || hasAnnihilateSquad()) {
+        if (hasDoomBarrage() || hasQuantumAnnihilate() || hasAnnihilateSquad() || hasThunderPierce() || hasWolfPack() || hasPrismArray()) {
             this._drawEvolutionAura();
         }
         this._drawScore();

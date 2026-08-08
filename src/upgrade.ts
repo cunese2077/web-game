@@ -331,7 +331,7 @@ function hasPiercingItem(): boolean {
 
 // 是否穿透
 function hasPiercing(): boolean {
-  return hasPiercingItem();
+  return hasPiercingItem() || hasThunderPierce();
 }
 
 // 额外 HP（来自 hpUp 被动）
@@ -427,6 +427,21 @@ function hasQuantumAnnihilate(): boolean {
 // 歼灭编队（baseWeapon + wingman）：僚机+2 + 伤害×2 + 子弹+2路
 function hasAnnihilateSquad(): boolean {
   return getPassiveStacks("annihilateSquad") > 0;
+}
+
+// 雷霆穿甲（baseWeapon + energyWeapon）：子弹穿透 + 激光冷却-30%
+function hasThunderPierce(): boolean {
+  return getPassiveStacks("thunderPierce") > 0;
+}
+
+// 狼群战术（homingMissile + wingman）：僚机发射追踪导弹 + 爆炸范围+50%
+function hasWolfPack(): boolean {
+  return getPassiveStacks("wolfPack") > 0;
+}
+
+// 棱镜阵列（energyWeapon + wingman）：僚机+1 + 僚机子弹触发闪电链
+function hasPrismArray(): boolean {
+  return getPassiveStacks("prismArray") > 0;
 }
 
 // BOSS 击杀加成：击杀 big 敌机时调用
@@ -543,6 +558,9 @@ export {
   hasDoomBarrage,
   hasQuantumAnnihilate,
   hasAnnihilateSquad,
+  hasThunderPierce,
+  hasWolfPack,
+  hasPrismArray,
   getBulletInterval,
   getBulletDamage,
   getBulletDamageWithBuff,

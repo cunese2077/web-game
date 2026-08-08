@@ -31,6 +31,9 @@ import {
   hasDoomBarrage,
   hasQuantumAnnihilate,
   hasAnnihilateSquad,
+  hasThunderPierce,
+  hasWolfPack,
+  hasPrismArray,
 } from "./upgrade.js";
 import type { GamePhase, BuffState, BuffFloat, ItemType } from "./types.js";
 
@@ -212,7 +215,7 @@ class Hero {
     }
 
     // 进化光环：持有进化超武时显示专属紫色光环
-    if (hasDoomBarrage() || hasQuantumAnnihilate() || hasAnnihilateSquad()) {
+    if (hasDoomBarrage() || hasQuantumAnnihilate() || hasAnnihilateSquad() || hasThunderPierce() || hasWolfPack() || hasPrismArray()) {
       this._drawEvolutionAura();
     }
 

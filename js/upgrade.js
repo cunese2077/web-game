@@ -291,7 +291,7 @@ function hasPiercingItem() {
 }
 // 是否穿透
 function hasPiercing() {
-    return hasPiercingItem();
+    return hasPiercingItem() || hasThunderPierce();
 }
 // 额外 HP（来自 hpUp 被动）
 function getExtraHp() {
@@ -370,6 +370,18 @@ function hasQuantumAnnihilate() {
 function hasAnnihilateSquad() {
     return getPassiveStacks("annihilateSquad") > 0;
 }
+// 雷霆穿甲（baseWeapon + energyWeapon）：子弹穿透 + 激光冷却-30%
+function hasThunderPierce() {
+    return getPassiveStacks("thunderPierce") > 0;
+}
+// 狼群战术（homingMissile + wingman）：僚机发射追踪导弹 + 爆炸范围+50%
+function hasWolfPack() {
+    return getPassiveStacks("wolfPack") > 0;
+}
+// 棱镜阵列（energyWeapon + wingman）：僚机+1 + 僚机子弹触发闪电链
+function hasPrismArray() {
+    return getPassiveStacks("prismArray") > 0;
+}
 // BOSS 击杀加成：击杀 big 敌机时调用
 function addBossKillBonus() {
     bossKillBonus += bossKillRarityBonus;
@@ -435,4 +447,4 @@ function getBuildSummary() {
     }
     return result;
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, };
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, };
