@@ -11,6 +11,9 @@ const DEBUG_MODE: boolean = _detectDebugMode();
 // 调试面板可见性
 let debugPanelVisible: boolean = true;
 
+// 无敌模式开关
+let godMode: boolean = false;
+
 // 调试操作反馈（显示 120 帧后消失，20fps=6秒）
 let debugInfo: string = "";
 let debugInfoTimer: number = 0;
@@ -38,6 +41,15 @@ function isDebugMode(): boolean {
 
 function isDebugPanelVisible(): boolean {
   return debugPanelVisible;
+}
+
+function isGodMode(): boolean {
+  return DEBUG_MODE && godMode;
+}
+
+function toggleGodMode(): void {
+  godMode = !godMode;
+  _showInfo(godMode ? "GOD ON" : "GOD OFF");
 }
 
 function getDebugInfo(): string {
@@ -112,10 +124,10 @@ function _buildButtons(): void {
   const padX = Math.round(4 * fs);
   const padY = Math.round(18 * fs); // 标题行高度
 
-  // 第一行：+1Lv  +5Lv  BOSS
+  // 第一行：+1Lv  +5Lv  BOSS  GOD
   const row1Y = padY;
-  const labels1 = ["+1", "+5", "BOSS"];
-  const actions1 = [debugLevelUp, debugLevelUp5, debugTriggerBoss];
+  const labels1 = ["+1", "+5", "BOSS", "GOD"];
+  const actions1 = [debugLevelUp, debugLevelUp5, debugTriggerBoss, toggleGodMode];
   for (let i = 0; i < labels1.length; i++) {
     buttons.push({
       label: labels1[i],
@@ -160,7 +172,7 @@ function _buildButtons(): void {
 function getDebugPanelSize(): { w: number; h: number } {
   const fs = fontScale;
   return {
-    w: Math.round(144 * fs),
+    w: Math.round(190 * fs),
     h: Math.round(106 * fs),
   };
 }
@@ -197,14 +209,15 @@ function drawDebugPanel(): void {
   for (const btn of buttons) {
     const absX = panelX + btn.x;
     const absY = panelY + btn.y;
-    // 按钮背景
-    ctx.fillStyle = "rgba(0, 80, 0, 0.6)";
+    // 按钮背景（GOD 按钮激活时高亮）
+    const isGodActive = btn.label === "GOD" && godMode;
+    ctx.fillStyle = isGodActive ? "rgba(180, 0, 0, 0.7)" : "rgba(0, 80, 0, 0.6)";
     ctx.fillRect(absX, absY, btn.w, btn.h);
-    ctx.strokeStyle = "#0a0";
+    ctx.strokeStyle = isGodActive ? "#f44" : "#0a0";
     ctx.lineWidth = 1;
     ctx.strokeRect(absX, absY, btn.w, btn.h);
     // 按钮文字
-    ctx.fillStyle = "#0f0";
+    ctx.fillStyle = isGodActive ? "#fff" : "#0f0";
     ctx.font = `bold ${Math.round(10 * fs)}px monospace`;
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
@@ -319,6 +332,7 @@ function initDebugControls(): void {
 export {
   isDebugMode,
   isDebugPanelVisible,
+  isGodMode,
   getDebugInfo,
   getDebugPanelArea,
   getDebugToggleArea,

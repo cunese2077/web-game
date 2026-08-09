@@ -13,7 +13,7 @@ import { getLevel, getExp, getExpToNext } from "./level.js";
 import { buffConfig, heroConfig, itemConfig, getDifficultyConfig, getCollisionDamage } from "./config.js";
 import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
-import { getDebugPanelArea, getDebugToggleArea } from "./debug.js";
+import { getDebugPanelArea, getDebugToggleArea, isGodMode } from "./debug.js";
 import { t } from "./i18n.js";
 import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, } from "./upgrade.js";
 let activeHero = null;
@@ -672,6 +672,8 @@ class Hero {
     }
     hit() {
         if (this.dying || this.invincible > 0)
+            return;
+        if (isGodMode())
             return;
         const enemies = Enemy.getAll();
         for (let i = 0; i < enemies.length; i++) {
