@@ -17,13 +17,13 @@ import type { TextKey } from "./i18n.js";
 // Boss 攻击阶段
 type BossPhase = 1 | 2 | 3;
 
-// Boss 类型：3种差异化行为循环出现
-type BossType = "assault" | "fortress" | "carrier";
+// Boss 类型：4种差异化行为循环出现
+type BossType = "assault" | "fortress" | "carrier" | "phantom";
 
-// 根据 bossIndex 决定类型（循环：0=突击 1=堡垒 2=母舰）
+// 根据 bossIndex 决定类型（循环：0=突击 1=堡垒 2=母舰 3=幻影）
 function getBossType(bossIndex: number): BossType {
-  const types: BossType[] = ["assault", "fortress", "carrier"];
-  return types[bossIndex % 3];
+  const types: BossType[] = ["assault", "fortress", "carrier", "phantom"];
+  return types[bossIndex % 4];
 }
 
 class Boss {
@@ -53,6 +53,14 @@ class Boss {
   // 母舰型特有：无人机释放
   droneTimer: number;
   droneCount: number;
+  // 幻影型特有：瞬移 + 螺旋弹幕
+  teleportTimer: number;
+  teleportFlash: number;   // 瞬移后的视觉残影帧数
+  spiralAngle: number;     // 螺旋弹幕当前角度
+  // 阶段转换效果
+  phaseTransitionFlash: number;  // 转换时的闪烁帧数
+  phaseTransitionInvincible: number;  // 转换后的短暂无敌帧
+  lastAttackPhase: BossPhase;   // 上一次的阶段（用于检测转换）
 
   constructor(bossIndex: number) {
     this.bossIndex = bossIndex;
@@ -83,6 +91,14 @@ class Boss {
     this.shieldRegenTimer = 0;
     this.droneTimer = 0;
     this.droneCount = 0;
+    // 幻影型特有
+    this.teleportTimer = 0;
+    this.teleportFlash = 0;
+    this.spiralAngle = 0;
+    // 阶段转换
+    this.phaseTransitionFlash = 0;
+    this.phaseTransitionInvincible = 0;
+    this.lastAttackPhase = 1;
 
     switch (this.bossType) {
       case "assault":
@@ -107,6 +123,15 @@ class Boss {
         this.droneTimer = 80; // 4秒后首次释放
         this.droneCount = 0;
         break;
+      case "phantom":
+        // 幻影型：中速，HP略高，瞬移+螺旋弹幕
+        this.moveSpeed = bossConfig.moveSpeed * 1.0;
+        this.hp *= 0.95;
+        this.maxHp = this.hp;
+        this.teleportTimer = 100; // 5秒后首次瞬移
+        this.teleportFlash = 0;
+        this.spiralAngle = 0;
+        break;
     }
   }
 
@@ -115,6 +140,10 @@ class Boss {
 
     // 受击音效冷却递减
     if (this.hitSoundCooldown > 0) this.hitSoundCooldown--;
+
+    // === 阶段转换效果计时器递减 ===
+    if (this.phaseTransitionFlash > 0) this.phaseTransitionFlash--;
+    if (this.phaseTransitionInvincible > 0) this.phaseTransitionInvincible--;
 
     // === 类型特有行为更新 ===
     this._updateTypeBehavior();
@@ -142,6 +171,15 @@ class Boss {
       this.attackPhase = 1;
     }
 
+    // === 阶段转换检测：进入更高阶段时触发闪烁 + 短暂无敌 ===
+    if (this.attackPhase > this.lastAttackPhase) {
+      this.phaseTransitionFlash = 30;       // 1.5 秒屏幕闪烁
+      this.phaseTransitionInvincible = 50;  // 约 2.5 秒无敌帧
+      // 转换瞬间发射圆形弹幕作为「觉醒」宣告
+      this._fireCircle(10 + this.bossIndex, bossConfig.bullet.speed * 0.5, bossConfig.bullet.size * 0.7, "#fff");
+    }
+    this.lastAttackPhase = this.attackPhase;
+
     // 攻击逻辑（随 bossIndex 递增强度）
     const diffConfig = getDifficultyConfig(getDifficulty());
     const baseInterval = bossConfig.bullet.interval;
@@ -166,6 +204,9 @@ class Boss {
         break;
       case "carrier":
         this._updateCarrier();
+        break;
+      case "phantom":
+        this._updatePhantom();
         break;
     }
   }
@@ -237,6 +278,54 @@ class Boss {
     }
   }
 
+  // 幻影型：周期性瞬移 + 持续螺旋弹幕
+  _updatePhantom(): void {
+    // 瞬移残影倒计时
+    if (this.teleportFlash > 0) this.teleportFlash--;
+
+    // 螺旋弹幕角度持续递增（用于 _firePatternPhantom 的螺旋发射）
+    this.spiralAngle += 0.25;
+
+    // 瞬移冷却
+    this.teleportTimer--;
+    if (this.teleportTimer <= 0) {
+      this._teleport();
+      // 瞬移间隔随阶段缩短
+      const baseInterval = this.attackPhase >= 3 ? 70 : (this.attackPhase >= 2 ? 90 : 110);
+      this.teleportTimer = Math.max(40, baseInterval - this.bossIndex * 4);
+    }
+  }
+
+  // 瞬移到新位置（顶部区域内随机 + 偏向玩家 X 方向）
+  _teleport(): void {
+    // 在画布水平有效区域内选择新位置，避开边缘
+    const minX = this.bossWidth / 2 + 10;
+    const maxX = width - this.bossWidth / 2 - 10;
+    // 70% 概率瞬移到玩家附近，30% 随机位置（增加不可预测性）
+    let targetX: number;
+    if (Math.random() < 0.7) {
+      const heroX = getHeroX();
+      // 在玩家 X 附近 ±80px 范围内
+      targetX = heroX + (Math.random() - 0.5) * 160;
+    } else {
+      targetX = Math.random() * (maxX - minX) + minX;
+    }
+    targetX = Math.max(minX, Math.min(maxX, targetX));
+
+    // Y 在顶部区域内小幅变化（避免瞬移到玩家下方造成碰撞不公平）
+    const homeY = this.bossHeight / 2 + Math.round(20 * fontScale);
+    const targetY = homeY + (Math.random() - 0.5) * 30;
+
+    this.x = targetX;
+    this.y = Math.max(homeY - 10, targetY);
+
+    // 触发残影
+    this.teleportFlash = 15;
+
+    // 瞬移后立即发射一轮圆形弹幕（警告效果）
+    this._fireCircle(6 + Math.floor(this.bossIndex / 2), bossConfig.bullet.speed * 0.6, bossConfig.bullet.size * 0.7, "#c8f");
+  }
+
   // 弹幕发射模式（随 bossIndex 递增弹幕量，类型差异化）
   _firePattern(): void {
     const bulletCfg = bossConfig.bullet;
@@ -253,6 +342,9 @@ class Boss {
         break;
       case "carrier":
         this._firePatternCarrier(fanCount, aimedCount, bulletCfg);
+        break;
+      case "phantom":
+        this._firePatternPhantom(aimedCount, bulletCfg);
         break;
     }
   }
@@ -313,6 +405,45 @@ class Boss {
         this._fireCircle(6 + this.bossIndex, bulletCfg.speed * 0.5, bulletCfg.size * 0.7, "#f0f");
       }
       this._fireRain(3, bulletCfg.speed * 0.9, bulletCfg.size * 0.6, "#ff8");
+    }
+  }
+
+  // 幻影型：侧重螺旋弹幕 + 定向，瞬移后压制
+  _firePatternPhantom(aimedCount: number, bulletCfg: { speed: number; size: number; fanSpreadAngle: number }): void {
+    // 螺旋弹幕：每次发射 N 发，沿当前 spiralAngle 均匀分布
+    // Phase 1: 2 臂螺旋
+    if (this.attackPhase >= 1) {
+      this._fireSpiral(2, bulletCfg.speed * 0.9, bulletCfg.size * 0.8, "#c8f");
+    }
+    // Phase 2+: 增加定向射击
+    if (this.attackPhase >= 2) {
+      this._fireSpiral(3, bulletCfg.speed * 1.0, bulletCfg.size * 0.7, "#f8c");
+      this._fireAimed(aimedCount, bulletCfg.speed * 1.2, bulletCfg.size, "#fa0");
+    }
+    // Phase 3: 4 臂螺旋 + 圆形弹幕
+    if (this.attackPhase >= 3) {
+      this._fireSpiral(4, bulletCfg.speed * 1.1, bulletCfg.size * 0.6, "#f0f");
+      this.circleTimer++;
+      if (this.circleTimer >= 3) {
+        this.circleTimer = 0;
+        this._fireCircle(8 + this.bossIndex, bulletCfg.speed * 0.5, bulletCfg.size * 0.6, "#a8f");
+      }
+    }
+  }
+
+  // 螺旋弹幕：以当前 spiralAngle 为基准，发射 N 臂（每臂一发）
+  _fireSpiral(arms: number, speed: number, size: number, color: string): void {
+    const angleStep = (Math.PI * 2) / arms;
+    for (let i = 0; i < arms; i++) {
+      const angle = this.spiralAngle + angleStep * i;
+      addBullet(
+        this.x,
+        this.y,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        size,
+        color,
+      );
     }
   }
 
@@ -393,6 +524,9 @@ class Boss {
   takeDamage(damage: number): void {
     if (!this.alive) return;
 
+    // 阶段转换无敌帧：转换期间免疫伤害（让玩家看清觉醒效果）
+    if (this.phaseTransitionInvincible > 0) return;
+
     // 堡垒型：先扣护盾
     if (this.bossType === "fortress" && this.shieldHp > 0) {
       if (damage <= this.shieldHp) {
@@ -457,6 +591,22 @@ class Boss {
       case "carrier":
         this._drawCarrierBody(left, top);
         break;
+      case "phantom":
+        this._drawPhantomBody(left, top);
+        break;
+    }
+
+    // 阶段转换无敌期间：BOSS 周围白色脉冲边框（提示玩家此时无敌）
+    if (this.phaseTransitionInvincible > 0) {
+      const invPulse = 0.5 + 0.5 * Math.sin(this.phaseTransitionInvincible * 0.4);
+      ctx.save();
+      ctx.globalAlpha = 0.6 * invPulse;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "#fff";
+      ctx.shadowBlur = 15;
+      ctx.strokeRect(left - 4, top - 4, this.bossWidth + 8, this.bossHeight + 8);
+      ctx.restore();
     }
 
     ctx.restore();
@@ -468,6 +618,40 @@ class Boss {
     if (this.bossType === "fortress" && this.shieldMaxHp > 0) {
       this._drawShieldBar();
     }
+
+    // 阶段转换：全屏闪烁效果
+    if (this.phaseTransitionFlash > 0) {
+      this._drawPhaseTransitionFlash();
+    }
+  }
+
+  // 阶段转换全屏闪烁
+  _drawPhaseTransitionFlash(): void {
+    const progress = this.phaseTransitionFlash / 30; // 0~1
+    // 闪烁透明度：前半段渐亮，后半段渐灭，叠加脉冲
+    const baseAlpha = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+    const pulse = 0.3 + 0.7 * Math.abs(Math.sin(this.phaseTransitionFlash * 0.5));
+    const alpha = baseAlpha * pulse * 0.5;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    // 阶段越高，颜色越强烈：阶段2=黄白，阶段3=红白
+    const isPhase3 = this.attackPhase === 3;
+    ctx.fillStyle = isPhase3 ? "#f44" : "#ffa";
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+
+    // 中心扩散光环（从 BOSS 位置向外扩散）
+    const ringR = (1 - progress) * Math.max(width, height) * 0.6;
+    ctx.save();
+    ctx.globalAlpha = baseAlpha * 0.8;
+    ctx.strokeStyle = isPhase3 ? "#f44" : "#ffa";
+    ctx.lineWidth = 3;
+    ctx.shadowColor = isPhase3 ? "#f00" : "#ff0";
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // 突击型外观：红色流线型 + 尖锐翼
@@ -664,6 +848,100 @@ class Boss {
     }
   }
 
+  // 幻影型外观：紫色半透明 + 幻影残影 + 漂浮光环
+  _drawPhantomBody(left: number, top: number): void {
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
+    ctx.shadowColor = this.attackPhase === 3 ? "#f0f" : "#c8f";
+    ctx.shadowBlur = 16 * pulse;
+
+    // === 瞬移残影：在新位置之前留几个半透明残影 ===
+    if (this.teleportFlash > 0) {
+      const ghostAlpha = (this.teleportFlash / 15) * 0.4;
+      // 残影偏移（向左上飘散）
+      for (let i = 1; i <= 3; i++) {
+        ctx.save();
+        ctx.globalAlpha = ghostAlpha * (1 - i * 0.25);
+        ctx.fillStyle = "#a8f";
+        const gx = left - i * 8;
+        const gy = top - i * 4;
+        ctx.fillRect(gx, gy, this.bossWidth, this.bossHeight);
+        ctx.restore();
+      }
+    }
+
+    // 主体：深紫半透明装甲（幻影感）
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#214";
+    ctx.fillRect(left, top, this.bossWidth, this.bossHeight);
+
+    // 装甲条纹（紫色渐变）
+    const stripeH = this.bossHeight / 5;
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#426" : "#537";
+      ctx.fillRect(left, top + i * stripeH, this.bossWidth, stripeH);
+    }
+    ctx.globalAlpha = 1;
+
+    // 翼展（半透明尖翼，体现幻影）
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = "#846";
+    ctx.beginPath();
+    ctx.moveTo(left, top + this.bossHeight * 0.3);
+    ctx.lineTo(left - this.bossWidth * 0.18, top + this.bossHeight * 0.1);
+    ctx.lineTo(left - this.bossWidth * 0.05, top + this.bossHeight * 0.7);
+    ctx.lineTo(left, top + this.bossHeight * 0.6);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(left + this.bossWidth, top + this.bossHeight * 0.3);
+    ctx.lineTo(left + this.bossWidth * 1.18, top + this.bossHeight * 0.1);
+    ctx.lineTo(left + this.bossWidth * 1.05, top + this.bossHeight * 0.7);
+    ctx.lineTo(left + this.bossWidth, top + this.bossHeight * 0.6);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // 漂浮光环（旋转的椭圆轮廓）
+    ctx.strokeStyle = `rgba(200, 150, 255, ${0.4 + 0.3 * pulse})`;
+    ctx.shadowColor = "#c8f";
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const auraW = this.bossWidth * 0.7;
+    const auraH = this.bossHeight * 0.5;
+    ctx.ellipse(this.x, this.y, auraW, auraH, Math.sin(Date.now() * 0.003) * 0.3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 核心发光（紫色，闪烁更强）
+    const coreSize = this.bossWidth * 0.12 * (0.85 + 0.3 * pulse);
+    ctx.fillStyle = this.attackPhase === 3 ? "#f0f" : "#c8f";
+    ctx.shadowColor = this.attackPhase === 3 ? "#f0f" : "#c8f";
+    ctx.shadowBlur = 24;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, coreSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, coreSize * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 螺旋弹幕可视化：核心周围旋转的小光点（与 spiralAngle 同步）
+    ctx.fillStyle = "#e8f";
+    ctx.shadowColor = "#c8f";
+    ctx.shadowBlur = 6;
+    const orbitR = coreSize * 2.2;
+    for (let i = 0; i < 3; i++) {
+      const a = this.spiralAngle + (Math.PI * 2 / 3) * i;
+      ctx.beginPath();
+      ctx.arc(this.x + Math.cos(a) * orbitR, this.y + Math.sin(a) * orbitR, 2 * fontScale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 阶段3狂暴闪烁（紫色更强）
+    if (this.attackPhase === 3) {
+      ctx.fillStyle = `rgba(255, 50, 255, ${0.25 + 0.35 * Math.sin(Date.now() * 0.012)})`;
+      ctx.fillRect(left - this.bossWidth * 0.1, top, this.bossWidth * 1.2, this.bossHeight);
+    }
+  }
+
   // 护盾条（堡垒型专属）
   _drawShieldBar(): void {
     const barHeight = Math.round(4 * fontScale);
@@ -699,6 +977,7 @@ class Boss {
       case "assault": return "boss.type.assault";
       case "fortress": return "boss.type.fortress";
       case "carrier": return "boss.type.carrier";
+      case "phantom": return "boss.type.phantom";
     }
   }
 

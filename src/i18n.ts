@@ -228,6 +228,7 @@ export type TextKey =
   | "boss.type.assault"       // "突击型" / "ASSAULT"
   | "boss.type.fortress"      // "堡垒型" / "FORTRESS"
   | "boss.type.carrier"       // "母舰型" / "CARRIER"
+  | "boss.type.phantom"       // "幻影型" / "PHANTOM"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"
@@ -434,6 +435,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "boss.type.assault": "突击型",
     "boss.type.fortress": "堡垒型",
     "boss.type.carrier": "母舰型",
+    "boss.type.phantom": "幻影型",
   },
   en: {
     "hud.score": "SCORE:",
@@ -635,6 +637,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "boss.type.assault": "ASSAULT",
     "boss.type.fortress": "FORTRESS",
     "boss.type.carrier": "CARRIER",
+    "boss.type.phantom": "PHANTOM",
   },
   ja: {
     "hud.score": "得点:",
@@ -836,6 +839,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "boss.type.assault": "突撃型",
     "boss.type.fortress": "要塞型",
     "boss.type.carrier": "母艦型",
+    "boss.type.phantom": "幻影型",
   },
 };
 

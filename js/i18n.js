@@ -208,6 +208,7 @@ const translations = {
         "boss.type.assault": "突击型",
         "boss.type.fortress": "堡垒型",
         "boss.type.carrier": "母舰型",
+        "boss.type.phantom": "幻影型",
     },
     en: {
         "hud.score": "SCORE:",
@@ -409,6 +410,7 @@ const translations = {
         "boss.type.assault": "ASSAULT",
         "boss.type.fortress": "FORTRESS",
         "boss.type.carrier": "CARRIER",
+        "boss.type.phantom": "PHANTOM",
     },
     ja: {
         "hud.score": "得点:",
@@ -610,6 +612,7 @@ const translations = {
         "boss.type.assault": "突撃型",
         "boss.type.fortress": "要塞型",
         "boss.type.carrier": "母艦型",
+        "boss.type.phantom": "幻影型",
     },
 };
 // ========== 当前语言（默认中文） ==========
