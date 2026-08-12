@@ -1,7 +1,6 @@
 // 升级系统模块 - 管理升级状态、出牌算法、属性计算
 import { upgradePool, heroConfig, bulletConfig, buffConfig, getDifficultyConfig, rarityWeights, bossKillRarityBonus } from "./config.js";
 import { getDifficulty } from "./settings.js";
-import { getLevel } from "./level.js";
 import type { UpgradeDef, UpgradeOffer } from "./types.js";
 import type { TextKey } from "./i18n.js";
 
@@ -28,11 +27,6 @@ let bossLegendaryPending: boolean = false;
 // 进化保底标记：下次升级选项保证出现可用的进化超武
 let evolutionPending: boolean = false;
 
-// 等级里程碑：到达这些等级时触发传说保底
-const LEGENDARY_MILESTONES: number[] = [10, 20, 30];
-// 已触发过的里程碑集合，避免重复触发
-let triggeredMilestones: Set<number> = new Set();
-
 // ========== 基础武器等级效果表 ==========
 // 索引 = level - 1（Lv1在index 0）
 const BASE_WEAPON_LEVELS: { bulletCount: number; damageBonus: number; fireRateBonus: number; piercing: boolean }[] = [
@@ -56,7 +50,6 @@ function initUpgrades(): void {
   bossKillBonus = 0;
   bossLegendaryPending = false;
   evolutionPending = false;
-  triggeredMilestones = new Set();
 }
 
 function getWeaponLevel(id: string): number {
@@ -224,15 +217,6 @@ function generateOffers(): UpgradeOffer[] {
 // 进入升级选择状态，返回是否成功生成选项
 function startUpgradeSelection(): boolean {
   if (pendingLevelUps <= 0) return false;
-
-  // 检查等级里程碑：到达 10/20/30 级时触发传说保底
-  const level = getLevel();
-  for (const milestone of LEGENDARY_MILESTONES) {
-    if (level >= milestone && !triggeredMilestones.has(milestone)) {
-      triggeredMilestones.add(milestone);
-      triggerBossLegendary();
-    }
-  }
 
   // 检查进化条件：遍历进化配方，如果有两个 Lv5 武器满足配方，触发进化保底
   if (!evolutionPending) {
