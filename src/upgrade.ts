@@ -160,7 +160,7 @@ function generateOffers(): UpgradeOffer[] {
 
   const result: UpgradeOffer[] = [];
 
-  // 1. 检查进化保底（优先级最高：两个武器均 Lv5 触发）
+  // 1. 检查进化保底（优先级最高：两个武器满足配方等级触发）
   if (evolutionPending) {
     evolutionPending = false;
     const evolutionOffers = available.filter(o => o.def.evolutionFrom !== null);
@@ -185,8 +185,13 @@ function generateOffers(): UpgradeOffer[] {
   // 填充剩余槽位
   const remainingSlots = 3 - result.length;
   if (remainingSlots > 0) {
-    // 移除已选项
-    const remaining = available.filter(o => !result.some(r => r.upgradeId === o.upgradeId));
+    // 移除已选项，并排除传说道具
+    // 传说道具只能通过 BOSS 保底机制或进化保底机制出现，不能通过普通填充进入卡池
+    // （weightedRandomPick 在池中权重为 0 的道具仍可能被选中，需在此过滤）
+    const remaining = available.filter(o =>
+      !result.some(r => r.upgradeId === o.upgradeId) &&
+      o.def.rarity !== "legendary"
+    );
 
     // 保证至少 1 个武器类选项（如果传说保底未覆盖且仍有武器可选）
     const weaponOffers = remaining.filter(o => o.def.type === "weapon");
@@ -218,8 +223,9 @@ function generateOffers(): UpgradeOffer[] {
 function startUpgradeSelection(): boolean {
   if (pendingLevelUps <= 0) return false;
 
-  // 检查进化条件：遍历进化配方，如果有两个 Lv5 武器满足配方，触发进化保底
-  if (!evolutionPending) {
+  // 检查进化条件：遍历进化配方，如果有两个武器满足配方等级要求，触发进化保底
+  // 门控：进化只在 BOSS 保底生效时检查（传说道具统一只在击败 BOSS 后的下一次升级中出现）
+  if (!evolutionPending && bossLegendaryPending) {
     for (const def of upgradePool) {
       if (def.evolutionFrom === null) continue;
       // 已获得则跳过
@@ -433,7 +439,7 @@ function addBossKillBonus(): void {
   bossKillBonus += bossKillRarityBonus;
 }
 
-// BOSS 传说保底：击杀 big 敌机时标记，下次升级选项保证至少 1 个传说道具
+// BOSS 传说保底：击杀 BOSS 时标记，下次升级选项保证至少 1 个传说道具
 function triggerBossLegendary(): void {
   bossLegendaryPending = true;
 }
