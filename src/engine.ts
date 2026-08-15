@@ -19,7 +19,7 @@ import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChanc
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects, resetGameOverAnim } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
@@ -42,6 +42,11 @@ let gameOverRecordUpdated: boolean = false;
 // 进化全屏闪光动画（选中进化道具时触发）
 let evolutionFlashFrames: number = 0;
 const EVOLUTION_FLASH_DURATION: number = 30; // 1.5秒@20fps
+
+// BOSS 击败慢动作效果
+let bossDefeatSlowMo: number = 0;
+let bossDefeatX: number = 0;
+let bossDefeatY: number = 0;
 
 // BOSS 预警 UI 绘制
 function _drawBossWarningUI(): void {
@@ -77,6 +82,65 @@ function _drawBossWarningUI(): void {
   ctx.shadowColor = "#fff";
   ctx.shadowBlur = 12;
   ctx.fillText(String(seconds), width / 2, numY);
+
+  ctx.restore();
+}
+
+// BOSS 击败爆炸演出（慢动作期间绘制）
+function _drawBossExplosion(): void {
+  const totalFrames = 35;
+  const elapsed = totalFrames - bossDefeatSlowMo;
+  const progress = elapsed / totalFrames; // 0→1
+
+  ctx.save();
+
+  // 1. 全屏白色闪光（前 1/3 时间内快速渐隐）
+  if (progress < 0.4) {
+    const flashAlpha = (1 - progress / 0.4) * 0.7;
+    ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  // 2. 扩散冲击波（3 层环，从 BOSS 位置向外扩散）
+  const maxRadius = Math.max(width, height) * 0.8;
+  for (let i = 0; i < 3; i++) {
+    const ringProgress = Math.min(1, progress + i * 0.1);
+    if (ringProgress <= 0 || ringProgress >= 1) continue;
+    const radius = ringProgress * maxRadius;
+    const alpha = (1 - ringProgress) * 0.5;
+    ctx.strokeStyle = `rgba(255, 200, 100, ${alpha})`;
+    ctx.lineWidth = Math.max(1, 6 * (1 - ringProgress));
+    ctx.beginPath();
+    ctx.arc(bossDefeatX, bossDefeatY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 3. 中心爆炸光球（从大到小，橙→红→透明）
+  const coreRadius = Math.max(1, (1 - progress) * 60);
+  const coreAlpha = (1 - progress) * 0.8;
+  const grad = ctx.createRadialGradient(bossDefeatX, bossDefeatY, 0, bossDefeatX, bossDefeatY, coreRadius);
+  grad.addColorStop(0, `rgba(255, 255, 200, ${coreAlpha})`);
+  grad.addColorStop(0.4, `rgba(255, 150, 50, ${coreAlpha * 0.8})`);
+  grad.addColorStop(1, `rgba(200, 50, 0, 0)`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(bossDefeatX, bossDefeatY, coreRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4. 放射粒子（12 个方向，向外飞散）
+  const particleCount = 12;
+  for (let i = 0; i < particleCount; i++) {
+    const angle = (Math.PI * 2 / particleCount) * i + progress * 0.5;
+    const dist = progress * 120;
+    const px = bossDefeatX + Math.cos(angle) * dist;
+    const py = bossDefeatY + Math.sin(angle) * dist;
+    const pSize = Math.max(1, 4 * (1 - progress));
+    const pAlpha = (1 - progress) * 0.9;
+    ctx.fillStyle = `rgba(255, ${Math.round(150 + 100 * (1 - progress))}, 50, ${pAlpha})`;
+    ctx.beginPath();
+    ctx.arc(px, py, pSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
@@ -243,6 +307,8 @@ function start(): void {
         gameOverSoundPlayed = false;
         gameOverRecordUpdated = false;
         evolutionFlashFrames = 0;
+        resetGameOverAnim();
+        bossDefeatSlowMo = 0;
         curPhase = PHASE_READY;
       } else {
         // 点击其他区域恢复游戏
@@ -274,6 +340,8 @@ function start(): void {
         gameOverSoundPlayed = false;
         gameOverRecordUpdated = false;
         evolutionFlashFrames = 0;
+        resetGameOverAnim();
+        bossDefeatSlowMo = 0;
         curPhase = PHASE_READY;
       } else {
         // 其他区域点击：重新开始游戏
@@ -297,6 +365,8 @@ function start(): void {
         gameOverSoundPlayed = false;
         gameOverRecordUpdated = false;
         evolutionFlashFrames = 0;
+        resetGameOverAnim();
+        bossDefeatSlowMo = 0;
         curPhase = PHASE_LOADING;
       }
     }
@@ -382,32 +452,52 @@ function gameEngine(): void {
       break;
     case PHASE_BOSS:
       if (pBg) pBg();
-      Enemy.drawEnemy();
-      Item.drawItems();
-      Bullet.drawBullet();
-      if (hero) curPhase = hero.draw(curPhase);
-      // 特殊武器更新+绘制
-      if (hero) {
-        updateAndDrawSpecialWeapons(
-          hero.x, hero.y, heroImg[0].width, heroImg[0].height,
-          curPhase,
-          () => Enemy.getEnemyProxies(),
-          (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
-          (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
-        );
-      }
-      // BOSS 更新+绘制
-      updateAndDrawBoss();
-      // BOSS 弹幕更新+绘制
-      updateAndDrawBullets();
-      // 玩家子弹命中 BOSS
-      _checkBulletsHitBoss();
-      drawScoreEffects();
-      drawDamageEffects();
-      // BOSS 被击败 → 回到正常游戏
-      if (!isBossAlive()) {
-        clearBullets();
-        curPhase = PHASE_PLAY;
+      if (bossDefeatSlowMo > 0) {
+        // === 慢动作：BOSS 被击败后的爆炸演出 ===
+        Enemy.drawEnemy(true);
+        Item.drawItems(true);
+        Bullet.drawBullet(true);
+        if (hero) hero.draw(PHASE_PAUSE); // 冻结 hero
+        _drawBossExplosion();
+        drawScoreEffects();
+        drawDamageEffects();
+        bossDefeatSlowMo--;
+        if (bossDefeatSlowMo <= 0) {
+          clearBullets();
+          curPhase = PHASE_PLAY;
+        }
+      } else {
+        Enemy.drawEnemy();
+        Item.drawItems();
+        Bullet.drawBullet();
+        if (hero) curPhase = hero.draw(curPhase);
+        // 特殊武器更新+绘制
+        if (hero) {
+          updateAndDrawSpecialWeapons(
+            hero.x, hero.y, heroImg[0].width, heroImg[0].height,
+            curPhase,
+            () => Enemy.getEnemyProxies(),
+            (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
+            (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
+          );
+        }
+        // BOSS 更新+绘制
+        updateAndDrawBoss();
+        // BOSS 弹幕更新+绘制
+        updateAndDrawBullets();
+        // 玩家子弹命中 BOSS
+        _checkBulletsHitBoss();
+        drawScoreEffects();
+        drawDamageEffects();
+        // BOSS 被击败 → 启动慢动作演出
+        if (!isBossAlive()) {
+          const boss = getActiveBoss();
+          if (boss) {
+            bossDefeatX = boss.x;
+            bossDefeatY = boss.y;
+          }
+          bossDefeatSlowMo = 35; // 1.75秒@20fps
+        }
       }
       break;
     case PHASE_LEVEL_UP:

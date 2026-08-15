@@ -41,21 +41,35 @@ function calcLayout(): { cardW: number; cardH: number; gap: number; startX: numb
   return { cardW, cardH, gap, startX, startY };
 }
 
+// ========== 卡片入场动画 ==========
+let upgradeAnimFrame: number = 0;
+let lastOffersRef: UpgradeOffer[] | null = null;
+
 // ========== 绘制升级选择界面 ==========
 function drawUpgradeUI(): void {
   const offers = getCurrentOffers();
   if (offers.length === 0) return;
 
+  // 检测新选项生成（引用变化时重置动画）
+  if (offers !== lastOffersRef) {
+    lastOffersRef = offers;
+    upgradeAnimFrame = 0;
+  }
+  upgradeAnimFrame++;
+
   const { cardW, cardH, gap, startX, startY } = calcLayout();
 
-  // 半透明遮罩
-  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  // 遮罩渐入
+  const overlayAlpha = Math.min(1, upgradeAnimFrame / 6) * 0.7;
+  ctx.fillStyle = `rgba(0, 0, 0, ${overlayAlpha})`;
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
   ctx.textAlign = "center";
 
-  // 标题
+  // 标题（渐入）
+  const titleAlpha = Math.min(1, upgradeAnimFrame / 8);
+  ctx.globalAlpha = titleAlpha;
   ctx.fillStyle = "#fd0";
   ctx.font = `bold ${Math.round(28 * fontScale)}px arial`;
   ctx.shadowColor = "#fd0";
@@ -71,15 +85,18 @@ function drawUpgradeUI(): void {
   const rerollsLeft = getRerollsLeft();
   const hintText = t("upgrade.hint.select") + "  ·  " + t("upgrade.hint.random") + "  ·  " + t("upgrade.hint.reroll") + " " + rerollsLeft + " " + t("upgrade.hint.times");
   ctx.fillText(hintText, width / 2, titleY + Math.round(18 * fontScale));
+  ctx.globalAlpha = 1;
 
-  // 绘制卡片
+  // 绘制卡片（交错入场：每张延迟 5 帧）
   cardHitAreas = [];
   for (let i = 0; i < offers.length; i++) {
     const cx = startX + i * (cardW + gap);
     _drawCard(offers[i], cx, startY, cardW, cardH, i);
   }
 
-  // 刷新按钮（rerollsLeft 已在上方提示文案中声明）
+  // 刷新按钮（延迟渐入：所有卡片入场后显示）
+  const btnAlpha = Math.min(1, Math.max(0, (upgradeAnimFrame - 22) / 8));
+  ctx.globalAlpha = btnAlpha;
   const btnW = Math.round(100 * fontScale);
   const btnH = Math.round(36 * fontScale);
   const btnX = (width - btnW) / 2;
@@ -97,8 +114,9 @@ function drawUpgradeUI(): void {
   ctx.fillStyle = canReroll ? "#fd0" : "#666";
   ctx.font = `bold ${Math.round(16 * fontScale)}px arial`;
   ctx.fillText(t("upgrade.reroll") + " (" + rerollsLeft + ")", width / 2, btnY + btnH / 2 + Math.round(6 * fontScale));
+  ctx.globalAlpha = 1;
 
-  rerollHitArea = canReroll ? { x: btnX, y: btnY, w: btnW, h: btnH } : null;
+  rerollHitArea = (canReroll && btnAlpha >= 1) ? { x: btnX, y: btnY, w: btnW, h: btnH } : null;
 
   ctx.restore();
 }
@@ -107,6 +125,35 @@ function drawUpgradeUI(): void {
 function _drawCard(offer: UpgradeOffer, x: number, y: number, w: number, h: number, index: number): void {
   const colors = getRarityColors(offer.def.rarity);
   const r = Math.round(8 * fontScale);
+
+  // 交错入场动画：每张卡片延迟 5 帧开始
+  const cardStart = index * 5;
+  const cardDur = 12;
+  let cardAlpha = 0;
+  let cardScale = 0.6;
+  let cardOffsetY = 25;
+  if (upgradeAnimFrame >= cardStart + cardDur) {
+    cardAlpha = 1;
+    cardScale = 1;
+    cardOffsetY = 0;
+  } else if (upgradeAnimFrame >= cardStart) {
+    const p = (upgradeAnimFrame - cardStart) / cardDur;
+    cardAlpha = p;
+    cardScale = 0.6 + 0.4 * Math.sqrt(p); // easeOut
+    cardOffsetY = 25 * (1 - p);
+  } else {
+    return; // 尚未到该卡片的入场时间
+  }
+
+  // 以卡片中心为基准进行缩放
+  const cardCx = x + w / 2;
+  const cardCy = y + h / 2;
+
+  ctx.save();
+  ctx.globalAlpha = cardAlpha;
+  ctx.translate(cardCx, cardCy + cardOffsetY);
+  ctx.scale(cardScale, cardScale);
+  ctx.translate(-cardCx, -cardCy);
 
   // 卡片背景
   ctx.fillStyle = "rgba(20, 20, 40, 0.9)";
@@ -243,8 +290,12 @@ function _drawCard(offer: UpgradeOffer, x: number, y: number, w: number, h: numb
     _wrapText(t(descKey), contentX, textY, contentW, Math.round(14 * fontScale));
   }
 
-  // 记录点击区域
-  cardHitAreas.push({ x, y, w, h, offerIndex: index });
+  // 记录点击区域（仅在卡片完全入场后可点击）
+  if (cardAlpha >= 1) {
+    cardHitAreas.push({ x, y, w, h, offerIndex: index });
+  }
+
+  ctx.restore(); // 卡片入场动画结束
 }
 
 // ========== 绘制图标（Canvas 几何图形） ==========

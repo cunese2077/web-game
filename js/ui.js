@@ -605,14 +605,42 @@ let gameOverBackBtnH = 0;
 function getGameOverBackBtnArea() {
     return { x: gameOverBackBtnX, y: gameOverBackBtnY, w: gameOverBackBtnW, h: gameOverBackBtnH };
 }
+// 结算入场动画帧计数器
+let gameOverAnimFrame = 0;
+function resetGameOverAnim() {
+    gameOverAnimFrame = 0;
+}
 // 画游戏结束界面（含 Build 摘要）
 function drawGameOver() {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    gameOverAnimFrame++;
+    // 入场动画辅助函数
+    const animAlpha = (start, dur) => {
+        if (gameOverAnimFrame < start)
+            return 0;
+        if (gameOverAnimFrame >= start + dur)
+            return 1;
+        return (gameOverAnimFrame - start) / dur;
+    };
+    const animOffset = (start, dur, dist) => {
+        if (gameOverAnimFrame < start)
+            return -dist;
+        if (gameOverAnimFrame >= start + dur)
+            return 0;
+        return -dist * (1 - (gameOverAnimFrame - start) / dur);
+    };
+    // 遮罩渐入
+    const overlayAlpha = animAlpha(0, 8) * 0.7;
+    ctx.fillStyle = `rgba(0, 0, 0, ${overlayAlpha})`;
     ctx.fillRect(0, 0, width, height);
     const cx = width / 2;
     let curY = height * 0.12;
+    // === 上半部分：标题+得分+等级+纪录（渐入+下滑）===
+    const topAlpha = animAlpha(4, 12);
+    const topOffset = animOffset(4, 12, 25);
     ctx.save();
+    ctx.globalAlpha = topAlpha;
     ctx.textAlign = "center";
+    ctx.translate(0, topOffset);
     // 标题
     ctx.fillStyle = "#f44";
     ctx.font = `bold ${Math.round(36 * fontScale)}px arial`;
@@ -670,6 +698,14 @@ function drawGameOver() {
         ctx.fillText(t("gameOver.highLevel") + highLevel, cx, curY);
         curY += Math.round(22 * fontScale);
     }
+    ctx.restore(); // 上半部分动画结束
+    // === 下半部分：Build摘要+成就+统计+按钮（延迟渐入）===
+    const bottomAlpha = animAlpha(14, 12);
+    const bottomOffset = animOffset(14, 12, 20);
+    ctx.save();
+    ctx.globalAlpha = bottomAlpha;
+    ctx.textAlign = "center";
+    ctx.translate(0, bottomOffset);
     curY += Math.round(4 * fontScale);
     // === Build 摘要 ===
     const build = getBuildSummary();
@@ -1331,4 +1367,4 @@ function handleGameDataClick(clickX, clickY) {
     }
     return null;
 }
-export { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, setMousePosition, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects };
+export { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, closeGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, setMousePosition, addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects, resetGameOverAnim };
