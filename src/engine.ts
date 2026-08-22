@@ -203,6 +203,31 @@ function setCurPhase(phase: GamePhase): void {
   curPhase = phase;
 }
 
+// 升级选择处理逻辑：onclick（桌面）与 touchend（移动端滑动选择）共享
+// 提取为独立函数避免逻辑重复
+function processUpgradeSelection(clickX: number, clickY: number): void {
+  const result = handleUpgradeClick(clickX, clickY);
+  if (result === "selected" || result === "selected_evolution") {
+    if (result === "selected_evolution") {
+      playEvolution();
+      evolutionFlashFrames = EVOLUTION_FLASH_DURATION;
+    } else {
+      playUpgradeSelect();
+    }
+    if (getPendingLevelUps() <= 0) {
+      // 所有升级处理完毕，检查是否应触发 BOSS
+      if (checkBossTrigger(getLevel())) {
+        startBossWarning();
+        curPhase = PHASE_BOSS_WARNING;
+      } else {
+        curPhase = PHASE_PLAY;
+      }
+    }
+    // 仍有待处理升级时保持 PHASE_LEVEL_UP，新选项已自动生成
+  }
+  // "rerolled" 或 null 点击：保持当前状态
+}
+
 function start(): void {
   curPhase = PHASE_READY;
   canvas.onmousemove = function (e: MouseEvent): void {
@@ -261,27 +286,8 @@ function start(): void {
         curPhase = PHASE_PAUSE;
       }
     } else if (curPhase === PHASE_LEVEL_UP) {
-      // 升级选择界面点击处理
-      const result = handleUpgradeClick(clickX, clickY);
-      if (result === "selected" || result === "selected_evolution") {
-        if (result === "selected_evolution") {
-          playEvolution();
-          evolutionFlashFrames = EVOLUTION_FLASH_DURATION;
-        } else {
-          playUpgradeSelect();
-        }
-        if (getPendingLevelUps() <= 0) {
-          // 所有升级处理完毕，检查是否应触发 BOSS
-          if (checkBossTrigger(getLevel())) {
-            startBossWarning();
-            curPhase = PHASE_BOSS_WARNING;
-          } else {
-            curPhase = PHASE_PLAY;
-          }
-        }
-        // 仍有待处理升级时保持 PHASE_LEVEL_UP，新选项已自动生成
-      }
-      // "rerolled" 或 null 点击：保持当前状态
+      // 升级选择界面点击处理（桌面端 onclick）
+      processUpgradeSelection(clickX, clickY);
     } else if (curPhase === PHASE_PAUSE) {
       // 检查是否点击了返回主页面按钮
       const backArea = getPauseBackBtnArea();
@@ -371,6 +377,27 @@ function start(): void {
       }
     }
   };
+
+  // 移动端升级卡片滑动选择：touchend 时根据释放位置选中卡片
+  // viewport 已消除 300ms 延迟，但 onclick 仅在 touchstart/touchend 位移 < 10px 时合成，
+  // 滑动选择（位移 > 10px）不会触发 click，需要 touchend 直接处理
+  // 用途：用户可从屏幕任意位置按下，滑动到目标卡片释放即选中（不必精准点击）
+  canvas.addEventListener("touchend", (e: TouchEvent): void => {
+    if (curPhase !== PHASE_LEVEL_UP) return;
+    if (e.changedTouches.length !== 1) return;
+    const touch = e.changedTouches[0];
+    const tapX = touch.pageX;
+    const tapY = touch.pageY;
+    // 阻止后续 onclick 合成，避免重复触发（移动端 PHASE_LEVEL_UP 完全由 touchend 处理）
+    e.preventDefault();
+
+    // 调试面板优先拦截（与 onclick 一致）
+    if (handleDebugClick(tapX, tapY)) return;
+    if (handleDebugToggleClick(tapX, tapY)) return;
+
+    processUpgradeSelection(tapX, tapY);
+  }, { passive: false });
+
   ctx.fillStyle = "#963";
   ctx.font = `${Math.round(24 * fontScale)}px arial`;
   initUpgrades();

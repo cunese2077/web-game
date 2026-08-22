@@ -73,6 +73,9 @@ function bindEventsOnce() {
     };
     canvas.addEventListener("mousemove", move, false);
     canvas.addEventListener("touchmove", move, false);
+    // 触摸开始即响应：首次按下时立刻移动战机到手指位置，
+    // 避免 touchmove 才触发的 1 帧延迟，提升触摸跟手感
+    canvas.addEventListener("touchstart", move, false);
     // Web 端鼠标移出画布时暂停（移动端无 mouseout 事件，通过 HUD 暂停按钮触发）
     canvas.onmouseout = () => {
         if (!activeHero)
@@ -829,7 +832,17 @@ function getSoundIconArea() {
     };
 }
 function getPauseBtnArea() {
-    return _pauseBtnArea;
+    // 触摸设备扩大点击区域（与声音按钮一致），桌面端使用绘制区域
+    const isTouch = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+    if (!isTouch || _pauseBtnArea.w === 0)
+        return _pauseBtnArea;
+    const pad = Math.round(10 * fontScale);
+    return {
+        x: _pauseBtnArea.x - pad,
+        y: _pauseBtnArea.y - pad,
+        w: _pauseBtnArea.w + pad * 2,
+        h: _pauseBtnArea.h + pad * 2,
+    };
 }
 export { Hero, getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroX, getHeroY, healHero, getSoundIconArea, getPauseBtnArea, initUpgrades, getDamageTaken };
 export default Hero;
