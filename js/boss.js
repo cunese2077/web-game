@@ -351,11 +351,11 @@ class Boss {
             this._fireSpiral(3, bulletCfg.speed * 1.0, bulletCfg.size * 0.7, "#f8c");
             this._fireAimed(aimedCount, bulletCfg.speed * 1.2, bulletCfg.size, "#fa0");
         }
-        // Phase 3: 4 臂螺旋 + 圆形弹幕
+        // Phase 3: 3 臂螺旋 + 圆形弹幕（4 臂→3 臂、频率每 3→每 4，降低弹幕密度避免过密）
         if (this.attackPhase >= 3) {
-            this._fireSpiral(4, bulletCfg.speed * 1.1, bulletCfg.size * 0.6, "#f0f");
+            this._fireSpiral(3, bulletCfg.speed * 1.1, bulletCfg.size * 0.6, "#f0f");
             this.circleTimer++;
-            if (this.circleTimer >= 3) {
+            if (this.circleTimer >= 4) {
                 this.circleTimer = 0;
                 this._fireCircle(8 + this.bossIndex, bulletCfg.speed * 0.5, bulletCfg.size * 0.6, "#a8f");
             }

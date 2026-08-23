@@ -178,30 +178,32 @@ const difficultyConfig = {
         bossHpMultiplier: 1.0,
         bossAttackSpeedMultiplier: 1.0,
     },
-    // 【中等】敌机 HP +40%、速度 +15%、成长系数 ×1.5、生成更频繁、碰撞伤害 +30%、道具略少、2次刷新
+    // 【中等】敌机 HP +40%、速度 +15%、成长系数 ×1.3、生成更频繁、碰撞伤害 +30%、道具略少、2次刷新
+    // scaling 1.5→1.3、bossHp 1.4→1.3：缓解后期"刮痡"，BOSS HP 略降保持节奏
     medium: {
         label: "difficulty.medium",
         enemyHpMultiplier: 1.4,
         enemySpeedMultiplier: 1.15,
-        enemyScalingMultiplier: 1.5,
+        enemyScalingMultiplier: 1.3,
         enemySpawnRateMultiplier: 0.85,
         enemyDamageMultiplier: 1.3,
         dropRateMultiplier: 0.80,
         upgradeRerolls: 2,
-        bossHpMultiplier: 1.4,
+        bossHpMultiplier: 1.3,
         bossAttackSpeedMultiplier: 1.2,
     },
-    // 【困难】敌机 HP +80%、速度 +25%、成长系数 ×2.0、生成大幅加快、碰撞伤害 +60%、道具显著减少、1次刷新
+    // 【困难】敌机 HP +80%、速度 +25%、成长系数 ×1.7、生成大幅加快、碰撞伤害 +60%、道具显著减少、1次刷新
+    // scaling 2.0→1.7、bossHp 1.8→1.5：避免 Lv25+ 敌机/BOSS HP 过高导致刮痡
     hard: {
         label: "difficulty.hard",
         enemyHpMultiplier: 1.8,
         enemySpeedMultiplier: 1.25,
-        enemyScalingMultiplier: 2.0,
+        enemyScalingMultiplier: 1.7,
         enemySpawnRateMultiplier: 0.60,
         enemyDamageMultiplier: 1.6,
         dropRateMultiplier: 0.55,
         upgradeRerolls: 1,
-        bossHpMultiplier: 1.8,
+        bossHpMultiplier: 1.5,
         bossAttackSpeedMultiplier: 1.4,
     },
 };
