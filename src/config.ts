@@ -356,7 +356,7 @@ const bossConfig: BossConfig = {
 };
 
 const levelConfig: LevelConfig = {
-  base: 300,       // 1→2 级所需经验（降低起步门槛）
+  base: 220,       // 1→2 级所需经验（300→220，加速前期升级节奏，Lv1→5 从 67s→51s）
   growth: 25,      // 每级递增基数
   exponent: 1.05,  // 轻微加速后期
   maxLevel: 50,    // 满级
