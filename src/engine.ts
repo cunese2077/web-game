@@ -24,7 +24,7 @@ import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.j
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets, getBullets } from "./enemyBullet.js";
-import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning } from "./audio.js";
+import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning, startBgm, stopBgm } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
 import { t } from "./i18n.js";
 import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
@@ -425,6 +425,7 @@ function gameEngine(): void {
       break;
     case PHASE_PLAY:
       if (pBg) pBg();
+      startBgm("normal");   // 幂等：战斗阶段保证普通 BGM 播放（BOSS 战后自动切回）
       Enemy.drawEnemy();
       Item.drawItems();
       Bullet.drawBullet();
@@ -446,6 +447,7 @@ function gameEngine(): void {
       break;
     case PHASE_BOSS_WARNING:
       if (pBg) pBg();
+      startBgm("boss");     // 幂等：BOSS 预警起切换紧张 BGM
       Enemy.drawEnemy();
       Item.drawItems();
       Bullet.drawBullet();
@@ -479,6 +481,7 @@ function gameEngine(): void {
       break;
     case PHASE_BOSS:
       if (pBg) pBg();
+      startBgm("boss");     // 幂等：BOSS 战保持紧张 BGM
       if (bossDefeatSlowMo > 0) {
         // === 慢动作：BOSS 被击败后的爆炸演出 ===
         Enemy.drawEnemy(true);
@@ -538,6 +541,8 @@ function gameEngine(): void {
       drawUpgradeUI();
       break;
     case PHASE_PAUSE:
+      // 暂停时停止 BGM（恢复 PLAY 时由 startBgm 重启）
+      stopBgm();
       // 先绘制冻结的游戏画面（所有实体只绘制不更新）
       if (pBg) pBg();
       Enemy.drawEnemy(true);
@@ -551,6 +556,8 @@ function gameEngine(): void {
       drawPause();
       break;
     case PHASE_GAME_OVER:
+      // 游戏结束停止 BGM
+      stopBgm();
       if (!gameOverRecordUpdated) {
         tryUpdateHighScore(getGameScore());
         tryUpdateHighLevel(getLevel());

@@ -9,7 +9,7 @@ import { getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroY } from "./hero.js";
 import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance, getBulletCount } from "./upgrade.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
-import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit } from "./audio.js";
+import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit, notifyEnemyKill } from "./audio.js";
 import { enemyConfig, enemySpawnScaling, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, } from "./config.js";
 import { getDifficulty } from "./settings.js";
 const liveEnemy = [];
@@ -382,6 +382,7 @@ class Enemy {
                     addGameScore(this.score);
                     addExp(getExpReward(this.type));
                     addScoreEffect(this.x + this.width / 2, Math.max(this.y + this.height / 2, Math.round(30 * fontScale)), this.score);
+                    notifyEnemyKill(); // 连击音效跟踪
                     if (this.type === "big") {
                         playEnemyDestroyBig();
                         // 击杀 BOSS 增加下次升级的稀有度加成
@@ -498,6 +499,7 @@ class Enemy {
             addGameScore(enemy.score);
             addExp(getExpReward(enemy.type));
             addScoreEffect(enemy.x + enemy.width / 2, Math.max(enemy.y + enemy.height / 2, Math.round(30 * fontScale)), enemy.score);
+            notifyEnemyKill(); // 连击音效跟踪（特殊武器击杀）
             if (enemy.type === "big") {
                 playEnemyDestroyBig();
                 addBossKillBonus();

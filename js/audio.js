@@ -1,4 +1,176 @@
 // 游戏音效模块 - 使用 Web Audio API 程序化合成
+const bgmTracks = {
+    // 普通 BGM：A 小调五声琶音，110 BPM，温和氛围
+    normal: {
+        bpm: 110,
+        lead: [
+            { freq: 220.0, beats: 0.5, type: "triangle", volume: 0.045 },
+            { freq: 329.6, beats: 0.5, type: "triangle", volume: 0.045 },
+            { freq: 440.0, beats: 0.5, type: "triangle", volume: 0.045 },
+            { freq: 329.6, beats: 0.5, type: "triangle", volume: 0.045 },
+            { freq: 261.6, beats: 0.5, type: "triangle", volume: 0.045 },
+            { freq: 329.6, beats: 0.5, type: "triangle", volume: 0.045 },
+            { freq: 523.3, beats: 0.5, type: "triangle", volume: 0.04 },
+            { freq: 329.6, beats: 0.5, type: "triangle", volume: 0.045 },
+        ],
+        bass: [
+            { freq: 110.0, beats: 2, type: "sine", volume: 0.07 },
+            { freq: 87.3, beats: 2, type: "sine", volume: 0.07 },
+            { freq: 98.0, beats: 2, type: "sine", volume: 0.07 },
+            { freq: 110.0, beats: 2, type: "sine", volume: 0.07 },
+        ],
+    },
+    // BOSS BGM：D 小调，150 BPM，锯齿波低音驱动 + 上行音阶，紧张感
+    boss: {
+        bpm: 150,
+        lead: [
+            { freq: 293.7, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 349.2, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 440.0, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 587.3, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 440.0, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 349.2, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 466.2, beats: 0.5, type: "square", volume: 0.03 },
+            { freq: 440.0, beats: 0.5, type: "square", volume: 0.03 },
+        ],
+        bass: [
+            { freq: 73.4, beats: 0.5, type: "sawtooth", volume: 0.05 },
+            { freq: 73.4, beats: 0.5, type: "sawtooth", volume: 0.05 },
+            { freq: 87.3, beats: 0.5, type: "sawtooth", volume: 0.05 },
+            { freq: 73.4, beats: 0.5, type: "sawtooth", volume: 0.05 },
+        ],
+    },
+};
+let bgmCurrent = null; // 当前曲目
+let bgmDesired = null; // 期望曲目（静音时保留意图）
+let bgmSchedulerId = null; // setInterval 句柄
+let bgmNextLeadTime = 0; // 下一个主旋律音符调度时间
+let bgmNextBassTime = 0; // 下一个低音音符调度时间
+let bgmLeadIndex = 0;
+let bgmBassIndex = 0;
+// 停止 BGM（幂等）：清调度器并复位游标
+function stopBgm() {
+    if (bgmSchedulerId !== null) {
+        clearInterval(bgmSchedulerId);
+        bgmSchedulerId = null;
+    }
+    bgmCurrent = null;
+    bgmDesired = null;
+    bgmLeadIndex = 0;
+    bgmBassIndex = 0;
+}
+// 暂停 BGM 调度（静音时）：保留 bgmDesired 以便恢复
+function pauseBgm() {
+    if (bgmSchedulerId !== null) {
+        clearInterval(bgmSchedulerId);
+        bgmSchedulerId = null;
+    }
+    bgmCurrent = null;
+    bgmLeadIndex = 0;
+    bgmBassIndex = 0;
+}
+// 启动/切换 BGM（幂等：同曲目不重启）
+// track: "normal"（普通战斗）| "boss"（BOSS 战）
+function startBgm(track) {
+    if (!soundEnabled) {
+        // 静音中：仅记录意图，取消静音时由 setSoundEnabled 恢复
+        bgmDesired = track;
+        return;
+    }
+    if (bgmCurrent === track && bgmSchedulerId !== null)
+        return;
+    // 切换曲目：清旧调度器
+    if (bgmSchedulerId !== null) {
+        clearInterval(bgmSchedulerId);
+        bgmSchedulerId = null;
+    }
+    bgmCurrent = track;
+    bgmDesired = track;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    bgmNextLeadTime = now + 0.1;
+    bgmNextBassTime = now + 0.1;
+    bgmLeadIndex = 0;
+    bgmBassIndex = 0;
+    // lookahead 调度器：每 60ms 检查一次，提前调度 0.2s 内到期的音符
+    bgmSchedulerId = window.setInterval(scheduleBgmNotes, 60);
+}
+// 调度单个 BGM 音符（短包络，避免爆音）
+function scheduleBgmNote(freq, beats, type, volume, startTime, beatDur) {
+    const ctx = getAudioCtx();
+    const dur = beats * beatDur;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    autoDisconnect(osc, gain);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(vol(volume), startTime + 0.02);
+    gain.gain.setValueAtTime(vol(volume), startTime + dur * 0.6);
+    gain.gain.linearRampToValueAtTime(0, startTime + dur * 0.95);
+    osc.start(startTime);
+    osc.stop(startTime + dur);
+}
+// BGM lookahead 核心：调度到期的主旋律/低音音符，循环曲目
+function scheduleBgmNotes() {
+    if (!bgmCurrent || !soundEnabled)
+        return;
+    const track = bgmTracks[bgmCurrent];
+    const beatDur = 60 / track.bpm; // 一拍的秒数
+    const lookahead = 0.2; // 提前调度窗口（秒）
+    const ctx = getAudioCtx();
+    while (bgmNextLeadTime < ctx.currentTime + lookahead) {
+        const note = track.lead[bgmLeadIndex];
+        if (note.freq > 0) {
+            scheduleBgmNote(note.freq, note.beats, note.type, note.volume, bgmNextLeadTime, beatDur);
+        }
+        bgmNextLeadTime += note.beats * beatDur;
+        bgmLeadIndex = (bgmLeadIndex + 1) % track.lead.length;
+    }
+    while (bgmNextBassTime < ctx.currentTime + lookahead) {
+        const note = track.bass[bgmBassIndex];
+        if (note.freq > 0) {
+            scheduleBgmNote(note.freq, note.beats, note.type, note.volume, bgmNextBassTime, beatDur);
+        }
+        bgmNextBassTime += note.beats * beatDur;
+        bgmBassIndex = (bgmBassIndex + 1) % track.bass.length;
+    }
+}
+// ========== 连击音效 ==========
+// 连击窗口 1.5 秒：窗口内连续击杀时播放音调递增的短音（从第 2 连击起）
+const COMBO_WINDOW = 1.5;
+const COMBO_SCALE = [392, 440, 494, 587, 659, 784, 880, 988, 1175, 1319];
+let comboCount = 0;
+let comboLastTime = 0;
+// 击杀通知：在敌机销毁时调用，内部跟踪连击并播放递增音
+function notifyEnemyKill() {
+    if (!soundEnabled)
+        return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    if (now - comboLastTime > COMBO_WINDOW) {
+        comboCount = 0;
+    }
+    comboCount++;
+    comboLastTime = now;
+    // 第 2 连击起播放：与击毁爆炸音叠加，音调随连击数递增
+    if (comboCount >= 2) {
+        const idx = Math.min(comboCount - 2, COMBO_SCALE.length - 1);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        autoDisconnect(osc, gain);
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(COMBO_SCALE[idx], now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.start(now);
+        osc.stop(now + 0.09);
+    }
+}
 // ========== 音效配置对象 ==========
 const audioConfig = {
     masterVolume: 1.0,
@@ -156,8 +328,15 @@ const audioConfig = {
 let audioCtx = null;
 // 音效开关状态（由 settings.ts 控制）
 let soundEnabled = true;
+// 音效总开关：同步控制 BGM（静音时暂停调度，恢复时按 bgmDesired 重启）
 function setSoundEnabled(enabled) {
     soundEnabled = enabled;
+    if (!enabled) {
+        pauseBgm();
+    }
+    else if (bgmDesired !== null) {
+        startBgm(bgmDesired);
+    }
 }
 function isSoundEnabled() {
     return soundEnabled;
@@ -813,4 +992,4 @@ function playBossDestroy() {
     osc2.start(now);
     osc2.stop(now + c.tone2.duration);
 }
-export { audioConfig, resumeAudio, setSoundEnabled, isSoundEnabled, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, playUpgradeSelect, playLaser, playLightning, playMissile, playMissileHit, playWingmanHit, playBossWarning, playBossHit, playBossDestroy, playEvolution, };
+export { audioConfig, resumeAudio, setSoundEnabled, isSoundEnabled, startBgm, stopBgm, notifyEnemyKill, playShoot, playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playHeal, playHit, playEnemyHit, playGameOver, playFirepower, playShield, playSpread, playLevelUp, playUpgradeSelect, playLaser, playLightning, playMissile, playMissileHit, playWingmanHit, playBossWarning, playBossHit, playBossDestroy, playEvolution, };
