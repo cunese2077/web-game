@@ -170,18 +170,18 @@ export type TextKey =
   | "upgrade.critChance.desc" // "暴击率 +8%" / "Crit rate +8%"
   // 新武器升级
   | "upgrade.homingMissile"              // "追踪导弹" / "HOMING MISSILE"
-  | "upgrade.homingMissile.desc.1"       // "伤害 +1" / "DMG +1"
+  | "upgrade.homingMissile.desc.1"       // "伤害 +3" / "DMG +3"
   | "upgrade.homingMissile.desc.2"       // "双枚导弹" / "DUAL MISSILES"
-  | "upgrade.homingMissile.desc.3"       // "伤害 +2, 小范围爆炸" / "DMG +2, SMALL EXPLOSION"
-  | "upgrade.homingMissile.desc.4"       // "三枚导弹, 伤害 +8, 大爆炸" / "TRIPLE MISSILES, DMG 8, BIG EXPLOSION"
+  | "upgrade.homingMissile.desc.3"       // "伤害 +4, 小范围爆炸" / "DMG +4, SMALL EXPLOSION"
+  | "upgrade.homingMissile.desc.4"       // "三枚导弹, 伤害 22, 大爆炸" / "TRIPLE MISSILES, DMG 22, BIG EXPLOSION"
   | "upgrade.wingman"                    // "僚机" / "WINGMAN"
-  | "upgrade.wingman.desc.1"             // "伤害 +0.5" / "DMG +0.5"
+  | "upgrade.wingman.desc.1"             // "伤害 +0.3" / "DMG +0.3"
   | "upgrade.wingman.desc.2"             // "双僚机" / "DUAL WINGMEN"
-  | "upgrade.wingman.desc.3"             // "伤害 +0.5" / "DMG +0.5"
-  | "upgrade.wingman.desc.4"             // "伤害 3, 共享射速" / "DMG 3, SHARED RATE"
+  | "upgrade.wingman.desc.3"             // "伤害 +0.3" / "DMG +0.3"
+  | "upgrade.wingman.desc.4"             // "伤害 2, 共享射速" / "DMG 2, SHARED RATE"
   | "upgrade.energyWeapon"               // "能量武器" / "ENERGY WEAPON"
   | "upgrade.energyWeapon.desc.1"        // "闪电链 +1 跳" / "Chain +1"
-  | "upgrade.energyWeapon.desc.2"        // "激光伤害 +3" / "Laser Dmg +3"
+  | "upgrade.energyWeapon.desc.2"        // "激光伤害 +5" / "Laser Dmg +5"
   | "upgrade.energyWeapon.desc.3"        // "闪电链 +2 跳, 激光加长" / "Chain +2, Longer Laser"
   | "upgrade.energyWeapon.desc.4"        // "激光全屏穿透, 闪电链 +3" / "Full Laser, Chain +3"
   | "upgrade.armor"            // "护甲" / "ARMOR"
@@ -379,18 +379,18 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.critChance": "暴击强化",
     "upgrade.critChance.desc": "暴击率 +8%",
     "upgrade.homingMissile": "追踪导弹",
-    "upgrade.homingMissile.desc.1": "伤害 +1",
+    "upgrade.homingMissile.desc.1": "伤害 +3",
     "upgrade.homingMissile.desc.2": "双枚导弹",
-    "upgrade.homingMissile.desc.3": "伤害 +2, 小范围爆炸",
-    "upgrade.homingMissile.desc.4": "三枚导弹, 伤害 +8, 大爆炸",
+    "upgrade.homingMissile.desc.3": "伤害 +4, 小范围爆炸",
+    "upgrade.homingMissile.desc.4": "三枚导弹, 伤害 22, 大爆炸",
     "upgrade.wingman": "僚机",
-    "upgrade.wingman.desc.1": "伤害 +0.5",
+    "upgrade.wingman.desc.1": "伤害 +0.3",
     "upgrade.wingman.desc.2": "双僚机",
-    "upgrade.wingman.desc.3": "伤害 +0.5",
-    "upgrade.wingman.desc.4": "伤害 3, 共享射速",
+    "upgrade.wingman.desc.3": "伤害 +0.3",
+    "upgrade.wingman.desc.4": "伤害 2, 共享射速",
     "upgrade.energyWeapon": "能量武器",
     "upgrade.energyWeapon.desc.1": "闪电链 +1 跳",
-    "upgrade.energyWeapon.desc.2": "激光伤害 +3",
+    "upgrade.energyWeapon.desc.2": "激光伤害 +5",
     "upgrade.energyWeapon.desc.3": "闪电链 +2 跳, 激光加长",
     "upgrade.energyWeapon.desc.4": "激光全屏穿透, 闪电链 +3",
     "upgrade.armor": "护甲",
@@ -581,18 +581,18 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.critChance": "CRIT UP",
     "upgrade.critChance.desc": "Crit rate +8%",
     "upgrade.homingMissile": "Homing Missile",
-    "upgrade.homingMissile.desc.1": "Damage +1",
+    "upgrade.homingMissile.desc.1": "Damage +3",
     "upgrade.homingMissile.desc.2": "Dual Missiles",
-    "upgrade.homingMissile.desc.3": "Damage +2, Small Explosion",
-    "upgrade.homingMissile.desc.4": "Triple Missiles, Dmg 8, Big Explosion",
+    "upgrade.homingMissile.desc.3": "Damage +4, Small Explosion",
+    "upgrade.homingMissile.desc.4": "Triple Missiles, Dmg 22, Big Explosion",
     "upgrade.wingman": "Wingman",
-    "upgrade.wingman.desc.1": "Damage +0.5",
+    "upgrade.wingman.desc.1": "Damage +0.3",
     "upgrade.wingman.desc.2": "Dual Wingmen",
-    "upgrade.wingman.desc.3": "Damage +0.5",
-    "upgrade.wingman.desc.4": "Damage 3, Shared Rate",
+    "upgrade.wingman.desc.3": "Damage +0.3",
+    "upgrade.wingman.desc.4": "Damage 2, Shared Rate",
     "upgrade.energyWeapon": "Energy Weapon",
     "upgrade.energyWeapon.desc.1": "Chain +1",
-    "upgrade.energyWeapon.desc.2": "Laser Dmg +3",
+    "upgrade.energyWeapon.desc.2": "Laser Dmg +5",
     "upgrade.energyWeapon.desc.3": "Chain +2, Longer Laser",
     "upgrade.energyWeapon.desc.4": "Full Laser, Chain +3",
     "upgrade.armor": "ARMOR",
@@ -783,18 +783,18 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "upgrade.critChance": "クリティカル",
     "upgrade.critChance.desc": "クリティカル率 +8%",
     "upgrade.homingMissile": "追尾ミサイル",
-    "upgrade.homingMissile.desc.1": "ダメージ +1",
+    "upgrade.homingMissile.desc.1": "ダメージ +3",
     "upgrade.homingMissile.desc.2": "ツインミサイル",
-    "upgrade.homingMissile.desc.3": "ダメージ +2, 小爆発",
-    "upgrade.homingMissile.desc.4": "3発, ダメージ 8, 大爆発",
+    "upgrade.homingMissile.desc.3": "ダメージ +4, 小爆発",
+    "upgrade.homingMissile.desc.4": "3発, ダメージ 22, 大爆発",
     "upgrade.wingman": "ウィングマン",
-    "upgrade.wingman.desc.1": "ダメージ +0.5",
+    "upgrade.wingman.desc.1": "ダメージ +0.3",
     "upgrade.wingman.desc.2": "ツインウィングマン",
-    "upgrade.wingman.desc.3": "ダメージ +0.5",
-    "upgrade.wingman.desc.4": "ダメージ 3, 射速共有",
+    "upgrade.wingman.desc.3": "ダメージ +0.3",
+    "upgrade.wingman.desc.4": "ダメージ 2, 射速共有",
     "upgrade.energyWeapon": "エネルギーウェポン",
     "upgrade.energyWeapon.desc.1": "チェイン +1",
-    "upgrade.energyWeapon.desc.2": "レーザー +3",
+    "upgrade.energyWeapon.desc.2": "レーザー +5",
     "upgrade.energyWeapon.desc.3": "チェイン +2, ロングレーザー",
     "upgrade.energyWeapon.desc.4": "フルレーザー, チェイン +3",
     "upgrade.armor": "アーマー",
