@@ -1313,7 +1313,7 @@ function drawGameData(): void {
 
     // 页码
     ctx.fillStyle = "#aaa";
-    const pageInfo = t("gameData.pageInfo").replace("{P}", String(currentPage)).replace("{T}", String(totalPages));
+    const pageInfo = t("gameData.pageInfo", { P: currentPage, T: totalPages });
     ctx.fillText(pageInfo, cx, curY);
 
     // 下一页

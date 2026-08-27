@@ -1,6 +1,7 @@
 // 升级选择界面模块 - PHASE_LEVEL_UP 时显示 3 选 1 卡片 + 刷新按钮
 import { ctx, width, height, fontScale } from "./canvas.js";
-import { getCurrentOffers, getRerollsLeft, rerollOffers, applyUpgrade } from "./upgrade.js";
+import { getCurrentOffers, getRerollsLeft, rerollOffers, applyUpgrade, BASE_WEAPON_LEVELS, PASSIVE_VALUES, WINGMAN_MAX_COUNT } from "./upgrade.js";
+import { MISSILE_LEVELS, ENERGY_LEVELS, WINGMAN_BASE_DAMAGE, WINGMAN_DAMAGE_GROWTH } from "./specialWeapons.js";
 import { t } from "./i18n.js";
 import type { TextKey } from "./i18n.js";
 import type { UpgradeOffer } from "./types.js";
@@ -16,6 +17,81 @@ interface CardHitArea {
 
 let cardHitAreas: CardHitArea[] = [];
 let rerollHitArea: { x: number; y: number; w: number; h: number } | null = null;
+
+// ========== 描述数值插值 ==========
+// 升级卡描述中的占位符数值全部取自代码常量（单一来源）：
+//   基础武器 ← upgrade.ts BASE_WEAPON_LEVELS（desc.N 描述 Lv N → N+1 的变化）
+//   导弹/能量/僚机 ← specialWeapons.ts MISSILE_LEVELS / ENERGY_LEVELS / 僚机常量
+//   被动 ← upgrade.ts PASSIVE_VALUES（每层数值）
+// 调整数值后三语描述自动同步，无需手改 i18n.ts
+function _descParams(descKey: TextKey): Record<string, string> {
+  // 百分比：0.15 → "15"；普通数值：0.3 → "0.3"（保留一位小数避免浮点噪音）
+  const pct = (v: number): string => String(Math.round(v * 100));
+  const num = (v: number): string => String(Math.round(v * 10) / 10);
+  switch (descKey) {
+    // 基础武器（索引 = 等级 - 1）
+    case "upgrade.baseWeapon.desc.1":
+      return { dmgPct: pct(BASE_WEAPON_LEVELS[1].damageBonus - BASE_WEAPON_LEVELS[0].damageBonus) };
+    case "upgrade.baseWeapon.desc.2":
+      return { count: String(BASE_WEAPON_LEVELS[2].bulletCount) };
+    case "upgrade.baseWeapon.desc.3": {
+      const from = BASE_WEAPON_LEVELS[2];
+      const to = BASE_WEAPON_LEVELS[3];
+      return { dmgPct: pct(to.damageBonus - from.damageBonus), ratePct: pct(to.fireRateBonus - from.fireRateBonus) };
+    }
+    case "upgrade.baseWeapon.desc.4":
+      return { count: String(BASE_WEAPON_LEVELS[4].bulletCount) };
+    // 追踪导弹
+    case "upgrade.homingMissile.desc.1":
+      return { dmg: num(MISSILE_LEVELS[1].damage - MISSILE_LEVELS[0].damage) };
+    case "upgrade.homingMissile.desc.2":
+      return { count: String(MISSILE_LEVELS[2].count) };
+    case "upgrade.homingMissile.desc.3":
+      return { dmg: num(MISSILE_LEVELS[3].damage - MISSILE_LEVELS[2].damage) };
+    case "upgrade.homingMissile.desc.4":
+      return { count: String(MISSILE_LEVELS[4].count), dmg: num(MISSILE_LEVELS[4].damage) };
+    // 僚机
+    case "upgrade.wingman.desc.1":
+    case "upgrade.wingman.desc.3":
+      return { dmg: num(WINGMAN_DAMAGE_GROWTH) };
+    case "upgrade.wingman.desc.2":
+      return { count: String(WINGMAN_MAX_COUNT) };
+    case "upgrade.wingman.desc.4":
+      return { dmg: num(WINGMAN_BASE_DAMAGE + (WINGMAN_MAX_COUNT - 1) * WINGMAN_DAMAGE_GROWTH) };
+    // 能量武器
+    case "upgrade.energyWeapon.desc.1":
+      return { chains: String(ENERGY_LEVELS[1].chains - ENERGY_LEVELS[0].chains) };
+    case "upgrade.energyWeapon.desc.2":
+      return { dmg: num(ENERGY_LEVELS[2].laserDamage - ENERGY_LEVELS[1].laserDamage) };
+    case "upgrade.energyWeapon.desc.3":
+      return { chains: String(ENERGY_LEVELS[3].chains - ENERGY_LEVELS[0].chains) };
+    case "upgrade.energyWeapon.desc.4":
+      return { chains: String(ENERGY_LEVELS[4].chains) };
+    // 被动（每层数值）
+    case "upgrade.hpUp.desc":
+      return { hp: String(PASSIVE_VALUES.hpUp) };
+    case "upgrade.damageUp.desc":
+      return { pct: pct(PASSIVE_VALUES.damageUp) };
+    case "upgrade.fireRateUp.desc":
+      return { pct: pct(PASSIVE_VALUES.fireRateUp) };
+    case "upgrade.moveSpeedUp.desc":
+      return { pct: pct(PASSIVE_VALUES.moveSpeedUp) };
+    case "upgrade.critChance.desc":
+      return { pct: pct(PASSIVE_VALUES.critChance) };
+    case "upgrade.armor.desc":
+      return { amount: String(PASSIVE_VALUES.armor) };
+    case "upgrade.wingmanItem.desc":
+      return { pct: pct(PASSIVE_VALUES.wingmanItem) };
+    case "upgrade.explosionRadius.desc":
+      return { pct: pct(PASSIVE_VALUES.explosionRadius) };
+    case "upgrade.multiMissile.desc":
+      return { count: String(PASSIVE_VALUES.multiMissile) };
+    case "upgrade.chainEnhance.desc":
+      return { count: String(PASSIVE_VALUES.chainEnhance) };
+    default:
+      return {};
+  }
+}
 
 // ========== 稀有度颜色 ==========
 function getRarityColors(rarity: string): { border: string; glow: string; bg: string; tag: string; label: TextKey } {
@@ -287,7 +363,7 @@ function _drawCard(offer: UpgradeOffer, x: number, y: number, w: number, h: numb
     ctx.fillStyle = "#ccc";
     ctx.font = `${Math.round(11 * fontScale)}px arial`;
     ctx.textAlign = "center";
-    _wrapText(t(descKey), contentX, textY, contentW, Math.round(14 * fontScale));
+    _wrapText(t(descKey, _descParams(descKey)), contentX, textY, contentW, Math.round(14 * fontScale));
   }
 
   // 记录点击区域（仅在卡片完全入场后可点击）

@@ -20,7 +20,8 @@ let bossLegendaryPending = false;
 let evolutionPending = false;
 // ========== 基础武器等级效果表 ==========
 // 索引 = level - 1（Lv1在index 0）
-const BASE_WEAPON_LEVELS = [
+// 导出供 upgradeUI._descParams 计算升级卡描述的占位符数值（单一来源，改这里描述自动同步）
+export const BASE_WEAPON_LEVELS = [
     { bulletCount: 3, damageBonus: 0, fireRateBonus: 0, piercing: false }, // Lv1
     { bulletCount: 3, damageBonus: 0.3, fireRateBonus: 0, piercing: false }, // Lv2
     { bulletCount: 4, damageBonus: 0.3, fireRateBonus: 0, piercing: false }, // Lv3
@@ -245,6 +246,23 @@ function applyUpgrade(offer) {
         rerollsLeft = 0;
     }
 }
+// ========== 被动每层数值表 ==========
+// 升级卡描述占位符（upgradeUI._descParams）与实际效果函数共用同一来源，
+// 调整被动数值只需改这里，三语描述自动同步
+export const PASSIVE_VALUES = {
+    damageUp: 0.15, // 伤害增幅：每层 +15%
+    fireRateUp: 0.10, // 射速提升：每层 +10%
+    moveSpeedUp: 0.08, // 移速提升：每层 +8%
+    critChance: 0.08, // 暴击强化：每层 +8%
+    hpUp: 1, // 生命强化：每层 +1 HP
+    armor: 1, // 护甲：每层受伤 -1
+    wingmanItem: 0.3, // 僚机强化：每层 +30%
+    explosionRadius: 0.5, // 爆炸范围：每层 +50%
+    multiMissile: 1, // 多重导弹：每层 +1 枚
+    chainEnhance: 1, // 链式强化：每层 +1 跳
+};
+// 僚机数量上限（wingman 武器 Lv2 起达到）
+export const WINGMAN_MAX_COUNT = 2;
 // ========== 属性计算 ==========
 // 基础武器当前等级
 function getBaseWeaponLevel() {
@@ -289,39 +307,39 @@ function getExtraHp() {
 }
 // 伤害增幅被动总乘数（如3层 = 1 + 0.15*3 = 1.45）
 function getDamagePassiveMultiplier() {
-    return 1 + getPassiveStacks("damageUp") * 0.15;
+    return 1 + getPassiveStacks("damageUp") * PASSIVE_VALUES.damageUp;
 }
 // 射速被动总加成（加法，如2层 = 0.10*2 = 0.20）
 function getFireRatePassiveBonus() {
-    return getPassiveStacks("fireRateUp") * 0.10;
+    return getPassiveStacks("fireRateUp") * PASSIVE_VALUES.fireRateUp;
 }
 // 移速被动总加成
 function getMoveSpeedBonus() {
-    return getPassiveStacks("moveSpeedUp") * 0.08;
+    return getPassiveStacks("moveSpeedUp") * PASSIVE_VALUES.moveSpeedUp;
 }
 // 暴击率（来自 critChance 被动）
 function getCritChance() {
-    return getPassiveStacks("critChance") * 0.08;
+    return getPassiveStacks("critChance") * PASSIVE_VALUES.critChance;
 }
 // 护甲减伤（每层减少1点伤害，最低造成1点伤害）
 function getArmorReduction() {
     return getPassiveStacks("armor");
 }
 // 僚机数量（机炮专属，每层+1架）
-// 僚机数量由 wingman 武器等级决定：Lv1=1架, Lv2+=2架
+// 僚机数量由 wingman 武器等级决定：Lv1=1架, Lv2+=上限 WINGMAN_MAX_COUNT
 function getWingmanCount() {
     const lv = getWeaponLevel("wingman");
     if (lv <= 0)
         return 0;
-    return lv >= 2 ? 2 : 1;
+    return Math.min(lv, WINGMAN_MAX_COUNT);
 }
 // 僚机伤害加成（wingmanItem 被动，每层 +30%）
 function getWingmanDamageBonus() {
-    return getPassiveStacks("wingmanItem") * 0.3;
+    return getPassiveStacks("wingmanItem") * PASSIVE_VALUES.wingmanItem;
 }
 // 爆炸范围加成（导弹专属，每层+50%）
 function getExplosionRadiusBonus() {
-    return getPassiveStacks("explosionRadius") * 0.5;
+    return getPassiveStacks("explosionRadius") * PASSIVE_VALUES.explosionRadius;
 }
 // 多重导弹（导弹专属，每层+1枚）
 function getMultiMissileBonus() {
