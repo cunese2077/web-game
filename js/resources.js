@@ -1,5 +1,6 @@
 // 图片资源加载与管理
 import { ctx, width, height, fontScale } from "./canvas.js";
+import { t } from "./i18n.js";
 // 图片资源名称定义（string[] 嵌套结构）
 const imgName = [
     "background.png",
@@ -62,24 +63,41 @@ let heroImg = [];
 // 加载进度
 let progress = 0;
 const totalImages = imgName.flat().length;
+// 加载失败的图片列表（onerror 兜底：失败也推进进度，避免卡死在加载页）
+const failedImages = [];
 // 加载完成回调
 let onLoadComplete = null;
 function nImg(src) {
     const img = new Image();
     img.src = "img/" + src;
-    img.onload = imgLoad;
+    img.onload = () => imgDone();
+    img.onerror = () => {
+        failedImages.push(src);
+        console.warn(`[resources] 图片加载失败: img/${src}`);
+        imgDone();
+    };
     return img;
 }
-function imgLoad() {
+// 单张图片加载结束（成功或失败）后统一处理：推进进度并重绘百分比
+function imgDone() {
     progress += 100 / totalImages;
     ctx.clearRect(0, 0, width, height);
+    // 先设置字体再测量文本宽度，否则 measureText 用默认字体测量导致文本偏移
+    ctx.font = `${Math.round(60 * fontScale)}px arial`;
     const text = Math.min(Math.round(progress), 100) + "%";
     const tw = ctx.measureText(text).width;
-    ctx.font = `${Math.round(60 * fontScale)}px arial`;
     ctx.fillStyle = "red";
     ctx.lineWidth = 0;
     ctx.strokeStyle = "#888";
     ctx.fillText(text, (width - tw) / 2, height / 2);
+    // 有图片加载失败时，在百分比下方给出提示（游戏仍可继续，缺失图片不绘制）
+    if (failedImages.length > 0) {
+        const failText = t("load.failed", { count: failedImages.length });
+        ctx.font = `${Math.round(18 * fontScale)}px arial`;
+        ctx.fillStyle = "#ff6600";
+        const fw = ctx.measureText(failText).width;
+        ctx.fillText(failText, (width - fw) / 2, height / 2 + 50 * fontScale);
+    }
     if (progress >= 100 && onLoadComplete) {
         // 置空回调确保只触发一次：图片 onload 可能在浏览器缓存校验(304)、
         // 内存压力下重新解码、标签页后台/前台切换等罕见场景被重复触发，

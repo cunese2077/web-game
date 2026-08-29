@@ -96,6 +96,8 @@ export type TextKey =
   | "start.clickToStart" // "点击开始游戏" / "Click to Start"
   | "start.settings"     // "设置" / "SETTINGS"
   | "start.gameData"     // "游戏数据" / "GAME DATA"
+  // 资源加载（resources.ts）
+  | "load.failed"        // "{count} 张图片加载失败" / "{count} image(s) failed to load"
   // 游戏数据页面
   | "gameData.title"             // "游戏数据" / "GAME DATA"
   | "gameData.highScore"         // "最高分" / "HIGH SCORE"
@@ -313,6 +315,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "start.clickToStart": "点击开始游戏",
     "start.settings": "设置",
     "start.gameData": "游戏数据",
+    "load.failed": "{count} 张图片加载失败",
     "gameData.title": "游戏数据",
     "gameData.highScore": "最高分",
     "gameData.highLevel": "最高等级",
@@ -515,6 +518,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "start.clickToStart": "Click to Start",
     "start.settings": "SETTINGS",
     "start.gameData": "GAME DATA",
+    "load.failed": "{count} image(s) failed to load",
     "gameData.title": "GAME DATA",
     "gameData.highScore": "HIGH SCORE",
     "gameData.highLevel": "HIGH LEVEL",
@@ -717,6 +721,7 @@ const translations: Record<Locale, Record<TextKey, string>> = {
     "start.clickToStart": "クリックでスタート",
     "start.settings": "設定",
     "start.gameData": "ゲームデータ",
+    "load.failed": "{count} 枚の画像の読み込みに失敗",
     "gameData.title": "ゲームデータ",
     "gameData.highScore": "ハイスコア",
     "gameData.highLevel": "最高レベル",
