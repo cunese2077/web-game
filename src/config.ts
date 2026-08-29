@@ -51,7 +51,7 @@ const enemyConfig: EnemyConfig = {
   // 【中型敌机】中等速度，HP提升，得分20，正弦摆动
   medium: {
     speed: 4,
-    hp: 25,
+    hp: 16,
     score: 20,
     spawnWeight: 5,
     move: {
@@ -71,8 +71,9 @@ const enemyConfig: EnemyConfig = {
       lowThreshold: 0.25,
     },
     // 成长配置：中型敌机HP稳步增长，保持中期持续威胁
+    // 第 19 轮调整：基础 HP 25→16、hpScale 0.08→0.07，缓解前期"打不死"
     scaling: {
-      hpScale: 0.08,        // 30级时 HP ≈ 122（4.9倍），中期仍然需要多轮射击
+      hpScale: 0.07,        // 30级时 HP ≈ 61（3.8倍），中期仍然需要多轮射击
       speedScale: 0.01,     // 每级速度 +1%（30级时 4→5.80）
       scoreScale: 0.10,     // 30级时分数 ≈ 122（6倍）
     },
@@ -81,7 +82,7 @@ const enemyConfig: EnemyConfig = {
   // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
   big: {
     speed: 2,
-    hp: 90,
+    hp: 55,
     score: 100,
     spawnProbBase: 0.05,
     spawnProbMax: 0.10,
@@ -103,8 +104,9 @@ const enemyConfig: EnemyConfig = {
       lowThreshold: 0.25,
     },
     // 成长配置：大型敌机HP增长强势，后期保持压迫感
+    // 第 19 轮调整：基础 HP 90→55、hpScale 0.10→0.09，缓解前期"打不死"
     scaling: {
-      hpScale: 0.10,       // 30级时 HP ≈ 643（5.4倍），后期需要集火
+      hpScale: 0.09,       // 30级时 HP ≈ 256（4.7倍），后期需要集火
       speedScale: 0.005,    // 每级速度 +0.5%（30级时 2→2.29）
       scoreScale: 0.12,     // 30级时分数 ≈ 760（7.6倍）
     },
@@ -113,7 +115,7 @@ const enemyConfig: EnemyConfig = {
   // 【精英敌机】中型和大型之间，俯冲移动，8级后出现
   elite: {
     speed: 3.5,
-    hp: 60,
+    hp: 40,
     score: 50,
     spawnProbBase: 0.03,       // 基础 3% 出现概率
     spawnProbMax: 0.10,        // 上限 10%
@@ -137,8 +139,9 @@ const enemyConfig: EnemyConfig = {
       lowThreshold: 0.25,
     },
     // 成长配置：精英敌机成长强于中型，接近大型
+    // 第 19 轮调整：基础 HP 60→40、hpScale 0.09→0.08，缓解前期"打不死"
     scaling: {
-      hpScale: 0.09,        // 30级时 HP ≈ 377（6.3倍），精英越来越危险
+      hpScale: 0.08,        // 30级时 HP ≈ 170（4.2倍），精英越来越危险
       speedScale: 0.012,    // 每级速度 +1.2%（30级时 3.5→4.87）
       scoreScale: 0.07,     // 30级时分数 ≈ 177（3.5倍）
     },
