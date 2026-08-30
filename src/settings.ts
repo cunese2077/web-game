@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 
 // ========== 当前设置 ==========
-let settings: GameSettings = { ...DEFAULT_SETTINGS };
+const settings: GameSettings = { ...DEFAULT_SETTINGS };
 
 // ========== 持久化 ==========
 const STORAGE_KEY = "web-game-settings";

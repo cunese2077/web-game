@@ -55,11 +55,11 @@ const imgName = [
 let bg = new Image();
 let pause = new Image();
 let m = new Image();
-let enemy1 = [];
-let enemy2 = [];
-let enemy3 = [];
-let gameLoad = [];
-let heroImg = [];
+const enemy1 = [];
+const enemy2 = [];
+const enemy3 = [];
+const gameLoad = [];
+const heroImg = [];
 // 加载进度
 let progress = 0;
 const totalImages = imgName.flat().length;

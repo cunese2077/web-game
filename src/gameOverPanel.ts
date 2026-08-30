@@ -4,6 +4,7 @@ import { ctx, width, height, fontScale } from "./canvas.js";
 import { getGameScore } from "./score.js";
 import { getLevel, getTotalExp } from "./level.js";
 import { getBuildSummary } from "./upgrade.js";
+import type { BuildEntry } from "./upgrade.js";
 import { getHighScore, getHighLevel } from "./record.js";
 import { getStats, getLastGame, getAchievementDefs } from "./achievement.js";
 import { t } from "./i18n.js";
@@ -24,6 +25,37 @@ let gameOverAnimFrame: number = 0;
 
 function resetGameOverAnim(): void {
   gameOverAnimFrame = 0;
+}
+
+// 稀有度颜色（Build 摘要条目）
+function rarityColor(rarity: string): string {
+  if (rarity === "legendary") return "#ffd700";
+  if (rarity === "epic") return "#c64fff";
+  if (rarity === "rare") return "#4a9eff";
+  return "#ccc";
+}
+
+// 绘制一组 Build 条目（左侧标题 + 右侧条目列表），返回下一组起始 Y
+function drawGroup(title: TextKey, entries: BuildEntry[], startY: number, cx: number, halfW: number, itemFontSize: number, lineHeight: number): number {
+  if (entries.length === 0) return startY;
+  ctx.font = `bold ${itemFontSize}px arial`;
+  ctx.fillStyle = "#aaa";
+  ctx.textAlign = "left";
+  ctx.fillText(t(title), cx - halfW, startY);
+  let y = startY + lineHeight;
+  for (const entry of entries) {
+    const nameStr = t(entry.label);
+    const levelStr = entry.type === "weapon" ? `Lv${entry.level}` : `×${entry.level}`;
+    ctx.fillStyle = rarityColor(entry.rarity);
+    ctx.font = `${itemFontSize}px arial`;
+    ctx.fillText(nameStr, cx - halfW + Math.round(4 * fontScale), y);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(levelStr, cx + halfW, y);
+    ctx.textAlign = "left";
+    y += lineHeight;
+  }
+  return y;
 }
 
 // 画游戏结束界面（含 Build 摘要）
@@ -157,65 +189,25 @@ function drawGameOver(): void {
 
     const itemFontSize = Math.round(14 * fontScale);
     const lineHeight = Math.round(20 * fontScale);
-    const colGap = Math.round(10 * fontScale);
     const halfW = width * 0.42;
-
-    // 稀有度颜色
-    function rarityColor(rarity: string): string {
-      if (rarity === "legendary") return "#ffd700";
-      if (rarity === "epic") return "#c64fff";
-      if (rarity === "rare") return "#4a9eff";
-      return "#ccc";
-    }
-
-    // 绘制一组条目（左侧标题+右侧条目列表）
-    function drawGroup(title: TextKey, entries: typeof build, startY: number): number {
-      if (entries.length === 0) return startY;
-      ctx.font = `bold ${itemFontSize}px arial`;
-      ctx.fillStyle = "#aaa";
-      ctx.textAlign = "left";
-      ctx.fillText(t(title), cx - halfW, startY);
-      let y = startY + lineHeight;
-      for (const entry of entries) {
-        const nameStr = t(entry.label);
-        const levelStr = entry.type === "weapon" ? `Lv${entry.level}` : `×${entry.level}`;
-        ctx.fillStyle = rarityColor(entry.rarity);
-        ctx.font = `${itemFontSize}px arial`;
-        ctx.fillText(nameStr, cx - halfW + Math.round(4 * fontScale), y);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#fff";
-        ctx.fillText(levelStr, cx + halfW, y);
-        ctx.textAlign = "left";
-        y += lineHeight;
-      }
-      return y;
-    }
 
     // 左列：武器，右列：被动
     const leftStartY = curY;
-    const rightStartY = curY;
-
-    // 先计算两列高度，取较大值
-    const leftH = weapons.length > 0 ? (1 + weapons.length) * lineHeight : 0;
-    const rightH = passives.length > 0 ? (1 + passives.length) * lineHeight : 0;
 
     // 绘制左列
     let nextY = leftStartY;
     if (weapons.length > 0) {
-      nextY = drawGroup("gameOver.weapons", weapons, nextY);
+      nextY = drawGroup("gameOver.weapons", weapons, nextY, cx, halfW, itemFontSize, lineHeight);
     }
 
     // 绘制右列（如果两列不并排，就顺序放）
     if (passives.length > 0) {
-      drawGroup("gameOver.passives", passives, nextY);
-      nextY += (1 + passives.length) * lineHeight;
-    } else {
-      // nextY 已经是武器列底部
+      nextY = drawGroup("gameOver.passives", passives, nextY, cx, halfW, itemFontSize, lineHeight);
     }
 
-    // 如果武器列和被动列都有内容，使用顺序排列
-    // 重新绘制：不使用双列布局（避免复杂对齐），改为从上到下依次展示
-    // 已在上面顺序绘制
+    // 先计算两列高度，取较大值
+    const leftH = weapons.length > 0 ? (1 + weapons.length) * lineHeight : 0;
+    const rightH = passives.length > 0 ? (1 + passives.length) * lineHeight : 0;
 
     curY = Math.max(nextY, leftStartY + Math.max(leftH, rightH)) + Math.round(8 * fontScale);
   }

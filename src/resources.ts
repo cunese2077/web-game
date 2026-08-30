@@ -57,11 +57,11 @@ const imgName: (string | string[])[] = [
 let bg: HTMLImageElement = new Image();
 let pause: HTMLImageElement = new Image();
 let m: HTMLImageElement = new Image();
-let enemy1: HTMLImageElement[] = [];
-let enemy2: HTMLImageElement[] = [];
-let enemy3: HTMLImageElement[] = [];
-let gameLoad: HTMLImageElement[] = [];
-let heroImg: HTMLImageElement[] = [];
+const enemy1: HTMLImageElement[] = [];
+const enemy2: HTMLImageElement[] = [];
+const enemy3: HTMLImageElement[] = [];
+const gameLoad: HTMLImageElement[] = [];
+const heroImg: HTMLImageElement[] = [];
 
 // 加载进度
 let progress: number = 0;

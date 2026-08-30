@@ -6,7 +6,7 @@ import { addGameScore } from "./score.js";
 import { addExp, getExpReward, getLevel } from "./level.js";
 import { addBullet } from "./enemyBullet.js";
 import { getHeroHp, getHeroMaxHp, getHeroBuffs, getHeroY } from "./hero.js";
-import { getBulletDamageWithBuff, hasPiercing, addBossKillBonus, getCritChance, getBulletCount } from "./upgrade.js";
+import { getBulletDamageWithBuff, addBossKillBonus, getCritChance, getBulletCount } from "./upgrade.js";
 import Item from "./item.js";
 import { addScoreEffect, addDamageEffect } from "./ui.js";
 import { playEnemyDestroySmall, playEnemyDestroyMedium, playEnemyDestroyBig, playEnemyHit, notifyEnemyKill } from "./audio.js";
@@ -31,7 +31,6 @@ class Enemy {
         const level = getLevel();
         const diffConfig = getDifficultyConfig(getDifficulty());
         // 根据等级调整生成权重和大型敌机/精英敌机概率
-        const scaledSmallWeight = Math.max(1, enemyConfig.small.spawnWeight * (1 - enemySpawnScaling.smallWeightDecay * (level - 1)));
         const scaledMediumWeight = enemyConfig.medium.spawnWeight * (1 + enemySpawnScaling.mediumWeightGrowth * (level - 1));
         const scaledBigProbBase = enemyConfig.big.spawnProbBase + enemySpawnScaling.bigProbGrowth * (level - 1);
         const scaledBigProbMax = Math.min(0.2, enemyConfig.big.spawnProbMax + enemySpawnScaling.bigProbGrowth * (level - 1));
@@ -350,7 +349,6 @@ class Enemy {
         const allBullets = Bullet.getAll();
         const buffs = getHeroBuffs();
         const damageMultiplier = getBulletDamageWithBuff(buffs.firepower > 0);
-        const piercing = hasPiercing();
         // 单帧累积命中伤害：合并为一个伤害文本，避免多弹同时命中产生多个动效导致重叠
         let frameDamage = 0;
         let frameCrit = false;

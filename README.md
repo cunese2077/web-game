@@ -26,7 +26,7 @@ npm run typecheck  # 仅类型检查（不产出文件）
 
 * **触发条件**：push 到 `main` 分支（也支持在 Actions 页面手动触发）
 
-* **流程**：`npm ci` → `npm run build`（tsc 类型检查 + vite build）→ 将 `dist/` 发布到 GitHub Pages
+* **流程**：`npm ci` → `npm test`（单元测试，失败则中止部署）→ `npm run build`（tsc 类型检查 + vite build）→ 将 `dist/` 发布到 GitHub Pages
 
 * **访问地址**：<https://cunese2077.github.io/web-game/>
 

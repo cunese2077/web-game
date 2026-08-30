@@ -15,7 +15,7 @@ import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
 import { getDebugPanelArea, getDebugToggleArea, isGodMode } from "./debug.js";
 import { t } from "./i18n.js";
-import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMoveSpeedBonus, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, } from "./upgrade.js";
+import { initUpgrades, addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getBulletDamage, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, } from "./upgrade.js";
 let activeHero = null;
 let eventsBound = false;
 let _pauseBtnArea = { x: 0, y: 0, w: 0, h: 0 };
@@ -55,7 +55,6 @@ function bindEventsOnce() {
             }
             const w = heroImg[0].width;
             const h = heroImg[0].height;
-            const speedMul = 1 + getMoveSpeedBonus();
             let nx = offsetX - w / 2;
             let ny = offsetY - h / 2;
             if (nx < 20 - w / 2)
@@ -129,7 +128,7 @@ class Hero {
         this.lastLevel = getLevel();
         this._getCurrentPhase = () => PHASE_DOWNLOAD;
         this._setCurrentPhase = () => { };
-        activeHero = this;
+        activeHero = this; // eslint-disable-line @typescript-eslint/no-this-alias -- 模块级单例引用，事件回调依赖
         bindEventsOnce();
     }
     draw(curPhase) {

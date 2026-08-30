@@ -859,7 +859,6 @@ class Boss {
         ctx.lineTo(width, barY + barHeight);
         ctx.stroke();
         // BOSS 名称 + HP 文字（背景条）
-        const labelY = barY + barHeight + Math.round(12 * fontScale);
         const label = `${t("boss.title")} ${t(this._getTypeLabel())}  Lv.${getLevel()}`;
         const hpText = `${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`;
         // 文字背景

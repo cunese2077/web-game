@@ -9,7 +9,6 @@ import type {
   HeroConfig,
   BulletConfig,
   LevelConfig,
-  MoveType,
   HitEffectConfig,
   UpgradeDef,
   EnemyType,

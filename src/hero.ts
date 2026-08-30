@@ -9,8 +9,8 @@ import Item from "./item.js";
 import { playHit, playHeal, playFirepower, playShield, playSpread, playLevelUp } from "./audio.js";
 import { isSoundEnabled, getDifficulty } from "./settings.js";
 import { getGameScore } from "./score.js";
-import { getLevel, getExp, getExpToNext, addExp, resetLevel } from "./level.js";
-import { buffConfig, heroConfig, itemConfig, bulletConfig, getDifficultyConfig, getCollisionDamage } from "./config.js";
+import { getLevel, getExp, getExpToNext } from "./level.js";
+import { buffConfig, heroConfig, itemConfig, getDifficultyConfig, getCollisionDamage } from "./config.js";
 import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
 import { getDebugPanelArea, getDebugToggleArea, isGodMode } from "./debug.js";
@@ -22,11 +22,9 @@ import {
   getBulletCount,
   getBulletInterval,
   getBulletDamage,
-  getMoveSpeedBonus,
   getMaxHp,
   hasPiercing,
   startUpgradeSelection,
-  getCritChance,
   getArmorReduction,
   hasDoomBarrage,
   hasQuantumAnnihilate,
@@ -76,7 +74,6 @@ function bindEventsOnce(): void {
       }
       const w = heroImg[0].width;
       const h = heroImg[0].height;
-      const speedMul = 1 + getMoveSpeedBonus();
       let nx = offsetX - w / 2;
       let ny = offsetY - h / 2;
       if (nx < 20 - w / 2) nx = 20 - w / 2;
@@ -165,7 +162,7 @@ class Hero {
     this._getCurrentPhase = () => PHASE_DOWNLOAD;
     this._setCurrentPhase = () => {};
 
-    activeHero = this;
+    activeHero = this; // eslint-disable-line @typescript-eslint/no-this-alias -- 模块级单例引用，事件回调依赖
     bindEventsOnce();
   }
 

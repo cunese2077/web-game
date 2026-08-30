@@ -438,7 +438,7 @@ function updateAndDrawSpecialWeapons(heroX, heroY, heroW, heroH, curPhase, getEn
     // 更新导弹
     for (let i = missiles.length - 1; i >= 0; i--) {
         const ms = missiles[i];
-        const target = ms.update(allEnemies);
+        ms.update(allEnemies);
         // 碰撞检测
         if (!ms.removable) {
             for (const e of allEnemies) {

@@ -1,7 +1,7 @@
 // 升级系统模块 - 管理升级状态、出牌算法、属性计算
 import { upgradePool, heroConfig, bulletConfig, buffConfig, getDifficultyConfig, rarityWeights, bossKillRarityBonus } from "./config.js";
 import { getDifficulty } from "./settings.js";
-import type { UpgradeDef, UpgradeOffer } from "./types.js";
+import type { UpgradeOffer } from "./types.js";
 import type { TextKey } from "./i18n.js";
 
 // ========== 升级状态 ==========
@@ -504,7 +504,7 @@ function getMaxHp(): number {
 }
 
 // Build 摘要数据（供游戏结束界面展示当前升级组合）
-interface BuildEntry {
+export interface BuildEntry {
   id: string;
   label: TextKey;
   level: number;      // 武器等级(1~5) 或 被动层数

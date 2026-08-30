@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
     difficulty: "normal",
 };
 // ========== 当前设置 ==========
-let settings = { ...DEFAULT_SETTINGS };
+const settings = { ...DEFAULT_SETTINGS };
 // ========== 持久化 ==========
 const STORAGE_KEY = "web-game-settings";
 function loadSettings() {

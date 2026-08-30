@@ -11,7 +11,6 @@ import { addExp } from "./level.js";
 import { playBossHit, playBossDestroy } from "./audio.js";
 import { t } from "./i18n.js";
 import { triggerBossLegendary } from "./upgrade.js";
-import type { BossConfig } from "./types.js";
 import type { TextKey } from "./i18n.js";
 
 // Boss 攻击阶段
@@ -1020,7 +1019,6 @@ class Boss {
     ctx.stroke();
 
     // BOSS 名称 + HP 文字（背景条）
-    const labelY = barY + barHeight + Math.round(12 * fontScale);
     const label = `${t("boss.title")} ${t(this._getTypeLabel())}  Lv.${getLevel()}`;
     const hpText = `${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`;
 
