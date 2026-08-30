@@ -396,23 +396,6 @@ function getDynamicSpreadDropProb(hpRatio: number): number {
   return dropConfig.mediumEnemy.spreadBase + (1 - hpRatio) * dropConfig.mediumEnemy.spreadBonus;
 }
 
-function getDynamicBigEnemySpawnProb(hpRatio: number): number {
-  return enemyConfig.big.spawnProbBase + (1 - hpRatio) * (enemyConfig.big.spawnProbMax - enemyConfig.big.spawnProbBase);
-}
-
-// 精英敌机掉落概率（与大型敌机同档位）
-function getDynamicEliteShieldDropProb(hpRatio: number): number {
-  return dropConfig.bigEnemy.shieldBase + (1 - hpRatio) * dropConfig.bigEnemy.shieldBonus;
-}
-
-function getDynamicEliteHealDropProb(hpRatio: number): number {
-  return dropConfig.bigEnemy.healBase + (1 - hpRatio) * dropConfig.bigEnemy.healBonus;
-}
-
-function getDynamicEliteFirepowerDropProb(hpRatio: number): number {
-  return dropConfig.bigEnemy.firepowerBase + (1 - hpRatio) * dropConfig.bigEnemy.firepowerBonus;
-}
-
 // 敌机碰撞伤害基础值（按类型分级，碰撞更具威胁）
 function getCollisionDamage(enemyType: EnemyType): number {
   if (enemyType === "big") return 3;
@@ -816,10 +799,6 @@ export {
   getDynamicMediumFirepowerDropProb,
   getDynamicMediumShieldDropProb,
   getDynamicSpreadDropProb,
-  getDynamicBigEnemySpawnProb,
-  getDynamicEliteShieldDropProb,
-  getDynamicEliteHealDropProb,
-  getDynamicEliteFirepowerDropProb,
   getCollisionDamage,
   upgradePool,
   rarityWeights,

@@ -354,19 +354,6 @@ function getDynamicMediumShieldDropProb(hpRatio) {
 function getDynamicSpreadDropProb(hpRatio) {
     return dropConfig.mediumEnemy.spreadBase + (1 - hpRatio) * dropConfig.mediumEnemy.spreadBonus;
 }
-function getDynamicBigEnemySpawnProb(hpRatio) {
-    return enemyConfig.big.spawnProbBase + (1 - hpRatio) * (enemyConfig.big.spawnProbMax - enemyConfig.big.spawnProbBase);
-}
-// 精英敌机掉落概率（与大型敌机同档位）
-function getDynamicEliteShieldDropProb(hpRatio) {
-    return dropConfig.bigEnemy.shieldBase + (1 - hpRatio) * dropConfig.bigEnemy.shieldBonus;
-}
-function getDynamicEliteHealDropProb(hpRatio) {
-    return dropConfig.bigEnemy.healBase + (1 - hpRatio) * dropConfig.bigEnemy.healBonus;
-}
-function getDynamicEliteFirepowerDropProb(hpRatio) {
-    return dropConfig.bigEnemy.firepowerBase + (1 - hpRatio) * dropConfig.bigEnemy.firepowerBonus;
-}
 // 敌机碰撞伤害基础值（按类型分级，碰撞更具威胁）
 function getCollisionDamage(enemyType) {
     if (enemyType === "big")
@@ -749,4 +736,4 @@ const rarityWeights = {
 };
 // BOSS 击杀加成：每次击杀 big 敌机，epic/legendary 权重增加此值
 const bossKillRarityBonus = 15;
-export { enemyConfig, enemySpawnScaling, difficultyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, bossConfig, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getDynamicBigEnemySpawnProb, getDynamicEliteShieldDropProb, getDynamicEliteHealDropProb, getDynamicEliteFirepowerDropProb, getCollisionDamage, upgradePool, rarityWeights, bossKillRarityBonus, };
+export { enemyConfig, enemySpawnScaling, difficultyConfig, buffConfig, dropConfig, itemConfig, heroConfig, bulletConfig, levelConfig, bossConfig, hitEffect, getScaledEnemyStat, getDifficultyConfig, getDynamicHealDropProb, getDynamicShieldDropProb, getDynamicBigFirepowerDropProb, getDynamicMediumFirepowerDropProb, getDynamicMediumShieldDropProb, getDynamicSpreadDropProb, getCollisionDamage, upgradePool, rarityWeights, bossKillRarityBonus, };
