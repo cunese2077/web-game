@@ -24,9 +24,11 @@ npm run typecheck  # 仅类型检查（不产出文件）
 
 部署由 GitHub Actions 自动完成（[.github/workflows/deploy.yml](.github/workflows/deploy.yml)）：
 
-- **触发条件**：push 到 `main` 分支（也支持在 Actions 页面手动触发）
-- **流程**：`npm ci` → `npm run build`（tsc 类型检查 + vite build）→ 将 `dist/` 发布到 GitHub Pages
-- **访问地址**：https://cunese2077.github.io/web-game/
+* **触发条件**：push 到 `main` 分支（也支持在 Actions 页面手动触发）
+
+* **流程**：`npm ci` → `npm run build`（tsc 类型检查 + vite build）→ 将 `dist/` 发布到 GitHub Pages
+
+* **访问地址**：<https://cunese2077.github.io/web-game/>
 
 无需本地构建或提交产物，推送代码后等 Actions 跑完（约 1 分钟）即自动上线。
 
