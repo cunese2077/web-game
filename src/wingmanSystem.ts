@@ -13,21 +13,28 @@ import {
 } from "./weaponLevels.js";
 import { addHitFlash, addLightningBolt, generateJaggedLine } from "./weaponEffects.js";
 import { pushMissile } from "./missileSystem.js";
+import { ObjectPool } from "./pool.js";
 import type { WeaponContext } from "./specialWeaponTypes.js";
 
 class WingmanBullet {
-  x: number;
-  y: number;
-  damage: number;
-  removable: boolean;
+  x!: number;         // ! 断言：构造函数委托 init() 赋值（对象池复用入口）
+  y!: number;
+  damage!: number;
+  removable!: boolean;
   trail: { x: number; y: number }[];
 
   constructor(x: number, y: number, damage: number) {
+    this.trail = [];
+    this.init(x, y, damage);
+  }
+
+  // 重置全部状态（对象池复用入口，构造函数也走这里保证两条路径一致）
+  init(x: number, y: number, damage: number): void {
     this.x = x;
     this.y = y;
     this.damage = damage;
     this.removable = false;
-    this.trail = [];
+    this.trail.length = 0;  // 复用 trail 数组，避免重新分配
   }
 
   update(): void {
@@ -63,6 +70,7 @@ class WingmanBullet {
 
 // ========== 状态管理 ==========
 const wingmanBullets: WingmanBullet[] = [];
+const wingmanBulletPool = new ObjectPool<WingmanBullet>(() => new WingmanBullet(0, 0, 0));
 let wingmanCooldowns: number[] = [];  // 动态长度，基于僚机数量
 let wingmanMissileCooldown = 0;       // 狼群战术：僚机导弹冷却
 
@@ -98,7 +106,9 @@ function updateWingmanSystem(c: WeaponContext): void {
         const bulletCount = hasBulletStorm() ? 2 : 1;
         for (let b = 0; b < bulletCount; b++) {
           const bulletOffsetX = b === 0 ? -3 : 3;
-          wingmanBullets.push(new WingmanBullet(wx + bulletOffsetX, wy - c.heroH / 2, effectiveDamage));
+          const wb = wingmanBulletPool.acquire();
+          wb.init(wx + bulletOffsetX, wy - c.heroH / 2, effectiveDamage);
+          wingmanBullets.push(wb);
         }
       }
 
@@ -178,6 +188,7 @@ function updateWingmanSystem(c: WeaponContext): void {
       }
     }
     if (wb.removable) {
+      wingmanBulletPool.release(wb);  // 归还对象池复用
       wingmanBullets.splice(i, 1);
     } else {
       wb.draw();

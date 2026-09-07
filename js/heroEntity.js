@@ -150,7 +150,7 @@ class Hero {
             for (let i = 0; i < spreadBulletCount; i++) {
                 const offset = spreadBulletCount === 1 ? 0 : startOffset + step * i;
                 const isDiagonal = i === 0 || i === spreadBulletCount - 1;
-                Bullet.add(new Bullet(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
+                Bullet.add(Bullet.spawn(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
             }
         }
         else {
@@ -161,7 +161,7 @@ class Hero {
             for (let i = 0; i < bulletCount; i++) {
                 const offset = bulletCount === 1 ? 0 : startOffset + step * i;
                 const isDiagonal = i === 0 || i === bulletCount - 1;
-                Bullet.add(new Bullet(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
+                Bullet.add(Bullet.spawn(offset, this.x, this.y, heroW, heroH, isDiagonal, piercing));
             }
         }
     }

@@ -2,11 +2,17 @@
 // 从 ui.ts 拆出（保持函数签名不变，ui.ts 统一 re-export）
 import { ctx, fontScale } from "./canvas.js";
 import { t } from "./i18n.js";
+import { ObjectPool } from "./pool.js";
 // ========== 得分动效系统 ==========
 const scoreEffects = [];
+const scoreEffectPool = new ObjectPool(() => new ScoreEffectObj(0, 0, 0));
 const SCORE_EFFECT_FRAMES = 30;
 class ScoreEffectObj {
     constructor(x, y, score) {
+        this.init(x, y, score);
+    }
+    // 重置全部状态（对象池复用入口）
+    init(x, y, score) {
         this.x = x;
         this.y = y;
         this.score = score;
@@ -38,12 +44,15 @@ class ScoreEffectObj {
     }
 }
 function addScoreEffect(x, y, score) {
-    scoreEffects.push(new ScoreEffectObj(x, y, score));
+    const e = scoreEffectPool.acquire();
+    e.init(x, y, score);
+    scoreEffects.push(e);
 }
 function drawScoreEffects() {
     for (let i = scoreEffects.length - 1; i >= 0; i--) {
         scoreEffects[i].update();
         if (scoreEffects[i].removable) {
+            scoreEffectPool.release(scoreEffects[i]); // 归还对象池复用
             scoreEffects.splice(i, 1);
         }
         else {
@@ -57,8 +66,13 @@ function clearScoreEffects() {
 // ========== 伤害浮动动效系统 ==========
 // 子弹击中敌机时，在命中位置显示 "-X" 伤害数字，上浮并淡出
 const damageEffects = [];
+const damageEffectPool = new ObjectPool(() => new DamageEffectObj(0, 0, 0, 1, "#fff", 0, 1));
 class DamageEffectObj {
     constructor(x, y, damage, fontSize, color, floatDistance, frames, crit = false) {
+        this.init(x, y, damage, fontSize, color, floatDistance, frames, crit);
+    }
+    // 重置全部状态（对象池复用入口，构造函数也走这里保证两条路径一致）
+    init(x, y, damage, fontSize, color, floatDistance, frames, crit = false) {
         this.x = x;
         this.y = y;
         this.damage = damage;
@@ -176,12 +190,15 @@ function addDamageEffect(x, y, damage, fontSize, color, floatDistance, frames, s
     if (chosenSlot === -1) {
         return; // 不产生新动效，避免重叠
     }
-    damageEffects.push(new DamageEffectObj(x, startY, damage, fontSize, color, floatDistance, frames, crit));
+    const e = damageEffectPool.acquire();
+    e.init(x, startY, damage, fontSize, color, floatDistance, frames, crit);
+    damageEffects.push(e);
 }
 function drawDamageEffects() {
     for (let i = damageEffects.length - 1; i >= 0; i--) {
         damageEffects[i].update();
         if (damageEffects[i].removable) {
+            damageEffectPool.release(damageEffects[i]); // 归还对象池复用
             damageEffects.splice(i, 1);
         }
         else {

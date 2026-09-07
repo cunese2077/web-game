@@ -1,17 +1,23 @@
 // BOSS 敌机弹幕类
 import { ctx } from "./canvas.js";
 import { width, height } from "./canvas.js";
+import { ObjectPool } from "./pool.js";
 
 class EnemyBullet {
-  x: number;
-  y: number;
-  speedX: number;     // 水平速度
-  speedY: number;     // 垂直速度（正=向下）
-  size: number;       // 半径
-  color: string;      // 弹幕颜色
-  removable: boolean;
+  x!: number;         // ! 断言：构造函数委托 init() 赋值（对象池复用入口）
+  y!: number;
+  speedX!: number;    // 水平速度
+  speedY!: number;    // 垂直速度（正=向下）
+  size!: number;      // 半径
+  color!: string;     // 弹幕颜色
+  removable!: boolean;
 
   constructor(x: number, y: number, speedX: number, speedY: number, size: number, color: string) {
+    this.init(x, y, speedX, speedY, size, color);
+  }
+
+  // 重置全部状态（对象池复用入口，构造函数也走这里保证两条路径一致）
+  init(x: number, y: number, speedX: number, speedY: number, size: number, color: string): void {
     this.x = x;
     this.y = y;
     this.speedX = speedX;
@@ -45,9 +51,12 @@ class EnemyBullet {
 
 // 弹幕管理
 let bullets: EnemyBullet[] = [];
+const bulletPool = new ObjectPool<EnemyBullet>(() => new EnemyBullet(0, 0, 0, 0, 1, "#fff"));
 
 function addBullet(x: number, y: number, speedX: number, speedY: number, size: number, color: string): void {
-  bullets.push(new EnemyBullet(x, y, speedX, speedY, size, color));
+  const b = bulletPool.acquire();  // 从对象池复用，BOSS 弹幕密集时避免高频 GC
+  b.init(x, y, speedX, speedY, size, color);
+  bullets.push(b);
 }
 
 function updateAndDrawBullets(frozen: boolean = false): void {
@@ -55,6 +64,7 @@ function updateAndDrawBullets(frozen: boolean = false): void {
     if (!frozen) bullets[i].update();
     bullets[i].draw();
     if (bullets[i].removable) {
+      bulletPool.release(bullets[i]);  // 归还对象池复用
       bullets.splice(i, 1);
     }
   }

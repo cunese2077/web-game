@@ -3,14 +3,21 @@ import { ctx } from "./canvas.js";
 import { m } from "./resources.js";
 import { playShoot } from "./audio.js";
 import { getHeroBuffs } from "./hero.js";
+import { ObjectPool } from "./pool.js";
 const bullets = [];
+const bulletPool = new ObjectPool(() => new Bullet(0, 0, 0, 0, 0));
 let shootSoundCoolDown = 0;
 class Bullet {
     constructor(n, heroX, heroY, heroW, heroH, isDiagonal = false, piercing = false) {
+        this.hitEnemyIds = new Set();
+        this.init(n, heroX, heroY, heroW, heroH, isDiagonal, piercing);
+    }
+    // 重置全部状态（对象池复用入口，构造函数也走这里保证两条路径一致）
+    init(n, heroX, heroY, heroW, heroH, isDiagonal = false, piercing = false) {
         this.n = n;
         this.isDiagonal = isDiagonal;
         this.piercing = piercing;
-        this.hitEnemyIds = new Set();
+        this.hitEnemyIds.clear(); // 复用 Set 实例，避免每次射击重新分配
         this.mx = heroX + (heroW - m.width) / 2 + this.n;
         this.my = this.n === 0 ? heroY - m.height : heroY + m.height;
         this.width = m.width;
@@ -45,11 +52,18 @@ class Bullet {
         for (let i = bullets.length - 1; i >= 0; i--) {
             bullets[i].draw(frozen);
             if (bullets[i].removable) {
+                bulletPool.release(bullets[i]); // 归还对象池复用
                 bullets.splice(i, 1);
             }
         }
         if (shootSoundCoolDown > 0)
             shootSoundCoolDown--;
+    }
+    // 从对象池取一枚子弹并初始化（替代外部直接 new）
+    static spawn(n, heroX, heroY, heroW, heroH, isDiagonal = false, piercing = false) {
+        const b = bulletPool.acquire();
+        b.init(n, heroX, heroY, heroW, heroH, isDiagonal, piercing);
+        return b;
     }
     static add(bulletObj) {
         bullets.push(bulletObj);

@@ -2,19 +2,26 @@
 // 从 ui.ts 拆出（保持函数签名不变，ui.ts 统一 re-export）
 import { ctx, fontScale } from "./canvas.js";
 import { t } from "./i18n.js";
+import { ObjectPool } from "./pool.js";
 
 // ========== 得分动效系统 ==========
 const scoreEffects: ScoreEffectObj[] = [];
+const scoreEffectPool = new ObjectPool<ScoreEffectObj>(() => new ScoreEffectObj(0, 0, 0));
 const SCORE_EFFECT_FRAMES: number = 30;
 
 class ScoreEffectObj {
-  x: number;
-  y: number;
-  score: number;
-  frame: number;
-  removable: boolean;
+  x!: number;         // ! 断言：构造函数委托 init() 赋值（对象池复用入口）
+  y!: number;
+  score!: number;
+  frame!: number;
+  removable!: boolean;
 
   constructor(x: number, y: number, score: number) {
+    this.init(x, y, score);
+  }
+
+  // 重置全部状态（对象池复用入口）
+  init(x: number, y: number, score: number): void {
     this.x = x;
     this.y = y;
     this.score = score;
@@ -52,13 +59,16 @@ class ScoreEffectObj {
 }
 
 function addScoreEffect(x: number, y: number, score: number): void {
-  scoreEffects.push(new ScoreEffectObj(x, y, score));
+  const e = scoreEffectPool.acquire();
+  e.init(x, y, score);
+  scoreEffects.push(e);
 }
 
 function drawScoreEffects(): void {
   for (let i = scoreEffects.length - 1; i >= 0; i--) {
     scoreEffects[i].update();
     if (scoreEffects[i].removable) {
+      scoreEffectPool.release(scoreEffects[i]);  // 归还对象池复用
       scoreEffects.splice(i, 1);
     } else {
       scoreEffects[i].draw();
@@ -73,20 +83,26 @@ function clearScoreEffects(): void {
 // ========== 伤害浮动动效系统 ==========
 // 子弹击中敌机时，在命中位置显示 "-X" 伤害数字，上浮并淡出
 const damageEffects: DamageEffectObj[] = [];
+const damageEffectPool = new ObjectPool<DamageEffectObj>(() => new DamageEffectObj(0, 0, 0, 1, "#fff", 0, 1));
 
 class DamageEffectObj {
-  x: number;
-  y: number;
-  damage: number;
-  fontSize: number;
-  color: string;
-  floatDistance: number;
-  frames: number;
-  frame: number;
-  removable: boolean;
-  crit: boolean;
+  x!: number;          // ! 断言：构造函数委托 init() 赋值（对象池复用入口）
+  y!: number;
+  damage!: number;
+  fontSize!: number;
+  color!: string;
+  floatDistance!: number;
+  frames!: number;
+  frame!: number;
+  removable!: boolean;
+  crit!: boolean;
 
   constructor(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number, crit: boolean = false) {
+    this.init(x, y, damage, fontSize, color, floatDistance, frames, crit);
+  }
+
+  // 重置全部状态（对象池复用入口，构造函数也走这里保证两条路径一致）
+  init(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number, crit: boolean = false): void {
     this.x = x;
     this.y = y;
     this.damage = damage;
@@ -210,13 +226,16 @@ function addDamageEffect(x: number, y: number, damage: number, fontSize: number,
     return;  // 不产生新动效，避免重叠
   }
 
-  damageEffects.push(new DamageEffectObj(x, startY, damage, fontSize, color, floatDistance, frames, crit));
+  const e = damageEffectPool.acquire();
+  e.init(x, startY, damage, fontSize, color, floatDistance, frames, crit);
+  damageEffects.push(e);
 }
 
 function drawDamageEffects(): void {
   for (let i = damageEffects.length - 1; i >= 0; i--) {
     damageEffects[i].update();
     if (damageEffects[i].removable) {
+      damageEffectPool.release(damageEffects[i]);  // 归还对象池复用
       damageEffects.splice(i, 1);
     } else {
       damageEffects[i].draw();
