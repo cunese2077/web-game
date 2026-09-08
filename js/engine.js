@@ -591,4 +591,12 @@ function triggerBossPhase() {
     }
 }
 export { triggerBossPhase };
+// PWA：生产构建注册 Service Worker 实现离线游玩
+// dev 模式跳过（避免缓存干扰 HMR）：识别方式——dev 的 index.html 直接引用 /src/ 入口，构建产物是 hash 命名的 assets
+const isDevServer = document.querySelector('script[src^="/src/"]') !== null;
+if (!isDevServer && "serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        void navigator.serviceWorker.register("./sw.js");
+    });
+}
 requestAnimationFrame(gameLoop);
