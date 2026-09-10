@@ -56,6 +56,13 @@ function resetLevel(): void {
   totalExp = 0;
 }
 
+// 中断续玩：从快照恢复等级/经验
+function restoreLevel(savedLevel: number, savedExp: number, savedTotalExp: number): void {
+  level = Math.max(1, Math.min(savedLevel, levelConfig.maxLevel));
+  exp = Math.max(0, savedExp);
+  totalExp = Math.max(0, savedTotalExp);
+}
+
 // 获取敌机经验奖励
 function getExpReward(enemyType: EnemyType): number {
   if (enemyType === "big") return levelConfig.expRewards.big;
@@ -71,5 +78,6 @@ export {
   getTotalExp,
   addExp,
   resetLevel,
+  restoreLevel,
   getExpReward,
 };

@@ -44,6 +44,12 @@ function resetLevel() {
     exp = 0;
     totalExp = 0;
 }
+// 中断续玩：从快照恢复等级/经验
+function restoreLevel(savedLevel, savedExp, savedTotalExp) {
+    level = Math.max(1, Math.min(savedLevel, levelConfig.maxLevel));
+    exp = Math.max(0, savedExp);
+    totalExp = Math.max(0, savedTotalExp);
+}
 // 获取敌机经验奖励
 function getExpReward(enemyType) {
     if (enemyType === "big")
@@ -54,4 +60,4 @@ function getExpReward(enemyType) {
         return levelConfig.expRewards.medium;
     return levelConfig.expRewards.small;
 }
-export { getLevel, getExp, getExpToNext, getTotalExp, addExp, resetLevel, getExpReward, };
+export { getLevel, getExp, getExpToNext, getTotalExp, addExp, resetLevel, restoreLevel, getExpReward, };

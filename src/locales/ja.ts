@@ -75,6 +75,7 @@ const ja: Record<TextKey, string> = {
     "gameOver.stats": "統計",
     "start.title": "エアバトル",
     "start.clickToStart": "クリックでスタート",
+    "start.continue": "続きから",
     "start.settings": "設定",
     "start.gameData": "ゲームデータ",
     "load.failed": "{count} 枚の画像の読み込みに失敗",

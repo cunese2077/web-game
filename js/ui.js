@@ -7,7 +7,7 @@
 //   gameOverPanel.ts  结算面板（得分/Build 摘要/成就 + 入场动画）
 //   gameDataPanel.ts  游戏数据面板（成就列表 + 对局记录分页表 + Tooltip）
 export { addScoreEffect, drawScoreEffects, clearScoreEffects, addDamageEffect, drawDamageEffects, clearDamageEffects } from "./effects.js";
-export { paintBg, paintLogo, loading, getSettingsBtnArea, getGameDataBtnArea } from "./startScreen.js";
+export { paintBg, paintLogo, loading, getSettingsBtnArea, getGameDataBtnArea, getContinueBtnArea } from "./startScreen.js";
 export { drawSettings, handleSettingsClick } from "./settingsPanel.js";
 export { drawPause, getPauseBackBtnArea } from "./pausePanel.js";
 export { drawGameOver, getGameOverBackBtnArea, resetGameOverAnim } from "./gameOverPanel.js";

@@ -71,6 +71,7 @@ const en = {
     "gameOver.stats": "STATS",
     "start.title": "PLANE WAR",
     "start.clickToStart": "Click to Start",
+    "start.continue": "CONTINUE",
     "start.settings": "SETTINGS",
     "start.gameData": "GAME DATA",
     "load.failed": "{count} image(s) failed to load",

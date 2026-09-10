@@ -4,6 +4,7 @@ import { ctx, width, height, fontScale } from "./canvas.js";
 import { bg, gameLoad, heroImg } from "./resources.js";
 import { PHASE_LOADING, PHASE_PLAY } from "./constants.js";
 import { t } from "./i18n.js";
+import { loadGame } from "./saveGame.js";
 // 画滚动背景
 // 背景图拉伸到画布宽高，确保铺满整个屏幕（支持任意尺寸的设备）
 // 使用 height 作为滚动周期，两张图交替滚动实现无缝循环
@@ -30,6 +31,23 @@ let settingsBtnHitH = 0;
 // 游戏数据按钮点击区域
 let gameDataBtnX = 0;
 let gameDataBtnW = 0;
+// 继续游戏按钮点击区域（有中断续玩存档时非 null）
+let continueBtnArea = null;
+// 触摸设备扩大点击区域（与暂停/音效按钮一致）
+function getContinueBtnArea() {
+    if (!continueBtnArea)
+        return null;
+    const isTouch = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+    if (!isTouch)
+        return continueBtnArea;
+    const pad = Math.round(10 * fontScale);
+    return {
+        x: continueBtnArea.x - pad,
+        y: continueBtnArea.y - pad,
+        w: continueBtnArea.w + pad * 2,
+        h: continueBtnArea.h + pad * 2,
+    };
+}
 // 画开始界面（飞机装饰 + 标题 + 提示文本，支持多语言，带动画）
 // 水平+垂直居中，避免大屏设备内容偏上
 function paintLogo() {
@@ -69,14 +87,53 @@ function paintLogo() {
     gradient.addColorStop(1, "#ff8c00");
     ctx.fillStyle = gradient;
     ctx.fillText(t("start.title"), cx, titleY);
-    // ===== 提示文字：闪烁效果 =====
-    const blinkAlpha = 0.5 + 0.5 * Math.sin(logoFrame * 0.08);
-    ctx.globalAlpha = blinkAlpha;
-    ctx.fillStyle = "#fff";
-    ctx.font = `${Math.round(20 * fontScale)}px arial`;
-    ctx.shadowColor = "#000";
-    ctx.shadowBlur = 6;
-    ctx.fillText(t("start.clickToStart"), cx, cy + Math.round(75 * fontScale));
+    // ===== 提示文字 / 继续游戏按钮 =====
+    // 有中断续玩存档时：显示"继续游戏"金色按钮（点击恢复进度），原闪烁提示下沉一行
+    const hasSave = loadGame() !== null;
+    if (hasSave) {
+        const contBtnY = cy + Math.round(75 * fontScale);
+        const contFont = Math.round(24 * fontScale);
+        ctx.font = `bold ${contFont}px arial`;
+        const contW = ctx.measureText(t("start.continue")).width + Math.round(30 * fontScale);
+        const contH = Math.round(40 * fontScale);
+        // 按钮底色（半透明金色圆角矩形）+ 悬浮微动
+        const contFloat = Math.sin(logoFrame * 0.06) * Math.round(2 * fontScale);
+        const contX = cx - contW / 2;
+        const btnY = contBtnY + contFloat;
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = "#b8860b";
+        const r = Math.round(8 * fontScale);
+        ctx.beginPath();
+        ctx.roundRect(contX, btnY, contW, contH, r);
+        ctx.fill();
+        ctx.restore();
+        // 按钮文字
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff";
+        ctx.textBaseline = "middle";
+        ctx.fillText(t("start.continue"), cx, btnY + contH / 2);
+        ctx.textBaseline = "alphabetic";
+        // 记录点击区域（继续按钮，触摸外扩由引擎统一处理）
+        continueBtnArea = { x: contX, y: contBtnY, w: contW, h: contH };
+        // 原闪烁提示下沉一行（新游戏入口）
+        const hintY = contBtnY + contH + Math.round(30 * fontScale);
+        const blinkAlpha2 = 0.4 + 0.4 * Math.sin(logoFrame * 0.08);
+        ctx.globalAlpha = blinkAlpha2;
+        ctx.fillStyle = "#ccc";
+        ctx.font = `${Math.round(16 * fontScale)}px arial`;
+        ctx.fillText(t("start.clickToStart"), cx, hintY);
+    }
+    else {
+        const blinkAlpha = 0.5 + 0.5 * Math.sin(logoFrame * 0.08);
+        ctx.globalAlpha = blinkAlpha;
+        ctx.fillStyle = "#fff";
+        ctx.font = `${Math.round(20 * fontScale)}px arial`;
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 6;
+        ctx.fillText(t("start.clickToStart"), cx, cy + Math.round(75 * fontScale));
+        continueBtnArea = null;
+    }
     // ===== 底部按钮：设置 + 游戏数据 =====
     ctx.globalAlpha = 0.7;
     ctx.shadowBlur = 4;
@@ -121,4 +178,4 @@ function loading() {
         return PHASE_LOADING;
     };
 }
-export { paintBg, paintLogo, loading, getSettingsBtnArea, getGameDataBtnArea };
+export { paintBg, paintLogo, loading, getSettingsBtnArea, getGameDataBtnArea, getContinueBtnArea };

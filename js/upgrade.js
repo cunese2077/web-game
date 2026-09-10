@@ -186,6 +186,34 @@ function generateOffers() {
     }
     return result;
 }
+// ========== 中断续玩：快照收集与恢复 ==========
+// 导出当前 Build 进度（weapons/passives 转普通对象以便 JSON 序列化）
+function getUpgradeSaveState() {
+    const w = {};
+    for (const [id, lv] of weapons)
+        w[id] = lv;
+    const p = {};
+    for (const [id, stacks] of passives)
+        p[id] = stacks;
+    return {
+        weapons: w,
+        passives: p,
+        pendingLevelUps,
+        bossLegendaryPending,
+        evolutionPending,
+    };
+}
+// 从快照恢复 Build 进度（参数用不同名避免遮蔽模块级状态变量）
+function restoreUpgradeState(savedWeapons, savedPassives, savedPending, savedBossLegendary, savedEvolution) {
+    initUpgrades();
+    for (const id of Object.keys(savedWeapons))
+        weapons.set(id, savedWeapons[id]);
+    for (const id of Object.keys(savedPassives))
+        passives.set(id, savedPassives[id]);
+    pendingLevelUps = savedPending;
+    bossLegendaryPending = savedBossLegendary;
+    evolutionPending = savedEvolution;
+}
 // 进入升级选择状态，返回是否成功生成选项
 function startUpgradeSelection() {
     if (pendingLevelUps <= 0)
@@ -455,4 +483,4 @@ function getBuildSummary() {
     }
     return result;
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, };
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getUpgradeSaveState, restoreUpgradeState, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, };

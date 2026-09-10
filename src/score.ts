@@ -14,4 +14,9 @@ function addGameScore(score: number): void {
   gameScore += score;
 }
 
-export { getGameScore, resetGameScore, addGameScore };
+// 中断续玩：从快照恢复分数
+function restoreGameScore(savedScore: number): void {
+  gameScore = Math.max(0, savedScore);
+}
+
+export { getGameScore, resetGameScore, addGameScore, restoreGameScore };

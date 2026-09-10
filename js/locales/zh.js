@@ -71,6 +71,7 @@ const zh = {
     "gameOver.stats": "统计",
     "start.title": "飞机大战",
     "start.clickToStart": "点击开始游戏",
+    "start.continue": "继续游戏",
     "start.settings": "设置",
     "start.gameData": "游戏数据",
     "load.failed": "{count} 张图片加载失败",

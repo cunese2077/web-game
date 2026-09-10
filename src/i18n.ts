@@ -99,6 +99,7 @@ export type TextKey =
   // 开始界面（ui.ts paintLogo）
   | "start.title"        // "飞机大战" / "PLANE WAR"
   | "start.clickToStart" // "点击开始游戏" / "Click to Start"
+  | "start.continue"     // "继续游戏" / "CONTINUE"
   | "start.settings"     // "设置" / "SETTINGS"
   | "start.gameData"     // "游戏数据" / "GAME DATA"
   // 资源加载（resources.ts）

@@ -13,13 +13,13 @@ import {
   PHASE_BOSS,
 } from "./constants.js";
 import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs, getDamageTaken } from "./hero.js";
-import { getGameScore, resetGameScore } from "./score.js";
-import { resetLevel, getLevel } from "./level.js";
+import { getGameScore, resetGameScore, restoreGameScore } from "./score.js";
+import { resetLevel, getLevel, restoreLevel } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
-import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects, resetGameOverAnim } from "./ui.js";
+import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, getContinueBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects, resetGameOverAnim } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
 import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
@@ -27,6 +27,8 @@ import { updateAndDrawBullets, clearBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning, startBgm, stopBgm } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
 import { t } from "./i18n.js";
+import { saveGame, loadGame, clearSave } from "./saveGame.js";
+import { getUpgradeSaveState, restoreUpgradeState, startUpgradeSelection, getMaxHp } from "./upgrade.js";
 import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
 import { recordGameEnd } from "./achievement.js";
 import { isDebugMode, isDebugPanelVisible, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
@@ -47,6 +49,57 @@ const EVOLUTION_FLASH_DURATION: number = 30; // 1.5秒@20fps
 let bossDefeatSlowMo: number = 0;
 let bossDefeatX: number = 0;
 let bossDefeatY: number = 0;
+
+// ========== 中断续玩 ==========
+// 自动保存帧计数器（每 100 帧 = 5秒@20fps 存一次）
+const SAVE_INTERVAL_FRAMES: number = 100;
+let saveFrameCounter: number = 0;
+// 恢复标记：从开始界面点"继续游戏"进入 loading，loading 完成时应用快照
+let pendingRestore: boolean = false;
+
+// 收集快照并写入 localStorage（游戏中可安全序列化的进度状态）
+function _saveSnapshot(): void {
+  if (!hero) return;
+  // 这些阶段才值得存（下载/加载/暂停/结算不存；暂停中途断开属于放弃本局）
+  if (curPhase !== PHASE_PLAY && curPhase !== PHASE_BOSS_WARNING &&
+      curPhase !== PHASE_BOSS && curPhase !== PHASE_LEVEL_UP) return;
+  const upState = getUpgradeSaveState();
+  saveGame(
+    upState.weapons, upState.passives,
+    curPhase === PHASE_BOSS || curPhase === PHASE_BOSS_WARNING,  // 恢复后重打 BOSS
+    hero.x, hero.y, hero.hp,
+  );
+}
+
+// 应用快照恢复本局（loading 完成后调用；实体场清空由恢复前的完整 reset 链路保证）
+function _applyRestore(): void {
+  const snap = loadGame();
+  if (!snap || !hero) {
+    curPhase = PHASE_PLAY;
+    return;
+  }
+  restoreGameScore(snap.score);
+  restoreLevel(snap.level, snap.exp, snap.totalExp);
+  restoreUpgradeState(snap.weapons, snap.passives, snap.pendingLevelUps, false, false);
+  // 英雄状态：位置与 HP 恢复（先按恢复后的被动层数重算 maxHp，再 clamp hp）；短无敌帧避免恢复瞬间被击中
+  hero.x = snap.hero.x;
+  hero.y = snap.hero.y;
+  hero.maxHp = getMaxHp();
+  hero.hp = Math.max(1, Math.min(snap.hero.hp, hero.maxHp));
+  hero.invincible = 60; // 3秒@20fps 保护
+  hero.lastLevel = getLevel();  // 防止恢复等级差被误判为新升级（触发升级弹窗/回血）
+  if (snap.bossPending) {
+    // 原局在 BOSS 战：从预警重新开始（BOSS 血量重置）
+    startBossWarning();
+    curPhase = PHASE_BOSS_WARNING;
+  } else if (snap.pendingLevelUps > 0 && startUpgradeSelection()) {
+    // 原局停在升级选择：重新生成选项进入
+    curPhase = PHASE_LEVEL_UP;
+  } else {
+    curPhase = PHASE_PLAY;
+  }
+  // 恢复的快照已消费：正常游戏中会继续滚动保存
+}
 
 // BOSS 预警 UI 绘制
 function _drawBossWarningUI(): void {
@@ -270,7 +323,15 @@ function start(): void {
         openGameData();
         return;
       }
-      // 否则进入加载阶段
+      // 检查是否点击了"继续游戏"按钮（有中断续玩存档时）
+      const contArea = getContinueBtnArea();
+      if (contArea && clickX >= contArea.x && clickX < contArea.x + contArea.w &&
+          clickY >= contArea.y && clickY < contArea.y + contArea.h) {
+        pendingRestore = true;
+        curPhase = PHASE_LOADING;
+        return;
+      }
+      // 否则进入加载阶段（新游戏）
       curPhase = PHASE_LOADING;
     } else if (curPhase === PHASE_PLAY) {
       // 检查是否点击了音效按钮
@@ -315,6 +376,7 @@ function start(): void {
         evolutionFlashFrames = 0;
         resetGameOverAnim();
         bossDefeatSlowMo = 0;
+        clearSave();  // 放弃本局：清除中断续玩快照
         curPhase = PHASE_READY;
       } else {
         // 点击其他区域恢复游戏
@@ -348,6 +410,7 @@ function start(): void {
         evolutionFlashFrames = 0;
         resetGameOverAnim();
         bossDefeatSlowMo = 0;
+        clearSave();  // 放弃本局：清除中断续玩快照
         curPhase = PHASE_READY;
       } else {
         // 其他区域点击：重新开始游戏
@@ -373,6 +436,7 @@ function start(): void {
         evolutionFlashFrames = 0;
         resetGameOverAnim();
         bossDefeatSlowMo = 0;
+        clearSave();  // 重新开始新游戏：旧快照失效
         curPhase = PHASE_LOADING;
       }
     }
@@ -405,6 +469,12 @@ function start(): void {
   hero.setPhaseCallbacks(getCurPhase, setCurPhase);
   pBg = paintBg();
   loadAnim = loading();
+
+  // 中断续玩：页面关闭/切后台时立即保存（移动端切走最常见的丢局场景）
+  window.addEventListener("pagehide", _saveSnapshot);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") _saveSnapshot();
+  });
 }
 
 function gameEngine(): void {
@@ -422,6 +492,11 @@ function gameEngine(): void {
     case PHASE_LOADING:
       if (pBg) pBg();
       if (loadAnim) curPhase = loadAnim();
+      // 中断续玩：loading 完成进入 PLAY 时应用快照（可改判 BOSS 预警/升级选择）
+      if (curPhase === PHASE_PLAY && pendingRestore) {
+        pendingRestore = false;
+        _applyRestore();
+      }
       break;
     case PHASE_PLAY:
       if (pBg) pBg();
@@ -563,6 +638,7 @@ function gameEngine(): void {
         tryUpdateHighLevel(getLevel());
         recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount(), getDifficulty(), getDamageTaken());
         gameOverRecordUpdated = true;
+        clearSave();  // 本局已结束：中断续玩快照失效
       }
       if (pBg) pBg();
       drawGameOver();
@@ -614,6 +690,12 @@ function gameLoop(timestamp: number): void {
   if (delta >= TARGET_DELTA) {
     lastTimestamp = timestamp - (delta % TARGET_DELTA);
     gameEngine();
+    // 中断续玩：游戏中定时保存（页面隐藏时另有即时保存兜底）
+    saveFrameCounter++;
+    if (saveFrameCounter >= SAVE_INTERVAL_FRAMES) {
+      saveFrameCounter = 0;
+      _saveSnapshot();
+    }
   }
   requestAnimationFrame(gameLoop);
 }
