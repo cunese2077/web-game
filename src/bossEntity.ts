@@ -588,13 +588,14 @@ class Boss {
     ctx.restore();
   }
 
-  // 获取类型标签 i18n key
+  // 获取类型标签 i18n key（兜底突击型，防止 bossType 异常时显示 undefined）
   _getTypeLabel(): TextKey {
     switch (this.bossType) {
       case "assault": return "boss.type.assault";
       case "fortress": return "boss.type.fortress";
       case "carrier": return "boss.type.carrier";
       case "phantom": return "boss.type.phantom";
+      default: return "boss.type.assault";
     }
   }
 

@@ -8,9 +8,10 @@ import { getGameScore } from "./score.js";
 import { getLevel, getExp, getTotalExp } from "./level.js";
 import { getPendingLevelUps } from "./upgrade.js";
 const STORAGE_KEY = "web-game-save";
-const SAVE_VERSION = 1;
+// v2：新增 boss 字段（保留中断时的血量/阶段，而非重打）
+const SAVE_VERSION = 2;
 // 由 engine 在保存时机调用：收集当前进度（weapons/passives 由 upgrade 模块导出的收集函数提供）
-function saveGame(weapons, passives, bossPending, heroX, heroY, heroHp) {
+function saveGame(weapons, passives, bossPending, boss, heroX, heroY, heroHp) {
     try {
         const snap = {
             version: SAVE_VERSION,
@@ -23,6 +24,7 @@ function saveGame(weapons, passives, bossPending, heroX, heroY, heroHp) {
             passives,
             pendingLevelUps: getPendingLevelUps(),
             bossPending,
+            boss,
             hero: { x: heroX, y: heroY, hp: heroHp },
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
@@ -47,6 +49,15 @@ function loadGame() {
             typeof snap.pendingLevelUps !== "number" || typeof snap.bossPending !== "boolean" ||
             typeof snap.hero !== "object" || snap.hero === null)
             return null;
+        // boss 可选：bossPending 时应为合法对象
+        if (snap.boss !== undefined && snap.boss !== null) {
+            const b = snap.boss;
+            if (typeof b.hp !== "number" || typeof b.maxHp !== "number" ||
+                typeof b.bossIndex !== "number" || typeof b.attackPhase !== "number")
+                return null;
+            if (!(b.hp > 0) || !(b.maxHp > 0) || b.bossIndex < 0)
+                return null;
+        }
         return snap;
     }
     catch {

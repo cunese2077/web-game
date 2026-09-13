@@ -53,6 +53,18 @@ function spawnBoss(): void {
   activeBoss = new Boss(bossIndex);
 }
 
+// 中断续玩：按快照恢复 BOSS（保留中断时血量与攻击阶段）
+// bossIndex 直接取快照值（triggeredBossLevels 恢复链路由 engine 先行重建）
+function restoreBoss(bossIndex: number, hp: number, maxHp: number, attackPhase: number): void {
+  activeBoss = new Boss(bossIndex);
+  activeBoss.maxHp = maxHp;
+  activeBoss.hp = Math.min(hp, maxHp);   // 防存档血量超出满血
+  // 阶段合法值 1/2/3，越界保持构造默认
+  if (attackPhase === 1 || attackPhase === 2 || attackPhase === 3) {
+    activeBoss.attackPhase = attackPhase;
+  }
+}
+
 // 更新 + 绘制 BOSS
 function updateAndDrawBoss(): void {
   if (activeBoss && activeBoss.alive) {
@@ -100,6 +112,7 @@ export {
   startBossWarning,
   updateBossWarning,
   spawnBoss,
+  restoreBoss,
   updateAndDrawBoss,
   getActiveBoss,
   isBossAlive,

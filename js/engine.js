@@ -12,7 +12,7 @@ import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, getContinueBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects, resetGameOverAnim } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
-import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
+import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, restoreBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning, startBgm, stopBgm } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
@@ -50,8 +50,16 @@ function _saveSnapshot() {
         curPhase !== PHASE_BOSS && curPhase !== PHASE_LEVEL_UP)
         return;
     const upState = getUpgradeSaveState();
-    saveGame(upState.weapons, upState.passives, curPhase === PHASE_BOSS || curPhase === PHASE_BOSS_WARNING, // 恢复后重打 BOSS
-    hero.x, hero.y, hero.hp);
+    // BOSS 战中断时保留血量/阶段（预警阶段中断只存 bossPending，从预警重打）
+    let bossState = null;
+    if (curPhase === PHASE_BOSS) {
+        const boss = getActiveBoss();
+        if (boss && boss.alive && boss.hp > 0) {
+            bossState = { hp: boss.hp, maxHp: boss.maxHp, bossIndex: boss.bossIndex, attackPhase: boss.attackPhase };
+        }
+    }
+    saveGame(upState.weapons, upState.passives, curPhase === PHASE_BOSS || curPhase === PHASE_BOSS_WARNING, // 恢复后回到 BOSS 战
+    bossState, hero.x, hero.y, hero.hp);
 }
 // 应用快照恢复本局（loading 完成后调用；实体场清空由恢复前的完整 reset 链路保证）
 function _applyRestore() {
@@ -70,8 +78,16 @@ function _applyRestore() {
     hero.hp = Math.max(1, Math.min(snap.hero.hp, hero.maxHp));
     hero.invincible = 60; // 3秒@20fps 保护
     hero.lastLevel = getLevel(); // 防止恢复等级差被误判为新升级（触发升级弹窗/回血）
-    if (snap.bossPending) {
-        // 原局在 BOSS 战：从预警重新开始（BOSS 血量重置）
+    if (snap.bossPending && snap.boss) {
+        // 原局在 BOSS 战：按快照恢复 BOSS（保留中断时血量与攻击阶段）
+        // triggeredBossLevels 重建（保证 BOSS 击败后下一只 bossIndex 递增正确）
+        registerDebugBossLevel(getLevel());
+        restoreBoss(snap.boss.bossIndex, snap.boss.hp, snap.boss.maxHp, snap.boss.attackPhase);
+        curPhase = PHASE_BOSS;
+    }
+    else if (snap.bossPending) {
+        // 原局在 BOSS 预警阶段（BOSS 未生成）：从预警重新开始（满血 BOSS）
+        registerDebugBossLevel(getLevel());
         startBossWarning();
         curPhase = PHASE_BOSS_WARNING;
     }

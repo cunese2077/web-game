@@ -9,7 +9,16 @@ import { getLevel, getExp, getTotalExp } from "./level.js";
 import { getPendingLevelUps } from "./upgrade.js";
 
 const STORAGE_KEY = "web-game-save";
-const SAVE_VERSION = 1;
+// v2：新增 boss 字段（保留中断时的血量/阶段，而非重打）
+const SAVE_VERSION = 2;
+
+// BOSS 战中断时的可恢复状态（bossPending=true 时存在）
+interface BossSaveState {
+  hp: number;          // 中断时剩余血量
+  maxHp: number;       // 满血（恢复后重算可能与配置漂移，以存档为准绘制血条比例）
+  bossIndex: number;   // 第几个 BOSS（决定类型与强度）
+  attackPhase: number; // 攻击阶段（1/2/3）
+}
 
 // 快照数据结构（JSON 可序列化）
 interface SaveSnapshot {
@@ -22,12 +31,13 @@ interface SaveSnapshot {
   weapons: Record<string, number>;    // weaponId → level
   passives: Record<string, number>;   // passiveId → stacks
   pendingLevelUps: number;
-  bossPending: boolean;   // 恢复后是否重打 BOSS（原局在 BOSS 战/预警中）
+  bossPending: boolean;   // 恢复后重打 BOSS（原局在 BOSS 战/预警中）
+  boss: BossSaveState | null;  // BOSS 战中断时的状态（预警阶段中断为 null → 从预警重打）
   hero: { x: number; y: number; hp: number };
 }
 
 // 由 engine 在保存时机调用：收集当前进度（weapons/passives 由 upgrade 模块导出的收集函数提供）
-function saveGame(weapons: Record<string, number>, passives: Record<string, number>, bossPending: boolean, heroX: number, heroY: number, heroHp: number): void {
+function saveGame(weapons: Record<string, number>, passives: Record<string, number>, bossPending: boolean, boss: BossSaveState | null, heroX: number, heroY: number, heroHp: number): void {
   try {
     const snap: SaveSnapshot = {
       version: SAVE_VERSION,
@@ -40,6 +50,7 @@ function saveGame(weapons: Record<string, number>, passives: Record<string, numb
       passives,
       pendingLevelUps: getPendingLevelUps(),
       bossPending,
+      boss,
       hero: { x: heroX, y: heroY, hp: heroHp },
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
@@ -61,6 +72,13 @@ function loadGame(): SaveSnapshot | null {
         typeof snap.weapons !== "object" || typeof snap.passives !== "object" ||
         typeof snap.pendingLevelUps !== "number" || typeof snap.bossPending !== "boolean" ||
         typeof snap.hero !== "object" || snap.hero === null) return null;
+    // boss 可选：bossPending 时应为合法对象
+    if (snap.boss !== undefined && snap.boss !== null) {
+      const b = snap.boss;
+      if (typeof b.hp !== "number" || typeof b.maxHp !== "number" ||
+          typeof b.bossIndex !== "number" || typeof b.attackPhase !== "number") return null;
+      if (!(b.hp > 0) || !(b.maxHp > 0) || b.bossIndex < 0) return null;
+    }
     return snap;
   } catch {
     return null;

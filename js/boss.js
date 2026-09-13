@@ -5,5 +5,5 @@
 // - bossEntity.ts：Boss 类核心（构造/更新/伤害结算/绘制装配）
 // - bossManager.ts：触发/预警/生成/查询等管理状态
 import { Boss } from "./bossEntity.js";
-import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, } from "./bossManager.js";
-export { Boss, checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, };
+import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, restoreBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, } from "./bossManager.js";
+export { Boss, checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, restoreBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, };
