@@ -1,7 +1,7 @@
 // 升级系统模块 - 管理升级状态、出牌算法、属性计算
 import { upgradePool, heroConfig, bulletConfig, buffConfig, getDifficultyConfig, rarityWeights, bossKillRarityBonus } from "./config.js";
 import { getDifficulty } from "./settings.js";
-import type { UpgradeOffer } from "./types.js";
+import type { UpgradeOffer, BuildRoute } from "./types.js";
 import type { TextKey } from "./i18n.js";
 
 // ========== 升级状态 ==========
@@ -59,6 +59,19 @@ function getWeaponLevel(id: string): number {
 
 function getPassiveStacks(id: string): number {
   return passives.get(id) ?? 0;
+}
+
+// 当前 Build 主路线：特殊武器中等级最高者（平级优先导弹），
+// 无特殊武器则为纯机炮流。供结算时记录对局路线
+function getBuildRoute(): BuildRoute {
+  const missile = getWeaponLevel("homingMissile");
+  const energy = getWeaponLevel("energyWeapon");
+  const wingman = getWeaponLevel("wingman");
+  const max = Math.max(missile, energy, wingman);
+  if (max <= 0) return "gun";
+  if (missile === max) return "missile";
+  if (energy === max) return "energy";
+  return "wingman";
 }
 
 function addPendingLevelUps(count: number): void {
@@ -604,4 +617,5 @@ export {
   getBulletDamageWithBuff,
   getMaxHp,
   getBuildSummary,
+  getBuildRoute,
 };

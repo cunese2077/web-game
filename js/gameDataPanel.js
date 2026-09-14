@@ -1,7 +1,7 @@
 // 游戏数据面板模块：成就列表 + 对局记录表（固定高度分页）+ 删除确认 + Tooltip
 // 从 ui.ts 拆出（保持函数签名不变，ui.ts 统一 re-export）
 import { ctx, width, height, fontScale } from "./canvas.js";
-import { getStats, getAchievementDefs, getAchievementTier, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord } from "./achievement.js";
+import { getStats, getAchievementDefs, getAchievementTier, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord, getRouteStats } from "./achievement.js";
 import { t } from "./i18n.js";
 // ========== 游戏数据页面状态 ==========
 let gameDataOpen = false;
@@ -75,6 +75,46 @@ function drawGameData() {
     const summaryLine = `${t("gameData.highScore")}:${stats.highestScore}  ${t("gameData.highLevel")}:${stats.highestLevel}  ${t("gameData.totalGames")}:${stats.totalGames}  ${t("gameData.totalKills")}:${stats.totalKills}  ${t("gameData.totalBossKills")}:${stats.totalBossKills}`;
     ctx.fillText(summaryLine, cx, curY);
     curY += Math.round(20 * fontScale);
+    // === 路线统计（按主武器流派聚合，反哺 DPS 平衡） ===
+    const routeStats = getRouteStats();
+    const routeLabelKeys = {
+        gun: "gameData.route.gun",
+        missile: "gameData.route.missile",
+        energy: "gameData.route.energy",
+        wingman: "gameData.route.wingman",
+    };
+    ctx.fillStyle = "#ffd700";
+    ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
+    ctx.fillText(t("gameData.routeTitle"), cx, curY);
+    curY += Math.round(16 * fontScale);
+    // 表头（列右对齐排布：局数/均分/均级，最左为路线名）
+    const routeFs = Math.round(11 * fontScale);
+    const routeRowH = Math.round(15 * fontScale);
+    const colGamesX = rightX - Math.round(150 * fontScale);
+    const colAvgScoreX = rightX - Math.round(90 * fontScale);
+    const colLvX = rightX - Math.round(2 * fontScale);
+    ctx.font = `bold ${routeFs}px arial`;
+    ctx.fillStyle = "#666";
+    ctx.textAlign = "left";
+    ctx.fillText(t("gameData.route.games"), colGamesX, curY);
+    ctx.fillText(t("gameData.route.avgScore"), colAvgScoreX, curY);
+    ctx.textAlign = "right";
+    ctx.fillText(t("gameData.route.avgLevel") + "(" + t("gameData.route.hiLevel") + ")", colLvX, curY);
+    curY += routeRowH;
+    // 数据行（无对局的路线灰显）
+    ctx.font = `${routeFs}px arial`;
+    for (const rs of routeStats) {
+        const hasData = rs.games > 0;
+        ctx.fillStyle = hasData ? "#ccc" : "#555";
+        ctx.textAlign = "left";
+        ctx.fillText(t(routeLabelKeys[rs.route]), leftX, curY);
+        ctx.fillText(String(rs.games), colGamesX, curY);
+        ctx.fillText(String(rs.avgScore), colAvgScoreX, curY);
+        ctx.textAlign = "right";
+        ctx.fillText(`${rs.avgLevel}(${rs.highestLevel})`, colLvX, curY);
+        curY += routeRowH;
+    }
+    curY += Math.round(8 * fontScale);
     // === 成就列表 ===
     const unlockedCount = achDefs.filter(d => isUnlocked(d.id)).length;
     ctx.fillStyle = "#ffd700";

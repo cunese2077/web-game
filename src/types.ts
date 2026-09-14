@@ -30,6 +30,9 @@ export type EnemyType = "small" | "medium" | "elite" | "big";
 // --- 游戏难度 ---
 export type Difficulty = "normal" | "medium" | "hard";
 
+// --- Build 路线（主武器流派，按路线统计用） ---
+export type BuildRoute = "gun" | "missile" | "energy" | "wingman";
+
 // --- 难度配置 ---
 export interface DifficultyConfig {
   label: TextKey;                   // 难度名称 i18n key

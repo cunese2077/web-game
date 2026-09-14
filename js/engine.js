@@ -18,7 +18,7 @@ import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWa
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
 import { t } from "./i18n.js";
 import { saveGame, loadGame, clearSave } from "./saveGame.js";
-import { getUpgradeSaveState, restoreUpgradeState, startUpgradeSelection, getMaxHp } from "./upgrade.js";
+import { getUpgradeSaveState, restoreUpgradeState, startUpgradeSelection, getMaxHp, getBuildRoute } from "./upgrade.js";
 import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
 import { recordGameEnd } from "./achievement.js";
 import { isDebugMode, isDebugPanelVisible, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
@@ -616,7 +616,7 @@ function gameEngine() {
             if (!gameOverRecordUpdated) {
                 tryUpdateHighScore(getGameScore());
                 tryUpdateHighLevel(getLevel());
-                recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount(), getDifficulty(), getDamageTaken());
+                recordGameEnd(getGameScore(), getLevel(), Enemy.getSessionKillCount(), getSessionBossKillCount(), getDifficulty(), getDamageTaken(), getBuildRoute());
                 gameOverRecordUpdated = true;
                 clearSave(); // 本局已结束：中断续玩快照失效
             }

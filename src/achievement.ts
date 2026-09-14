@@ -1,7 +1,7 @@
 // 成就统计模块：按对局记录存储，统计数据从记录派生，删除记录时自动重算
 // 成就支持铜/银/金三档分级（tier: 0=未解锁, 1=铜, 2=银, 3=金）
 import type { TextKey } from "./i18n.js";
-import type { Difficulty } from "./types.js";
+import type { Difficulty, BuildRoute } from "./types.js";
 
 const STORAGE_KEY = "webgame_achievement";
 
@@ -18,6 +18,17 @@ export interface GameRecord {
   timestamp: number;    // 游戏结束时间戳
   difficulty: Difficulty; // 本局难度
   damageTaken: number;  // 本局受击次数
+  route?: BuildRoute;   // 本局主武器路线（v 路线统计上线前的旧记录无此字段，聚合时跳过）
+}
+
+// 按路线聚合的统计（从 records 派生，不单独存储）
+export interface RouteStats {
+  route: BuildRoute;
+  games: number;        // 该路线局数
+  avgScore: number;     // 平均得分
+  avgLevel: number;     // 平均等级
+  highestLevel: number; // 最高等级
+  totalBossKills: number; // 该路线总 BOSS 击杀
 }
 
 // 派生统计数据（从 records 计算，不单独存储）
@@ -232,13 +243,14 @@ function recalcAchievements(): void {
 // ========== 公开 API ==========
 
 // 游戏结束时添加记录，返回本局新解锁的成就档位
-function recordGameEnd(score: number, level: number, kills: number, bossKills: number, difficulty: Difficulty, damageTaken: number): string[] {
+function recordGameEnd(score: number, level: number, kills: number, bossKills: number, difficulty: Difficulty, damageTaken: number, route: BuildRoute): string[] {
   const record: GameRecord = {
     id: Date.now(),
     score, level, kills, bossKills,
     timestamp: Date.now(),
     difficulty,
     damageTaken,
+    route,
   };
   records.push(record);
 
@@ -262,6 +274,38 @@ function recordGameEnd(score: number, level: number, kills: number, bossKills: n
 // 获取派生统计数据
 function getStats(): DerivedStats {
   return computeStats();
+}
+
+// 按路线聚合统计（供 gameData 面板展示，反哺 DPS 平衡决策）
+// 返回固定 4 条（无对局的路线 games=0），顺序：机炮/导弹/能量/僚机
+function getRouteStats(): RouteStats[] {
+  const acc: Record<BuildRoute, { games: number; totalScore: number; totalLevel: number; highestLevel: number; totalBossKills: number }> = {
+    gun: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+    missile: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+    energy: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+    wingman: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+  };
+  for (const r of records) {
+    if (!r.route) continue;  // 旧记录无路线，跳过
+    const a = acc[r.route];
+    a.games++;
+    a.totalScore += r.score;
+    a.totalLevel += r.level;
+    if (r.level > a.highestLevel) a.highestLevel = r.level;
+    a.totalBossKills += r.bossKills;
+  }
+  const routes: BuildRoute[] = ["gun", "missile", "energy", "wingman"];
+  return routes.map(route => {
+    const a = acc[route];
+    return {
+      route,
+      games: a.games,
+      avgScore: a.games > 0 ? Math.round(a.totalScore / a.games) : 0,
+      avgLevel: a.games > 0 ? Math.round(a.totalLevel / a.games * 10) / 10 : 0,
+      highestLevel: a.highestLevel,
+      totalBossKills: a.totalBossKills,
+    };
+  });
 }
 
 // 获取本局游戏数据
@@ -323,6 +367,7 @@ saveData();
 export {
   recordGameEnd,
   getStats,
+  getRouteStats,
   getLastGame,
   getAchievementDefs,
   getAchievementTier,

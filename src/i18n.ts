@@ -131,6 +131,16 @@ export type TextKey =
   | "gameData.killsCol"          // "击杀敌机数" / "ENEMY KILLS"（表格列标题）
   | "gameData.bossKillsCol"      // "击杀BOSS数" / "BOSS KILLS"（表格列标题）
   | "gameData.recordTitle"       // "对局记录" / "GAME RECORDS"（表格标题）
+  // 路线统计（gameDataPanel 按主武器流派聚合）
+  | "gameData.routeTitle"        // "路线统计" / "ROUTE STATS"
+  | "gameData.route.gun"         // "机炮" / "GUN"
+  | "gameData.route.missile"     // "导弹" / "MISSILE"
+  | "gameData.route.energy"      // "能量" / "ENERGY"
+  | "gameData.route.wingman"     // "僚机" / "WINGMAN"
+  | "gameData.route.games"       // "局数" / "GAMES"（路线统计列头）
+  | "gameData.route.avgScore"    // "均分" / "AVG SCORE"（路线统计列头）
+  | "gameData.route.avgLevel"    // "均级" / "AVG LV"（路线统计列头）
+  | "gameData.route.hiLevel"     // "高级" / "HI LV"（路线统计列头）
   // 设置界面（ui.ts drawSettings）
   | "settings.title"     // "游戏设置" / "SETTINGS"
   | "settings.language"  // "语言" / "LANGUAGE"

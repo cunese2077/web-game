@@ -175,13 +175,14 @@ function recalcAchievements() {
 }
 // ========== 公开 API ==========
 // 游戏结束时添加记录，返回本局新解锁的成就档位
-function recordGameEnd(score, level, kills, bossKills, difficulty, damageTaken) {
+function recordGameEnd(score, level, kills, bossKills, difficulty, damageTaken, route) {
     const record = {
         id: Date.now(),
         score, level, kills, bossKills,
         timestamp: Date.now(),
         difficulty,
         damageTaken,
+        route,
     };
     records.push(record);
     // 检查新解锁的成就档位
@@ -202,6 +203,39 @@ function recordGameEnd(score, level, kills, bossKills, difficulty, damageTaken) 
 // 获取派生统计数据
 function getStats() {
     return computeStats();
+}
+// 按路线聚合统计（供 gameData 面板展示，反哺 DPS 平衡决策）
+// 返回固定 4 条（无对局的路线 games=0），顺序：机炮/导弹/能量/僚机
+function getRouteStats() {
+    const acc = {
+        gun: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+        missile: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+        energy: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+        wingman: { games: 0, totalScore: 0, totalLevel: 0, highestLevel: 0, totalBossKills: 0 },
+    };
+    for (const r of records) {
+        if (!r.route)
+            continue; // 旧记录无路线，跳过
+        const a = acc[r.route];
+        a.games++;
+        a.totalScore += r.score;
+        a.totalLevel += r.level;
+        if (r.level > a.highestLevel)
+            a.highestLevel = r.level;
+        a.totalBossKills += r.bossKills;
+    }
+    const routes = ["gun", "missile", "energy", "wingman"];
+    return routes.map(route => {
+        const a = acc[route];
+        return {
+            route,
+            games: a.games,
+            avgScore: a.games > 0 ? Math.round(a.totalScore / a.games) : 0,
+            avgLevel: a.games > 0 ? Math.round(a.totalLevel / a.games * 10) / 10 : 0,
+            highestLevel: a.highestLevel,
+            totalBossKills: a.totalBossKills,
+        };
+    });
 }
 // 获取本局游戏数据
 function getLastGame() {
@@ -251,4 +285,4 @@ function deleteAchievement(id) {
 loadData();
 recalcAchievements();
 saveData();
-export { recordGameEnd, getStats, getLastGame, getAchievementDefs, getAchievementTier, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord, };
+export { recordGameEnd, getStats, getRouteStats, getLastGame, getAchievementDefs, getAchievementTier, isUnlocked, deleteAchievement, resetAllData, getRecords, deleteRecord, };

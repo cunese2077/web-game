@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   recordGameEnd,
   getStats,
+  getRouteStats,
   getLastGame,
   getAchievementTier,
   isUnlocked,
@@ -17,19 +18,19 @@ beforeEach(() => {
 
 describe("成就分档判定", () => {
   it("首局游戏解锁 first_game 铜档", () => {
-    const unlocked = recordGameEnd(500, 5, 30, 0, "normal", 2);
+    const unlocked = recordGameEnd(500, 5, 30, 0, "normal", 2, "gun");
     expect(unlocked).toContain("first_game");
     expect(getAchievementTier("first_game")).toBe(1); // 铜
   });
 
   it("得分 10000 直接解锁 score 金档（跨档直升）", () => {
-    const unlocked = recordGameEnd(10000, 10, 100, 0, "normal", 0);
+    const unlocked = recordGameEnd(10000, 10, 100, 0, "normal", 0, "gun");
     expect(unlocked).toContain("score");
     expect(getAchievementTier("score")).toBe(3); // 金
   });
 
   it("阈值边界：得分 999 不解锁 score", () => {
-    recordGameEnd(999, 5, 10, 0, "normal", 0);
+    recordGameEnd(999, 5, 10, 0, "normal", 0, "gun");
     expect(getAchievementTier("score")).toBe(0);
     expect(isUnlocked("score")).toBe(false);
   });
@@ -37,8 +38,8 @@ describe("成就分档判定", () => {
 
 describe("统计聚合", () => {
   it("多局记录正确累加", () => {
-    recordGameEnd(1000, 10, 50, 1, "normal", 2);
-    recordGameEnd(2000, 15, 80, 1, "normal", 3);
+    recordGameEnd(1000, 10, 50, 1, "normal", 2, "gun");
+    recordGameEnd(2000, 15, 80, 1, "normal", 3, "gun");
     const stats = getStats();
     expect(stats.totalGames).toBe(2);
     expect(stats.totalKills).toBe(130);
@@ -49,9 +50,9 @@ describe("统计聚合", () => {
   });
 
   it("无伤局与困难局分别计数", () => {
-    recordGameEnd(1000, 10, 50, 0, "normal", 0);   // 无伤
-    recordGameEnd(1000, 10, 50, 0, "hard", 0);     // 困难 + 无伤
-    recordGameEnd(1000, 10, 50, 0, "hard", 5);     // 困难 + 受伤
+    recordGameEnd(1000, 10, 50, 0, "normal", 0, "gun");   // 无伤
+    recordGameEnd(1000, 10, 50, 0, "hard", 0, "gun");     // 困难 + 无伤
+    recordGameEnd(1000, 10, 50, 0, "hard", 5, "gun");     // 困难 + 受伤
     const stats = getStats();
     expect(stats.noDamageGames).toBe(2);
     expect(stats.hardGames).toBe(2);
@@ -60,7 +61,7 @@ describe("统计聚合", () => {
 
 describe("删除记录后的成就重算", () => {
   it("删除高分记录后 score 成就档位回落", () => {
-    recordGameEnd(10000, 10, 100, 0, "normal", 0);
+    recordGameEnd(10000, 10, 100, 0, "normal", 0, "gun");
     expect(getAchievementTier("score")).toBe(3);
 
     const records = getRecords();
@@ -76,10 +77,49 @@ describe("删除记录后的成就重算", () => {
 
 describe("getLastGame", () => {
   it("保存最近一局数据", () => {
-    recordGameEnd(1234, 8, 45, 1, "medium", 3);
+    recordGameEnd(1234, 8, 45, 1, "medium", 3, "gun");
     const last = getLastGame();
     expect(last.score).toBe(1234);
     expect(last.difficulty).toBe("medium");
     expect(last.damageTaken).toBe(3);
+  });
+});
+
+describe("路线统计", () => {
+  it("固定返回 4 条路线且顺序稳定", () => {
+    const stats = getRouteStats();
+    expect(stats.length).toBe(4);
+    expect(stats.map(s => s.route)).toEqual(["gun", "missile", "energy", "wingman"]);
+    for (const s of stats) {
+      expect(s.games).toBe(0);
+      expect(s.avgScore).toBe(0);
+    }
+  });
+
+  it("按路线正确聚合局数/均分/均级/最高级", () => {
+    recordGameEnd(1000, 10, 50, 1, "normal", 0, "missile");
+    recordGameEnd(3000, 20, 80, 2, "normal", 0, "missile");
+    recordGameEnd(500, 5, 30, 0, "normal", 0, "wingman");
+    const stats = getRouteStats();
+    const missile = stats.find(s => s.route === "missile")!;
+    expect(missile.games).toBe(2);
+    expect(missile.avgScore).toBe(2000);
+    expect(missile.avgLevel).toBe(15);
+    expect(missile.highestLevel).toBe(20);
+    expect(missile.totalBossKills).toBe(3);
+    const wingman = stats.find(s => s.route === "wingman")!;
+    expect(wingman.games).toBe(1);
+    expect(wingman.avgScore).toBe(500);
+    const gun = stats.find(s => s.route === "gun")!;
+    expect(gun.games).toBe(0);  // 无对局的路线 games=0
+  });
+
+  it("删除记录后路线统计联动重算", () => {
+    recordGameEnd(1000, 10, 50, 1, "normal", 0, "energy");
+    const records = getRecords();
+    deleteRecord(records[0].id);
+    const energy = getRouteStats().find(s => s.route === "energy")!;
+    expect(energy.games).toBe(0);
+    expect(energy.avgScore).toBe(0);
   });
 });

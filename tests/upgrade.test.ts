@@ -19,6 +19,8 @@ import {
   getCritChance,
   getDamagePassiveMultiplier,
   getWingmanCount,
+  restoreUpgradeState,
+  getBuildRoute,
 } from "../src/upgrade.js";
 import { BASE_WEAPON_LEVELS } from "../src/upgrade.js";
 import { heroConfig } from "../src/config.js";
@@ -148,5 +150,23 @@ describe("被动公式默认值（无被动时）", () => {
     expect(getCritChance()).toBe(0);
     expect(getMaxHp()).toBe(heroConfig.maxHp);
     expect(getWingmanCount()).toBe(0);
+  });
+});
+
+describe("Build 路线判定", () => {
+  it("无特殊武器时为纯机炮流", () => {
+    expect(getBuildRoute()).toBe("gun");
+  });
+
+  it("等级最高的特殊武器决定路线", () => {
+    restoreUpgradeState({ baseWeapon: 3, homingMissile: 1, energyWeapon: 2, wingman: 0 }, {}, 0, false, false);
+    expect(getBuildRoute()).toBe("energy");
+  });
+
+  it("平级时优先导弹 > 能量 > 僚机", () => {
+    restoreUpgradeState({ baseWeapon: 1, homingMissile: 2, energyWeapon: 2, wingman: 2 }, {}, 0, false, false);
+    expect(getBuildRoute()).toBe("missile");
+    restoreUpgradeState({ baseWeapon: 1, homingMissile: 0, energyWeapon: 2, wingman: 2 }, {}, 0, false, false);
+    expect(getBuildRoute()).toBe("energy");
   });
 });

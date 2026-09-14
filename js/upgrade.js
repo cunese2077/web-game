@@ -47,6 +47,21 @@ function getWeaponLevel(id) {
 function getPassiveStacks(id) {
     return passives.get(id) ?? 0;
 }
+// 当前 Build 主路线：特殊武器中等级最高者（平级优先导弹），
+// 无特殊武器则为纯机炮流。供结算时记录对局路线
+function getBuildRoute() {
+    const missile = getWeaponLevel("homingMissile");
+    const energy = getWeaponLevel("energyWeapon");
+    const wingman = getWeaponLevel("wingman");
+    const max = Math.max(missile, energy, wingman);
+    if (max <= 0)
+        return "gun";
+    if (missile === max)
+        return "missile";
+    if (energy === max)
+        return "energy";
+    return "wingman";
+}
 function addPendingLevelUps(count) {
     pendingLevelUps += count;
 }
@@ -483,4 +498,4 @@ function getBuildSummary() {
     }
     return result;
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getUpgradeSaveState, restoreUpgradeState, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, };
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getUpgradeSaveState, restoreUpgradeState, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, getBuildRoute, };
