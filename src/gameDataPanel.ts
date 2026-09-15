@@ -120,22 +120,24 @@ function drawGameData(): void {
     energy: "gameData.route.energy",
     wingman: "gameData.route.wingman",
   };
+  curY += Math.round(10 * fontScale);  // 与上方汇总行的间距
   ctx.fillStyle = "#ffd700";
+  ctx.textAlign = "center";
   ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
   ctx.fillText(t("gameData.routeTitle"), cx, curY);
-  curY += Math.round(16 * fontScale);
-  // 表头（列右对齐排布：局数/均分/均级，最左为路线名）
+  curY += Math.round(26 * fontScale);
+  // 表格整体居中窄幅布局：路线名右对齐于 cx-70，局数/均分/均级依次右对齐
   const routeFs = Math.round(11 * fontScale);
   const routeRowH = Math.round(15 * fontScale);
-  const colGamesX = rightX - Math.round(150 * fontScale);
-  const colAvgScoreX = rightX - Math.round(90 * fontScale);
-  const colLvX = rightX - Math.round(2 * fontScale);
+  const colRouteX = cx - Math.round(70 * fontScale);   // 路线名列右缘
+  const colGamesX = cx - Math.round(18 * fontScale);   // 局数列右缘
+  const colAvgScoreX = cx + Math.round(40 * fontScale); // 均分列右缘
+  const colLvX = cx + Math.round(98 * fontScale);      // 均级列右缘
   ctx.font = `bold ${routeFs}px arial`;
   ctx.fillStyle = "#666";
-  ctx.textAlign = "left";
+  ctx.textAlign = "right";
   ctx.fillText(t("gameData.route.games"), colGamesX, curY);
   ctx.fillText(t("gameData.route.avgScore"), colAvgScoreX, curY);
-  ctx.textAlign = "right";
   ctx.fillText(t("gameData.route.avgLevel") + "(" + t("gameData.route.hiLevel") + ")", colLvX, curY);
   curY += routeRowH;
   // 数据行（无对局的路线灰显）
@@ -143,22 +145,22 @@ function drawGameData(): void {
   for (const rs of routeStats) {
     const hasData = rs.games > 0;
     ctx.fillStyle = hasData ? "#ccc" : "#555";
-    ctx.textAlign = "left";
-    ctx.fillText(t(routeLabelKeys[rs.route]), leftX, curY);
+    ctx.textAlign = "right";
+    ctx.fillText(t(routeLabelKeys[rs.route]), colRouteX, curY);
     ctx.fillText(String(rs.games), colGamesX, curY);
     ctx.fillText(String(rs.avgScore), colAvgScoreX, curY);
-    ctx.textAlign = "right";
     ctx.fillText(`${rs.avgLevel}(${rs.highestLevel})`, colLvX, curY);
     curY += routeRowH;
   }
-  curY += Math.round(8 * fontScale);
+  curY += Math.round(14 * fontScale);
 
   // === 成就列表 ===
   const unlockedCount = achDefs.filter(d => isUnlocked(d.id)).length;
   ctx.fillStyle = "#ffd700";
+  ctx.textAlign = "center";
   ctx.font = `bold ${Math.round(13 * fontScale)}px arial`;
   ctx.fillText(t("gameData.achievements") + " " + unlockedCount + "/" + achDefs.length, cx, curY);
-  curY += Math.round(16 * fontScale);
+  curY += Math.round(26 * fontScale);
 
   // 成就详情列表（紧凑排列，两列居中布局 + 分档标记 + info 图标）
   infoIconAreas = [];
@@ -177,20 +179,24 @@ function drawGameData(): void {
     const unlocked = tier >= 1;
     const col = colIdx % 2;
     const row = Math.floor(colIdx / 2);
-    const x = achStartX + col * achColW;
+    const colX = achStartX + col * achColW;
     const y = curY + row * achLineH;
 
-    // 成就名（带分档符号+颜色）
+    // 成就名（带分档符号+颜色）+ info 图标整体在列内水平居中
     ctx.textAlign = "left";
     ctx.fillStyle = tierColors[tier];
     const prefix = tierSymbols[tier] + " ";
     const nameStr = prefix + t(ach.label);
-    ctx.fillText(nameStr, x, y);
-    const textEndX = x + ctx.measureText(nameStr).width;
-
-    // info 图标（ⓘ）— 紧跟成就名后面
+    // 先量出整条内容宽度（文字 + 间隙 + 图标直径），再反推左起点
     const iconR = Math.round(6 * fontScale);
     const iconGap = Math.round(4 * fontScale);
+    const textW = ctx.measureText(nameStr).width;
+    const itemW = textW + iconGap + iconR * 2;
+    const x = colX + (achColW - itemW) / 2;  // 列内居中
+    ctx.fillText(nameStr, x, y);
+    const textEndX = x + textW;
+
+    // info 图标（ⓘ）— 紧跟成就名后面
     const iconCx = textEndX + iconGap + iconR;
     const iconCy = y - Math.round(3 * fontScale);
 
