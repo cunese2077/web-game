@@ -17,7 +17,7 @@ interface BossBodyState {
   shieldHp: number;
   shieldMaxHp: number;
   // 幻影型
-  teleportFlash: number;
+  teleportFlashMs: number;
   spiralAngle: number;
 }
 
@@ -219,8 +219,8 @@ function drawPhantomBody(b: BossBodyState, left: number, top: number): void {
     ctx.shadowBlur = 16 * pulse;
 
     // === 瞬移残影：在新位置之前留几个半透明残影 ===
-    if (b.teleportFlash > 0) {
-      const ghostAlpha = (b.teleportFlash / 15) * 0.4;
+    if (b.teleportFlashMs > 0) {
+      const ghostAlpha = (b.teleportFlashMs / 750) * 0.4;
       // 残影偏移（向左上飘散）
       for (let i = 1; i <= 3; i++) {
         ctx.save();

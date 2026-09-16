@@ -5,6 +5,7 @@ import { MISSILE_LEVELS, ENERGY_LEVELS, WINGMAN_BASE_DAMAGE, WINGMAN_DAMAGE_GROW
 import { t } from "./i18n.js";
 import type { TextKey } from "./i18n.js";
 import type { UpgradeOffer } from "./types.js";
+import { getDt } from "./frameTime.js";
 
 // ========== 卡片点击区域 ==========
 interface CardHitArea {
@@ -118,7 +119,8 @@ function calcLayout(): { cardW: number; cardH: number; gap: number; startX: numb
 }
 
 // ========== 卡片入场动画 ==========
-let upgradeAnimFrame: number = 0;
+// 时间累积（ms，原帧计数 × 50）
+let upgradeAnimTimeMs: number = 0;
 let lastOffersRef: UpgradeOffer[] | null = null;
 
 // ========== 绘制升级选择界面 ==========
@@ -129,22 +131,22 @@ function drawUpgradeUI(): void {
   // 检测新选项生成（引用变化时重置动画）
   if (offers !== lastOffersRef) {
     lastOffersRef = offers;
-    upgradeAnimFrame = 0;
+    upgradeAnimTimeMs = 0;
   }
-  upgradeAnimFrame++;
+  upgradeAnimTimeMs += getDt();
 
   const { cardW, cardH, gap, startX, startY } = calcLayout();
 
-  // 遮罩渐入
-  const overlayAlpha = Math.min(1, upgradeAnimFrame / 6) * 0.7;
+  // 遮罩渐入（原 6 帧 → 300ms）
+  const overlayAlpha = Math.min(1, upgradeAnimTimeMs / 300) * 0.7;
   ctx.fillStyle = `rgba(0, 0, 0, ${overlayAlpha})`;
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
   ctx.textAlign = "center";
 
-  // 标题（渐入）
-  const titleAlpha = Math.min(1, upgradeAnimFrame / 8);
+  // 标题（渐入，原 8 帧 → 400ms）
+  const titleAlpha = Math.min(1, upgradeAnimTimeMs / 400);
   ctx.globalAlpha = titleAlpha;
   ctx.fillStyle = "#fd0";
   ctx.font = `bold ${Math.round(28 * fontScale)}px arial`;
@@ -170,8 +172,8 @@ function drawUpgradeUI(): void {
     _drawCard(offers[i], cx, startY, cardW, cardH, i);
   }
 
-  // 刷新按钮（延迟渐入：所有卡片入场后显示）
-  const btnAlpha = Math.min(1, Math.max(0, (upgradeAnimFrame - 22) / 8));
+  // 刷新按钮（延迟渐入：所有卡片入场后显示，原第 22 帧起 8 帧 → 1100ms 起 400ms）
+  const btnAlpha = Math.min(1, Math.max(0, (upgradeAnimTimeMs - 1100) / 400));
   ctx.globalAlpha = btnAlpha;
   const btnW = Math.round(100 * fontScale);
   const btnH = Math.round(36 * fontScale);
@@ -202,18 +204,18 @@ function _drawCard(offer: UpgradeOffer, x: number, y: number, w: number, h: numb
   const colors = getRarityColors(offer.def.rarity);
   const r = Math.round(8 * fontScale);
 
-  // 交错入场动画：每张卡片延迟 5 帧开始
-  const cardStart = index * 5;
-  const cardDur = 12;
+  // 交错入场动画：每张卡片延迟 5 帧（250ms）开始，入场时长 12 帧（600ms）
+  const cardStart = index * 250;
+  const cardDur = 600;
   let cardAlpha = 0;
   let cardScale = 0.6;
   let cardOffsetY = 25;
-  if (upgradeAnimFrame >= cardStart + cardDur) {
+  if (upgradeAnimTimeMs >= cardStart + cardDur) {
     cardAlpha = 1;
     cardScale = 1;
     cardOffsetY = 0;
-  } else if (upgradeAnimFrame >= cardStart) {
-    const p = (upgradeAnimFrame - cardStart) / cardDur;
+  } else if (upgradeAnimTimeMs >= cardStart) {
+    const p = (upgradeAnimTimeMs - cardStart) / cardDur;
     cardAlpha = p;
     cardScale = 0.6 + 0.4 * Math.sqrt(p); // easeOut
     cardOffsetY = 25 * (1 - p);

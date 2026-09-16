@@ -10,7 +10,7 @@ export const MISSILE_LEVELS = [
     { count: 2, damage: 17, explosionRadius: 20 },
     { count: 3, damage: 22, explosionRadius: 35 },
 ];
-export const MISSILE_INTERVAL = 40;
+export const MISSILE_INTERVAL_MS = 2000; // 发射间隔（原 40 帧 × 50ms）
 // 能量武器（激光+闪电合体，每 80 帧发激光，每 80 帧发闪电链；第 18 轮：100→80 + 伤害提升）
 // Lv1: 激光12/射400, 链1/伤6 | Lv2: 链+1/伤9 | Lv3: 激光17/射500 | Lv4: 链3/伤14, 激光22/射600 | Lv5: 全屏激光30+链17
 export const ENERGY_LEVELS = [
@@ -20,14 +20,16 @@ export const ENERGY_LEVELS = [
     { laserDamage: 22, laserLength: 600, lightningDamage: 14, chains: 3 }, // Lv4: chain +1, longer laser
     { laserDamage: 30, laserLength: -1, lightningDamage: 17, chains: 3 }, // Lv5: full screen + chain 3
 ];
-export const LASER_INTERVAL = 80;
-export const LIGHTNING_INTERVAL = 80;
+export const LASER_INTERVAL_MS = 4000; // 激光发射间隔（原 80 帧 × 50ms）
+export const LIGHTNING_INTERVAL_MS = 4000; // 闪电链发射间隔（原 80 帧 × 50ms）
 export const LASER_HIT_HALF_WIDTH = 18;
 export const LIGHTNING_CHAIN_RANGE = 120;
+// 武器附加减速/冰冻的持续时长（原 60 帧 × 50ms，帧率无关）
+export const ENEMY_SLOW_DURATION_MS = 3000;
 // 僚机（基于被动叠加，每 6 帧射击）
 // 伤害公式：基础 0.8 + (数量-1) × 成长 0.3（第 18 轮调整）
 export const WINGMAN_BASE_DAMAGE = 0.8;
 export const WINGMAN_DAMAGE_GROWTH = 0.3;
-export const WINGMAN_INTERVAL = 6;
+export const WINGMAN_INTERVAL_MS = 300; // 射击间隔（原 6 帧 × 50ms）
 export const WINGMAN_OFFSET = 25;
-export const WINGMAN_BULLET_SPEED = 12;
+export const WINGMAN_BULLET_SPEED_PX_PER_SEC = 240; // 子弹速度（原 12px/帧 × 20）

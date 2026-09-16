@@ -21,7 +21,7 @@ import type { Difficulty } from "./types.js";
 const enemyConfig: EnemyConfig = {
   // 【小型敌机】快速移动，2HP，得分10，无横向移动
   small: {
-    speed: 6,
+    speed: 120,        // 下落速度（px/s，原 6px/帧 × 20）
     hp: 2,
     score: 10,
     spawnWeight: 15,
@@ -42,21 +42,21 @@ const enemyConfig: EnemyConfig = {
     // 成长配置：小型敌机前期不再一击即杀，后期加速增加躲避难度
     scaling: {
       hpScale: 0.02,          // 30级时 HP ≈ 3（1.5倍），不再一击即杀
-      speedScale: 0.015,      // 每级速度 +1.5%（30级时 6→8.61），更难躲避
+      speedScale: 0.015,      // 每级速度 +1.5%（30级时 120→172 px/s），更难躲避
       scoreScale: 0.025,      // 每级分数 +2.5%（30级时 10→23）
     },
   },
 
   // 【中型敌机】中等速度，HP提升，得分20，正弦摆动
   medium: {
-    speed: 4,
+    speed: 80,         // 下落速度（px/s，原 4px/帧 × 20）
     hp: 16,
     score: 20,
     spawnWeight: 5,
     move: {
       type: "sine",
       amplitude: 40,
-      frequency: 0.03,
+      frequency: 0.6,      // 摆动角频率（rad/s，原 0.03/帧 × 20）
     },
     hpBar: {
       show: true,
@@ -73,23 +73,23 @@ const enemyConfig: EnemyConfig = {
     // 第 19 轮调整：基础 HP 25→16、hpScale 0.08→0.07，缓解前期"打不死"
     scaling: {
       hpScale: 0.07,        // 30级时 HP ≈ 61（3.8倍），中期仍然需要多轮射击
-      speedScale: 0.01,     // 每级速度 +1%（30级时 4→5.80）
+      speedScale: 0.01,     // 每级速度 +1%（30级时 80→116 px/s）
       scoreScale: 0.10,     // 30级时分数 ≈ 122（6倍）
     },
   },
 
   // 【大型敌机】缓慢移动，高HP，得分100，锯齿形移动
   big: {
-    speed: 2,
+    speed: 40,         // 下落速度（px/s，原 2px/帧 × 20）
     hp: 55,
     score: 100,
     spawnProbBase: 0.05,
     spawnProbMax: 0.10,
-    coolDownFrames: 40,
+    coolDownMs: 2000,     // 生成冷却 2 秒（原 40 帧 × 50ms）
     move: {
       type: "zigzag",
       amplitude: 60,
-      horizontalSpeed: 1,
+      horizontalSpeed: 20,   // 横向速度（px/s，原 1px/帧 × 20）
     },
     hpBar: {
       show: true,
@@ -106,14 +106,14 @@ const enemyConfig: EnemyConfig = {
     // 第 19 轮调整：基础 HP 90→55、hpScale 0.10→0.09，缓解前期"打不死"
     scaling: {
       hpScale: 0.09,       // 30级时 HP ≈ 256（4.7倍），后期需要集火
-      speedScale: 0.005,    // 每级速度 +0.5%（30级时 2→2.29）
+      speedScale: 0.005,    // 每级速度 +0.5%（30级时 40→46 px/s）
       scoreScale: 0.12,     // 30级时分数 ≈ 760（7.6倍）
     },
   },
 
   // 【精英敌机】中型和大型之间，俯冲移动，8级后出现
   elite: {
-    speed: 3.5,
+    speed: 70,         // 下落速度（px/s，原 3.5px/帧 × 20）
     hp: 40,
     score: 50,
     spawnProbBase: 0.03,       // 基础 3% 出现概率
@@ -124,7 +124,7 @@ const enemyConfig: EnemyConfig = {
       triggerRange: 250,       // 进入玩家上方 250px 范围触发俯冲
       diveSpeedMultiplier: 2.5, // 俯冲时速度 ×2.5
       wobbleAmplitude: 20,     // 阶段1小幅左右摆动振幅
-      wobbleFrequency: 0.04,   // 阶段1摆动频率
+      wobbleFrequency: 0.8,    // 阶段1摆动角频率（rad/s，原 0.04/帧 × 20）
     },
     hpBar: {
       show: true,
@@ -141,25 +141,25 @@ const enemyConfig: EnemyConfig = {
     // 第 19 轮调整：基础 HP 60→40、hpScale 0.09→0.08，缓解前期"打不死"
     scaling: {
       hpScale: 0.08,        // 30级时 HP ≈ 170（4.2倍），精英越来越危险
-      speedScale: 0.012,    // 每级速度 +1.2%（30级时 3.5→4.87）
+      speedScale: 0.012,    // 每级速度 +1.2%（30级时 70→97 px/s）
       scoreScale: 0.07,     // 30级时分数 ≈ 177（3.5倍）
     },
-    shootInterval: 30,      // 每 30 帧发射 1 发子弹（1.5秒@20fps，更频繁）
-    bulletSpeed: 4,         // 子弹速度提升
-    bulletSize: 5,          // 子弹半径增大
+    shootIntervalMs: 1500,      // 每 1.5 秒发射 1 发子弹（原 30 帧 × 50ms）
+    bulletSpeedPxPerSec: 80,    // 子弹速度（px/s，原 4px/帧 × 20）
+    bulletSize: 5,              // 子弹半径增大
   },
 };
 
 // ========== 敌机受击动效配置（全局，所有敌机共用） ==========
 // 控制子弹击中敌机但未击毁时的音效和伤害数字反馈
 const hitEffect: HitEffectConfig = {
-  soundCoolDown: 6,            // 受击音效冷却 6 帧（与子弹射击一致，防抖）
+  soundCoolDownMs: 300,        // 受击音效冷却 300ms（原 6 帧 × 50ms，与子弹射击一致，防抖）
   damageText: {
     show: true,                // 显示伤害浮动数字
     fontSize: 18,              // 字体大小
     color: "#f44",             // 红色文字，醒目
     floatDistance: 30,         // 上浮 30 像素
-    frames: 25,                // 持续 25 帧
+    durationMs: 1250,          // 持续时长（ms，原 25 帧 × 50ms）
     stackOffset: 22,           // 堆叠偏移步长 22px（略大于字号 18px，确保不重叠；过大会导致连续命中时频繁跳过显示）
                                // 动态防重叠：生成时查找同 x 附近现存动效的当前 y（含上浮进度），
                                // 找到与所有现存动效距离 >= stackOffset 的空槽；找不到则跳过本次显示（避免重叠）
@@ -244,21 +244,21 @@ function getDifficultyConfig(difficulty: Difficulty): DifficultyConfig {
 // ========== Buff 配置 ==========
 const buffConfig: BuffConfig = {
   firepower: {
-    duration: 200,
+    durationMs: 10000,   // 持续 10 秒（原 200 帧 × 50ms）
     color: "#f80",
     icon: "🔥",
     label: "buff.firepower",
     damageMultiplier: 2,
   },
   shield: {
-    duration: 300,
+    durationMs: 15000,   // 持续 15 秒（原 300 帧 × 50ms）
     color: "#4af",
     icon: "🛡",
     label: "buff.shield",
-    invincibleFrames: 20,
+    invincibleMs: 1000,  // 破盾后无敌 1 秒（原 20 帧 × 50ms）
   },
   spread: {
-    duration: 120,
+    durationMs: 6000,    // 持续 6 秒（原 120 帧 × 50ms）
     color: "#f0f",
     icon: "✦",
     label: "buff.spread",
@@ -290,7 +290,7 @@ const dropConfig: DropConfig = {
 // ========== 道具外观配置 ==========
 const itemConfig: ItemConfig = {
   size: 30,
-  speed: 2,
+  speed: 40,   // 下落速度（px/s，原 2px/帧 × 20）
   types: {
     heal: {
       color: "#f44",
@@ -318,9 +318,9 @@ const itemConfig: ItemConfig = {
 // ========== 玩家战机配置 ==========
 const heroConfig: HeroConfig = {
   maxHp: 4,
-  invincibleFrames: 40,
-  bulletInterval: 3,
-  enemySpawnInterval: 8,
+  invincibleMs: 2000,          // 受击后无敌 2 秒（原 40 帧 × 50ms）
+  bulletIntervalMs: 150,       // 基础射击间隔 150ms（原 3 帧 × 50ms）
+  enemySpawnIntervalMs: 400,   // 敌机生成间隔 400ms（原 8 帧 × 50ms）
 };
 
 // ========== 子弹配置 ==========
@@ -340,21 +340,21 @@ const bossConfig: BossConfig = {
   hpGrowthFactor: 0.6,        // 每次递增 60%：Lv10=800, Lv15=1100, Lv20=1400...
   widthRatio: 0.35,           // 宽度占画布 35%
   heightRatio: 0.08,          // 高度占画布 8%
-  moveSpeed: 1.5,             // 水平巡逻速度
-  warningFrames: 60,          // 预警 3 秒（20fps × 3）
+  moveSpeed: 30,              // 水平巡逻速度（px/s，原 1.5px/帧 × 20）
+  warningMs: 3000,            // 预警 3 秒
   triggerInterval: 5,         // 每 5 级触发一次
   firstTriggerLevel: 5,       // 首次 Lv5 触发
   bullet: {
-    speed: 3.5,               // 弹幕速度提升
+    speed: 70,                // 弹幕速度（px/s，原 3.5px/帧 × 20）
     size: 5,                  // 弹幕半径
     fanCount: 5,              // 扇形弹幕数量（增加基础弹幕量）
     fanSpreadAngle: 1.0,      // 扇形张角增大（约 57°）
     aimedCount: 3,            // 定向射击数量增加
-    interval: 35,             // 攻击间隔缩短（1.75 秒@20fps）
+    intervalMs: 1750,         // 攻击间隔（ms，原 35 帧 × 50ms）
   },
   defeatExpMultiplier: 4,     // 击败经验 ≈ 1 级经验量（Lv5时约420，Lv10约520）
   defeatItemDropProb: 0.5,    // 50% 概率掉落特殊道具
-  enemySpawnRate: 20,         // BOSS 战期间每 20 帧生成一个敌机（更密集）
+  enemySpawnRateMs: 1000,     // BOSS 战期间每 1 秒生成一个敌机（更密集，原 20 帧 × 50ms）
 };
 
 const levelConfig: LevelConfig = {

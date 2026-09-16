@@ -3,10 +3,15 @@ import { ctx } from "./canvas.js";
 import { m } from "./resources.js";
 import { playShoot } from "./audio.js";
 import { getHeroBuffs } from "./hero.js";
+import { getDt, getDtSec } from "./frameTime.js";
 import { ObjectPool } from "./pool.js";
 const bullets = [];
 const bulletPool = new ObjectPool(() => new Bullet(0, 0, 0, 0, 0));
-let shootSoundCoolDown = 0;
+let shootSoundCoolDownMs = 0; // 射击音效冷却（ms，帧率无关）
+const SHOOT_SOUND_COOLDOWN_MS = 300; // 原每 6 帧至多一次
+const BULLET_SPEED_PX_PER_SEC = 400; // 上移速度（原 20px/帧 × 20）
+const BULLET_DRIFT_PX_PER_SEC = 60; // 直线子弹横向漂移（原 3px/帧 × 20）
+const BULLET_DIAGONAL_DRIFT_PX_PER_SEC = 100; // 斜向子弹横向漂移（原 5px/帧 × 20）
 class Bullet {
     constructor(n, heroX, heroY, heroW, heroH, isDiagonal = false, piercing = false) {
         this.hitEnemyIds = new Set();
@@ -36,12 +41,13 @@ class Bullet {
             ctx.restore();
         }
         if (!frozen) {
-            this.my -= 20;
+            // 60fps 校准：速度 px/s × dt（帧率无关）
+            this.my -= BULLET_SPEED_PX_PER_SEC * getDtSec();
             if (this.isDiagonal) {
-                this.mx += this.n > 0 ? 5 : -5;
+                this.mx += (this.n > 0 ? 1 : -1) * BULLET_DIAGONAL_DRIFT_PX_PER_SEC * getDtSec();
             }
             else {
-                this.mx += this.n === 32 ? 3 : this.n === -32 ? -3 : 0;
+                this.mx += this.n === 32 ? BULLET_DRIFT_PX_PER_SEC * getDtSec() : this.n === -32 ? -BULLET_DRIFT_PX_PER_SEC * getDtSec() : 0;
             }
             if (this.my < -m.height) {
                 this.removable = true;
@@ -56,8 +62,8 @@ class Bullet {
                 bullets.splice(i, 1);
             }
         }
-        if (shootSoundCoolDown > 0)
-            shootSoundCoolDown--;
+        if (shootSoundCoolDownMs > 0)
+            shootSoundCoolDownMs -= getDt();
     }
     // 从对象池取一枚子弹并初始化（替代外部直接 new）
     static spawn(n, heroX, heroY, heroW, heroH, isDiagonal = false, piercing = false) {
@@ -67,9 +73,9 @@ class Bullet {
     }
     static add(bulletObj) {
         bullets.push(bulletObj);
-        if (shootSoundCoolDown === 0) {
+        if (shootSoundCoolDownMs <= 0) {
             playShoot();
-            shootSoundCoolDown = 6;
+            shootSoundCoolDownMs = SHOOT_SOUND_COOLDOWN_MS;
         }
     }
     static getAll() {

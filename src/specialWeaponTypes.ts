@@ -16,8 +16,8 @@ export interface EnemyProxy {
 // 伤害结算回调：命中敌机时调用（isCrit 控制暴击表现，skipHitSound 合并音效）
 export type DamageEnemyFn = (enemy: EnemyProxy, damage: number, isCrit: boolean, skipHitSound?: boolean) => void;
 
-// 减速回调：附加效果（冰冻/EMP）命中时调用
-export type SlowEnemyFn = (enemyId: number, factor: number, frames: number) => void;
+// 减速回调：附加效果（冰冻/EMP）命中时调用（durationMs 持续时长，帧率无关）
+export type SlowEnemyFn = (enemyId: number, factor: number, durationMs: number) => void;
 
 // 各武器系统共享的更新上下文（由门面每帧组装）
 export interface WeaponContext {

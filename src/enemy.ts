@@ -24,16 +24,17 @@ import {
   getDynamicSpreadDropProb,
 } from "./config.js";
 import { getDifficulty } from "./settings.js";
+import { getDt, getDtSec } from "./frameTime.js";
 import type { MoveType, BuffState, HpBarConfig, EnemyType } from "./types.js";
 
 const liveEnemy: Enemy[] = [];
 let nextEnemyId: number = 0;
 let sessionKillCount: number = 0;  // 本局击杀敌机计数
 
-let bigEnemyCoolDown: number = 0;
+let bigEnemyCoolDownMs: number = 0;
 
 function tickCoolDown(): void {
-  if (bigEnemyCoolDown > 0) bigEnemyCoolDown--;
+  if (bigEnemyCoolDownMs > 0) bigEnemyCoolDownMs -= getDt();
 }
 
 function getHpRatio(): number {
@@ -52,23 +53,23 @@ class Enemy {
   maxLives: number;          // 初始血量（用于血量条比例计算）
   score: number;             // 击毁得分（经过等级缩放）
   hpBarConfig: HpBarConfig;  // 当前敌机的血量条配置
-  hitSoundCoolDown: number;  // 受击音效冷却剩余帧数
+  hitSoundCoolDownMs: number;  // 受击音效冷却剩余（ms，帧率无关）
   x: number;
   y: number;
   width: number;
   height: number;
-  index: number;
   removable: boolean;
   die: boolean;
   originX: number;
   moveType: MoveType;
   movePhase: number;
   moveDirection: number;
-  slowFrames: number;
+  slowMs: number;           // 减速剩余时长（ms，帧率无关）
   slowFactor: number;
   isDiving: boolean;        // 俯冲状态标记（精英敌机专用）
-  frameCount: number;       // 帧计数器（驱动动画）
-  shootCooldown: number;    // 精英射击冷却
+  animTimeMs: number;       // 动画时间累积（ms，驱动动画，帧率无关）
+  deathStartMs: number;     // 死亡动画起始时间（-1=未开始）
+  shootCooldownMs: number;  // 精英射击冷却（ms，帧率无关）
 
   constructor() {
     const hpRatio = getHpRatio();
@@ -103,12 +104,13 @@ class Enemy {
     this.score = 0;
     this.hpBarConfig = enemyConfig.small.hpBar;
     this.type = "small";
-    this.hitSoundCoolDown = 0;
+    this.hitSoundCoolDownMs = 0;
     this.isDiving = false;
-    this.frameCount = 0;
-    this.shootCooldown = 0;
+    this.animTimeMs = 0;
+    this.deathStartMs = -1;
+    this.shootCooldownMs = 0;
 
-    if (this.n < bigEnemyThreshold && bigEnemyCoolDown === 0) {
+    if (this.n < bigEnemyThreshold && bigEnemyCoolDownMs === 0) {
       this.enemy = enemy3[0];
       this.type = "big";
       // 难度乘数：speed × 速度乘数，HP × HP乘数，成长系数 × scaling乘数，分数 × HP乘数（与 HP 同比例）
@@ -116,7 +118,7 @@ class Enemy {
       this.lives = getScaledEnemyStat(enemyConfig.big.hp, enemyConfig.big.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
       this.score = Math.ceil(getScaledEnemyStat(enemyConfig.big.score, enemyConfig.big.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
       this.hpBarConfig = enemyConfig.big.hpBar;
-      bigEnemyCoolDown = enemyConfig.big.coolDownFrames;
+      bigEnemyCoolDownMs = enemyConfig.big.coolDownMs;
     } else if (this.n < eliteThreshold) {
       // 精英敌机：复用 enemy3 图片 + ctx.scale(0.7)
       this.enemy = enemy3[0];
@@ -125,7 +127,7 @@ class Enemy {
       this.lives = getScaledEnemyStat(enemyConfig.elite.hp, enemyConfig.elite.scaling.hpScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier;
       this.score = Math.ceil(getScaledEnemyStat(enemyConfig.elite.score, enemyConfig.elite.scaling.scoreScale * diffConfig.enemyScalingMultiplier, level) * diffConfig.enemyHpMultiplier);
       this.hpBarConfig = enemyConfig.elite.hpBar;
-      this.shootCooldown = enemyConfig.elite.shootInterval; // 初始射击冷却
+      this.shootCooldownMs = enemyConfig.elite.shootIntervalMs; // 初始射击冷却
     } else if (this.n < midEnemyThreshold) {
       this.enemy = enemy2[0];
       this.type = "medium";
@@ -148,7 +150,6 @@ class Enemy {
     this.y = -this.enemy.height;
     this.width = this.enemy.width;
     this.height = this.enemy.height;
-    this.index = 0;
     this.removable = false;
     this.die = false;
 
@@ -156,7 +157,7 @@ class Enemy {
     this.moveType = this._getMoveType();
     this.movePhase = Math.random() * Math.PI * 2;
     this.moveDirection = Math.random() < 0.5 ? 1 : -1;
-    this.slowFrames = 0;
+    this.slowMs = 0;
     this.slowFactor = 0;
   }
 
@@ -179,14 +180,14 @@ class Enemy {
     if (this.moveType === "sine") {
       // 正弦摆动只对中型敌机生效，直接使用中型敌机配置
       const config = enemyConfig.medium.move;
-      this.movePhase += config.frequency * speedMul;
+      this.movePhase += config.frequency * speedMul * getDtSec();
       this.x = this.originX + config.amplitude * Math.sin(this.movePhase);
       this.x = Math.max(0, Math.min(this.x, canvasWidth - this.width));
 
     } else if (this.moveType === "zigzag") {
       // 锯齿形移动只对大型敌机生效，直接使用大型敌机配置
       const config = enemyConfig.big.move;
-      this.x += config.horizontalSpeed * this.moveDirection * speedMul;
+      this.x += config.horizontalSpeed * this.moveDirection * speedMul * getDtSec();
       if (this.x <= 0) {
         this.x = 0;
         this.moveDirection = 1;
@@ -203,7 +204,7 @@ class Enemy {
 
       if (!this.isDiving) {
         // 阶段1：正常下落 + 小幅左右摆动
-        this.movePhase += config.wobbleFrequency * speedMul;
+        this.movePhase += config.wobbleFrequency * speedMul * getDtSec();
         this.x = this.originX + config.wobbleAmplitude * Math.sin(this.movePhase);
         this.x = Math.max(0, Math.min(this.x, canvasWidth - this.width));
 
@@ -217,27 +218,30 @@ class Enemy {
   }
 
   draw(frozen: boolean = false): void {
+    // 动画时间累积（帧率无关）：扑翼/死亡动画均按 50ms/帧 的时间基准驱动
+    this.animTimeMs += getDt();
+    const animFrame = Math.floor(this.animTimeMs / 50);
+
     if (this.type === "big" || this.type === "elite") {
       if (this.die) {
-        if (this.index < 2) {
-          this.index = 3;
-        }
-        if (this.index < enemy3.length) {
-          this.enemy = enemy3[this.index++];
+        if (this.deathStartMs < 0) this.deathStartMs = this.animTimeMs;
+        // 死亡动画从第 3 帧图开始（0/1 为存活扑翼帧）
+        const deathIndex = 3 + Math.floor((this.animTimeMs - this.deathStartMs) / 50);
+        if (deathIndex < enemy3.length) {
+          this.enemy = enemy3[deathIndex];
         } else {
           this.removable = true;
         }
       } else {
-        this.enemy = enemy3[this.index];
-        this.index === 0 ? (this.index = 1) : (this.index = 0);
+        // 存活扑翼：0/1 两帧交替
+        this.enemy = enemy3[animFrame % 2];
       }
     } else if (this.die) {
-      if (this.index < enemy1.length) {
-        if (this.type === "small") {
-          this.enemy = enemy1[this.index++];
-        } else {
-          this.enemy = enemy2[this.index++];
-        }
+      if (this.deathStartMs < 0) this.deathStartMs = this.animTimeMs;
+      const deathIndex = Math.floor((this.animTimeMs - this.deathStartMs) / 50);
+      const frames = this.type === "small" ? enemy1 : enemy2;
+      if (deathIndex < frames.length) {
+        this.enemy = frames[deathIndex];
       } else {
         this.removable = true;
       }
@@ -261,7 +265,7 @@ class Enemy {
       const cx = drawX + drawW / 2;
       const cy = drawY + drawH / 2;
       const auraRadius = Math.max(drawW, drawH) / 2 + 6;
-      const pulse = 0.5 + 0.5 * Math.sin(this.frameCount * 0.15);
+      const pulse = 0.5 + 0.5 * Math.sin(this.animTimeMs * 0.003);
       // 外层发光填充
       ctx.globalAlpha = 0.1 + 0.08 * pulse;
       ctx.beginPath();
@@ -289,7 +293,7 @@ class Enemy {
           ctx.drawImage(this.enemy, drawX, trailY, drawW, drawH);
         }
         // 俯冲红色闪光提示
-        ctx.globalAlpha = 0.15 + 0.1 * Math.sin(this.frameCount * 0.4);
+        ctx.globalAlpha = 0.15 + 0.1 * Math.sin(this.animTimeMs * 0.008);
         ctx.fillStyle = "#f44";
         ctx.fillRect(drawX, drawY, drawW, drawH);
       }
@@ -300,7 +304,7 @@ class Enemy {
     }
 
     // 冰冻视觉效果：被减速时覆盖半透明蓝色冰霜 + 冰晶边框
-    if (!this.die && this.slowFrames > 0) {
+    if (!this.die && this.slowMs > 0) {
       ctx.save();
       // 半透明蓝色冰霜覆盖
       ctx.globalAlpha = 0.35;
@@ -317,25 +321,22 @@ class Enemy {
     }
 
     // 受击音效冷却递减
-    if (this.hitSoundCoolDown > 0) {
-      this.hitSoundCoolDown--;
+    if (this.hitSoundCoolDownMs > 0) {
+      this.hitSoundCoolDownMs -= getDt();
     }
 
     // 冻结模式：升级选择/暂停时不移动、不射击、不碰撞
     if (!frozen) {
-      // 帧计数递增（驱动动画效果）
-      this.frameCount = (this.frameCount + 1) % 10000;
-
       // 精英敌机射击：进入屏幕后定时向下发射紫色子弹
       if (this.type === "elite" && !this.die && this.y > 0) {
-        if (this.shootCooldown > 0) {
-          this.shootCooldown--;
+        if (this.shootCooldownMs > 0) {
+          this.shootCooldownMs -= getDt();
         } else {
           const cfg = enemyConfig.elite;
           const bx = this.x + this.width / 2;
           const by = this.y + this.height;
-          addBullet(bx, by, 0, cfg.bulletSpeed, cfg.bulletSize, "#c8f");
-          this.shootCooldown = cfg.shootInterval;
+          addBullet(bx, by, 0, cfg.bulletSpeedPxPerSec, cfg.bulletSize, "#c8f");
+          this.shootCooldownMs = cfg.shootIntervalMs;
         }
       }
     }
@@ -345,14 +346,14 @@ class Enemy {
       this._drawHpBar();
     }
 
-    // 移动（受减速/冰冻影响）
+    // 移动（受减速/冰冻影响），speed 单位 px/s × dt（帧率无关）
     if (!frozen) {
-      const speedMul = this.slowFrames > 0 ? (1 - this.slowFactor) : 1;
+      const speedMul = this.slowMs > 0 ? (1 - this.slowFactor) : 1;
       // 俯冲状态：速度加倍
       const diveMul = (this.isDiving && this.moveType === "dive") ? enemyConfig.elite.move.diveSpeedMultiplier : 1;
-      this.y += this.speed * speedMul * diveMul;
+      this.y += this.speed * speedMul * diveMul * getDtSec();
       this._updateHorizontalPosition(speedMul);
-      if (this.slowFrames > 0) this.slowFrames--;
+      if (this.slowMs > 0) this.slowMs -= getDt();
       this.hit();
 
       if (this.y > height) {
@@ -470,9 +471,9 @@ class Enemy {
     // 单帧命中后未死亡：合并为一个伤害文本（显示总伤害），大幅减少同时存活动效数
     // 配合 ui.addDamageEffect 的"找空槽"算法，彻底解决大型敌机高频命中导致的文本重叠
     if (!this.die && frameDamage > 0) {
-      if (this.hitSoundCoolDown === 0) {
+      if (this.hitSoundCoolDownMs <= 0) {
         playEnemyHit();
-        this.hitSoundCoolDown = hitEffect.soundCoolDown;
+        this.hitSoundCoolDownMs = hitEffect.soundCoolDownMs;
       }
       if (hitEffect.damageText.show) {
         // 暴击时使用金色、更大字号
@@ -485,7 +486,7 @@ class Enemy {
           critFontSize,
           critColor,
           Math.round(hitEffect.damageText.floatDistance * fontScale),
-          hitEffect.damageText.frames,
+          hitEffect.damageText.durationMs,
           Math.round(hitEffect.damageText.stackOffset * fontScale),
           frameCrit
         );
@@ -602,24 +603,24 @@ class Enemy {
         critFontSize,
         critColor,
         Math.round(hitEffect.damageText.floatDistance * fontScale),
-        hitEffect.damageText.frames,
+        hitEffect.damageText.durationMs,
         Math.round(hitEffect.damageText.stackOffset * fontScale),
         isCrit
       );
     }
     // 受击音效（跳过时由调用方播放专属音效）
-    if (!skipHitSound && enemy.hitSoundCoolDown === 0) {
+    if (!skipHitSound && enemy.hitSoundCoolDownMs <= 0) {
       playEnemyHit();
-      enemy.hitSoundCoolDown = hitEffect.soundCoolDown;
+      enemy.hitSoundCoolDownMs = hitEffect.soundCoolDownMs;
     }
   }
 
-  // 外部减速/冰冻接口：特殊武器调用此方法对敌机施加减速效果
-  static applySlow(enemyId: number, factor: number, frames: number): void {
+  // 外部减速/冰冻接口：特殊武器调用此方法对敌机施加减速效果（durationMs 帧率无关）
+  static applySlow(enemyId: number, factor: number, durationMs: number): void {
     const enemy = liveEnemy.find(e => e.id === enemyId && !e.die);
     if (!enemy) return;
     enemy.slowFactor = factor;
-    enemy.slowFrames = frames;
+    enemy.slowMs = durationMs;
   }
 
   // 获取敌机代理列表（供特殊武器使用，避免直接暴露 liveEnemy）

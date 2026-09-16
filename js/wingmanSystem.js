@@ -2,9 +2,10 @@
 import { ctx } from "./canvas.js";
 import { playMissile, playWingmanHit } from "./audio.js";
 import { getDamagePassiveMultiplier, getCritChance, getFireRatePassiveBonus, getWingmanCount, getWingmanDamageBonus, hasBulletStorm, hasAnnihilateSquad, hasWolfPack, hasPrismArray, } from "./upgrade.js";
-import { WINGMAN_BASE_DAMAGE, WINGMAN_DAMAGE_GROWTH, WINGMAN_INTERVAL, WINGMAN_OFFSET, WINGMAN_BULLET_SPEED, LIGHTNING_CHAIN_RANGE, } from "./weaponLevels.js";
+import { WINGMAN_BASE_DAMAGE, WINGMAN_DAMAGE_GROWTH, WINGMAN_INTERVAL_MS, WINGMAN_OFFSET, WINGMAN_BULLET_SPEED_PX_PER_SEC, LIGHTNING_CHAIN_RANGE, } from "./weaponLevels.js";
 import { addHitFlash, addLightningBolt, generateJaggedLine } from "./weaponEffects.js";
 import { pushMissile } from "./missileSystem.js";
+import { getDt, getDtSec } from "./frameTime.js";
 import { ObjectPool } from "./pool.js";
 class WingmanBullet {
     constructor(x, y, damage) {
@@ -23,7 +24,7 @@ class WingmanBullet {
         this.trail.push({ x: this.x, y: this.y });
         if (this.trail.length > 5)
             this.trail.shift();
-        this.y -= WINGMAN_BULLET_SPEED;
+        this.y -= WINGMAN_BULLET_SPEED_PX_PER_SEC * getDtSec();
         if (this.y < -10)
             this.removable = true;
     }
@@ -53,8 +54,9 @@ class WingmanBullet {
 // ========== 状态管理 ==========
 const wingmanBullets = [];
 const wingmanBulletPool = new ObjectPool(() => new WingmanBullet(0, 0, 0));
-let wingmanCooldowns = []; // 动态长度，基于僚机数量
-let wingmanMissileCooldown = 0; // 狼群战术：僚机导弹冷却
+let wingmanCooldownsMs = []; // 动态长度，基于僚机数量（ms，帧率无关）
+let wingmanMissileCooldownMs = 0; // 狼群战术：僚机导弹冷却（ms，帧率无关）
+const WOLF_PACK_MISSILE_INTERVAL_MS = 3000; // 狼群导弹间隔（原 60 帧 × 50ms）
 // 主更新：僚机绘制 + 射击 + 子弹碰撞（棱镜阵列闪电链）
 function updateWingmanSystem(c) {
     const allEnemies = c.enemies;
@@ -67,20 +69,20 @@ function updateWingmanSystem(c) {
         // 进化：歼灭编队 — 僚机伤害 ×2
         const squadMul = hasAnnihilateSquad() ? 2 : 1;
         const effectiveDamage = baseDamage * squadMul;
-        const effectiveInterval = Math.max(1, Math.round(WINGMAN_INTERVAL / (1 + getFireRatePassiveBonus())));
+        const effectiveIntervalMs = Math.max(1, Math.round(WINGMAN_INTERVAL_MS / (1 + getFireRatePassiveBonus())));
         // 确保 cooldowns 数组长度匹配
-        while (wingmanCooldowns.length < effectiveWingmanCount) {
-            wingmanCooldowns.push(0);
+        while (wingmanCooldownsMs.length < effectiveWingmanCount) {
+            wingmanCooldownsMs.push(0);
         }
         for (let w = 0; w < effectiveWingmanCount; w++) {
-            wingmanCooldowns[w]++;
+            wingmanCooldownsMs[w] += getDt();
             // 僚机分布在英雄两侧
             const sideOffset = (w % 2 === 0 ? -1 : 1) * (Math.floor(w / 2) + 1) * WINGMAN_OFFSET;
             const wx = c.heroCx + sideOffset;
             const wy = c.heroCy;
             // 射击
-            if (wingmanCooldowns[w] >= effectiveInterval) {
-                wingmanCooldowns[w] = 0;
+            if (wingmanCooldownsMs[w] >= effectiveIntervalMs) {
+                wingmanCooldownsMs[w] = 0;
                 const bulletCount = hasBulletStorm() ? 2 : 1;
                 for (let b = 0; b < bulletCount; b++) {
                     const bulletOffsetX = b === 0 ? -3 : 3;
@@ -102,11 +104,11 @@ function updateWingmanSystem(c) {
             ctx.fill();
             ctx.restore();
         }
-        // 进化：狼群战术 — 僚机每 60 帧发射追踪小导弹
+        // 进化：狼群战术 — 僚机定时发射追踪小导弹
         if (hasWolfPack()) {
-            wingmanMissileCooldown++;
-            if (wingmanMissileCooldown >= 60) {
-                wingmanMissileCooldown = 0;
+            wingmanMissileCooldownMs += getDt();
+            if (wingmanMissileCooldownMs >= WOLF_PACK_MISSILE_INTERVAL_MS) {
+                wingmanMissileCooldownMs = 0;
                 const missileDmg = baseDamage * 0.6;
                 const missileExplosion = 30;
                 const fireCount = Math.min(effectiveWingmanCount, 2);
@@ -134,8 +136,8 @@ function updateWingmanSystem(c) {
                     const isCrit = Math.random() < getCritChance();
                     const finalDmg = isCrit ? wb.damage * 2.0 : wb.damage;
                     c.damageEnemy(e, finalDmg, isCrit, true);
-                    // 僚机命中闪光 + 专属音效
-                    addHitFlash(wb.x, wb.y, 10, "#4f8", 8);
+                    // 僚机命中闪光 + 专属音效（ms 制：原 8 帧 × 50）
+                    addHitFlash(wb.x, wb.y, 10, "#4f8", 400);
                     playWingmanHit();
                     // 进化：棱镜阵列 — 僚机子弹触发闪电链（1 跳）
                     if (hasPrismArray()) {
@@ -176,7 +178,7 @@ function updateWingmanSystem(c) {
 // 清理僚机状态（游戏重置时由门面调用）
 function clearWingmans() {
     wingmanBullets.length = 0;
-    wingmanCooldowns = [];
-    wingmanMissileCooldown = 0;
+    wingmanCooldownsMs = [];
+    wingmanMissileCooldownMs = 0;
 }
 export { updateWingmanSystem, clearWingmans };

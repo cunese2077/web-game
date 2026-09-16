@@ -1,10 +1,15 @@
 // BOSS 管理模块（从 boss.ts 拆出）：触发检查/预警/生成/存活查询/重置
 import { bossConfig } from "./config.js";
 import { Boss } from "./bossEntity.js";
+import { getDt } from "./frameTime.js";
+
+// 预警期间警报音效间隔（原 45 帧 × 50ms，帧率无关）
+const BOSS_WARNING_SOUND_INTERVAL_MS = 2250;
 
 // BOSS 管理状态
 let activeBoss: Boss | null = null;
-let bossWarningTimer: number = 0;     // 预警倒计时帧数
+let bossWarningTimerMs: number = 0;   // 预警倒计时（ms，帧率无关）
+let bossWarningSoundAccumMs: number = 0;  // 警报音效累积计时（ms）
 let triggeredBossLevels: Set<number> = new Set(); // 已触发的 BOSS 等级
 let sessionBossKillCount: number = 0; // 本局击败 BOSS 计数
 
@@ -21,14 +26,26 @@ function checkBossTrigger(level: number): boolean {
 
 // 开始 BOSS 预警
 function startBossWarning(): void {
-  bossWarningTimer = bossConfig.warningFrames;
+  bossWarningTimerMs = bossConfig.warningMs;
+  bossWarningSoundAccumMs = 0;
 }
 
-// 预警帧更新，返回 true 表示预警结束，应进入 BOSS 战
+// 预警时间更新，返回 true 表示预警结束，应进入 BOSS 战
 function updateBossWarning(): boolean {
-  if (bossWarningTimer > 0) {
-    bossWarningTimer--;
-    return bossWarningTimer === 0;
+  if (bossWarningTimerMs > 0) {
+    bossWarningTimerMs -= getDt();
+    return bossWarningTimerMs <= 0;
+  }
+  return false;
+}
+
+// 预警期间警报音效节拍：每 2250ms 触发一次（帧率无关）
+function consumeBossWarningSoundTick(): boolean {
+  if (bossWarningTimerMs <= 0) return false;
+  bossWarningSoundAccumMs += getDt();
+  if (bossWarningSoundAccumMs >= BOSS_WARNING_SOUND_INTERVAL_MS) {
+    bossWarningSoundAccumMs -= BOSS_WARNING_SOUND_INTERVAL_MS;
+    return true;
   }
   return false;
 }
@@ -86,14 +103,15 @@ function isBossAlive(): boolean {
 // 清理 BOSS 状态（游戏重置时调用）
 function clearBoss(): void {
   activeBoss = null;
-  bossWarningTimer = 0;
+  bossWarningTimerMs = 0;
+  bossWarningSoundAccumMs = 0;
   triggeredBossLevels = new Set();
   sessionBossKillCount = 0;
 }
 
-// 获取预警剩余帧数
+// 获取预警剩余时长（ms）
 function getBossWarningTimer(): number {
-  return bossWarningTimer;
+  return bossWarningTimerMs;
 }
 
 // 获取本局击败 BOSS 数
@@ -111,6 +129,7 @@ export {
   registerDebugBossLevel,
   startBossWarning,
   updateBossWarning,
+  consumeBossWarningSoundTick,
   spawnBoss,
   restoreBoss,
   updateAndDrawBoss,

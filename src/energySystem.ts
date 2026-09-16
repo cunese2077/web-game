@@ -6,15 +6,16 @@ import {
   hasVoidEnergy, hasThunderPierce, hasQuantumAnnihilate,
 } from "./upgrade.js";
 import {
-  ENERGY_LEVELS, LASER_INTERVAL, LIGHTNING_INTERVAL,
-  LASER_HIT_HALF_WIDTH, LIGHTNING_CHAIN_RANGE,
+  ENERGY_LEVELS, LASER_INTERVAL_MS, LIGHTNING_INTERVAL_MS,
+  LASER_HIT_HALF_WIDTH, LIGHTNING_CHAIN_RANGE, ENEMY_SLOW_DURATION_MS,
 } from "./weaponLevels.js";
 import { addHitFlash, addLaserBeam, addLightningBolt, generateJaggedLine } from "./weaponEffects.js";
+import { getDt } from "./frameTime.js";
 import type { WeaponContext, EnemyProxy } from "./specialWeaponTypes.js";
 
 // ========== 状态管理 ==========
-let laserCooldown = 0;
-let lightningCooldown = 0;
+let laserCooldownMs = 0;      // 激光冷却（ms，帧率无关）
+let lightningCooldownMs = 0;  // 闪电冷却（ms，帧率无关）
 
 // 主更新：激光 + 闪电链的发射与伤害结算（视觉实体注入 weaponEffects）
 function updateEnergySystem(c: WeaponContext): void {
@@ -29,12 +30,12 @@ function updateEnergySystem(c: WeaponContext): void {
   // 进化：量子歼灭 - 闪电链范围无限
   const effectiveChainRange = (hasVoidEnergy() || hasQuantumAnnihilate()) ? 999 : LIGHTNING_CHAIN_RANGE;
 
-  // 激光部分（每 LASER_INTERVAL 帧）
+  // 激光部分（每 LASER_INTERVAL_MS 毫秒）
   // 进化：雷霆穿甲 — 激光冷却 -30%
-  const effectiveLaserInterval = hasThunderPierce() ? Math.round(LASER_INTERVAL * 0.7) : LASER_INTERVAL;
-  laserCooldown++;
-  if (laserCooldown >= effectiveLaserInterval) {
-    laserCooldown = 0;
+  const effectiveLaserIntervalMs = hasThunderPierce() ? Math.round(LASER_INTERVAL_MS * 0.7) : LASER_INTERVAL_MS;
+  laserCooldownMs += getDt();
+  if (laserCooldownMs >= effectiveLaserIntervalMs) {
+    laserCooldownMs = 0;
     // 专属道具：虚空能量 - 全屏激光
     const effectiveLaserLength = hasVoidEnergy() ? -1 : cfg.laserLength;
     const baseDamage = cfg.laserDamage * getDamagePassiveMultiplier() * c.firepowerMul;
@@ -52,12 +53,12 @@ function updateEnergySystem(c: WeaponContext): void {
           const isCrit = Math.random() < getCritChance();
           const finalDmg = isCrit ? baseDamage * 2.0 : baseDamage;
           c.damageEnemy(e, finalDmg, isCrit, true);
-          // 激光命中冲击闪光
-          addHitFlash(ecx, ecy, 12, "#8cf", 8);
+          // 激光命中冲击闪光（ms 制：原 8 帧 × 50）
+          addHitFlash(ecx, ecy, 12, "#8cf", 400);
           // 专属道具：冰冻附加
           const freezeSlow = getFreezeAddonSlow();
           if (freezeSlow > 0) {
-            c.slowEnemy(e.id, freezeSlow, 60);
+            c.slowEnemy(e.id, freezeSlow, ENEMY_SLOW_DURATION_MS);
           }
         }
       }
@@ -67,10 +68,10 @@ function updateEnergySystem(c: WeaponContext): void {
     playLaser();
   }
 
-  // 闪电部分（每 LIGHTNING_INTERVAL 帧）
-  lightningCooldown++;
-  if (lightningCooldown >= LIGHTNING_INTERVAL) {
-    lightningCooldown = 0;
+  // 闪电部分（每 LIGHTNING_INTERVAL_MS 毫秒）
+  lightningCooldownMs += getDt();
+  if (lightningCooldownMs >= LIGHTNING_INTERVAL_MS) {
+    lightningCooldownMs = 0;
     // 找最近敌机
     let target: EnemyProxy | null = null;
     let minDist = Infinity;
@@ -89,14 +90,14 @@ function updateEnergySystem(c: WeaponContext): void {
       const isCrit = Math.random() < getCritChance();
       const finalDmg = isCrit ? baseDamage * 2.0 : baseDamage;
       c.damageEnemy(target, finalDmg, isCrit, true);
-      // 闪电链首个目标命中闪光
+      // 闪电链首个目标命中闪光（ms 制：原 8 帧 × 50）
       const tx = target.x + target.width / 2;
       const ty = target.y + target.height / 2;
-      addHitFlash(tx, ty, 16, "#48f", 8);
+      addHitFlash(tx, ty, 16, "#48f", 400);
       // 专属道具：冰冻附加
       const freezeSlow = getFreezeAddonSlow();
       if (freezeSlow > 0) {
-        c.slowEnemy(target.id, freezeSlow, 60);
+        c.slowEnemy(target.id, freezeSlow, ENEMY_SLOW_DURATION_MS);
       }
 
       const hitIds = new Set<number>([target.id]);
@@ -130,11 +131,11 @@ function updateEnergySystem(c: WeaponContext): void {
         const chainDmg = finalDmg * 0.7; // 链式伤害衰减
         const chainCrit = Math.random() < getCritChance();
         c.damageEnemy(nextTarget, chainCrit ? chainDmg * 2.0 : chainDmg, chainCrit, true);
-        // 链式跳跃命中闪光
-        addHitFlash(nx, ny, 10, "#48f", 6);
+        // 链式跳跃命中闪光（ms 制：原 6 帧 × 50）
+        addHitFlash(nx, ny, 10, "#48f", 300);
         // 专属道具：冰冻附加
         if (freezeSlow > 0) {
-          c.slowEnemy(nextTarget.id, freezeSlow, 60);
+          c.slowEnemy(nextTarget.id, freezeSlow, ENEMY_SLOW_DURATION_MS);
         }
         hitIds.add(nextTarget.id);
         allSegments.push(...generateJaggedLine(lastX, lastY, nx, ny));
@@ -150,8 +151,8 @@ function updateEnergySystem(c: WeaponContext): void {
 
 // 清理能量武器冷却（游戏重置时由门面调用）
 function clearEnergyCooldowns(): void {
-  laserCooldown = 0;
-  lightningCooldown = 0;
+  laserCooldownMs = 0;
+  lightningCooldownMs = 0;
 }
 
 export { updateEnergySystem, clearEnergyCooldowns };

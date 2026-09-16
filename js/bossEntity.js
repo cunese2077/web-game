@@ -16,10 +16,11 @@ import { incrementSessionBossKillCount } from "./bossManager.js";
 import { getBossType } from "./bossTypes.js";
 import { fireSpiral, fireCircle, fireFan, fireAimed, fireRain } from "./bossPatterns.js";
 import { drawAssaultBody, drawFortressBody, drawCarrierBody, drawPhantomBody } from "./bossBody.js";
+import { getDt, getDtSec } from "./frameTime.js";
 class Boss {
     constructor(bossIndex) {
         // 受击（合并伤害，带音效冷却；堡垒型先扣护盾）
-        this.hitSoundCooldown = 0;
+        this.hitSoundCooldownMs = 0; // 受击音效冷却（ms，帧率无关）
         this.bossIndex = bossIndex;
         this.bossType = getBossType(bossIndex);
         this.bossWidth = Math.round(width * bossConfig.widthRatio);
@@ -32,26 +33,26 @@ class Boss {
         this.maxHp = this.hp;
         this.moveDirection = 1;
         this.attackPhase = 1;
-        this.attackTimer = 0;
+        this.attackTimerMs = 0;
         this.circleTimer = 0;
         this.alive = true;
         // 类型特有属性
         this.isDiving = false;
         this.diveSpeed = 0;
         this.diveTargetY = 0;
-        this.diveCooldown = 0;
+        this.diveCooldownMs = 0;
         this.shieldHp = 0;
         this.shieldMaxHp = 0;
-        this.shieldRegenTimer = 0;
-        this.droneTimer = 0;
+        this.shieldRegenTimerMs = 0;
+        this.droneTimerMs = 0;
         this.droneCount = 0;
         // 幻影型特有
-        this.teleportTimer = 0;
-        this.teleportFlash = 0;
+        this.teleportTimerMs = 0;
+        this.teleportFlashMs = 0;
         this.spiralAngle = 0;
         // 阶段转换
-        this.phaseTransitionFlash = 0;
-        this.phaseTransitionInvincible = 0;
+        this.phaseTransitionFlashMs = 0;
+        this.phaseTransitionInvincibleMs = 0;
         this.lastAttackPhase = 1;
         switch (this.bossType) {
             case "assault":
@@ -59,21 +60,21 @@ class Boss {
                 this.moveSpeed = bossConfig.moveSpeed * 1.6;
                 this.hp *= 0.85;
                 this.maxHp = this.hp;
-                this.diveCooldown = 120; // 6秒后首次俯冲
+                this.diveCooldownMs = 6000; // 6秒后首次俯冲
                 break;
             case "fortress":
                 // 堡垒型：移速慢，有护盾
                 this.moveSpeed = bossConfig.moveSpeed * 0.6;
                 this.shieldMaxHp = this.maxHp * 0.2; // 护盾=20%最大HP
                 this.shieldHp = this.shieldMaxHp;
-                this.shieldRegenTimer = 0;
+                this.shieldRegenTimerMs = 0;
                 break;
             case "carrier":
                 // 母舰型：中速，释放无人机
                 this.moveSpeed = bossConfig.moveSpeed * 0.9;
                 this.hp *= 1.1;
                 this.maxHp = this.hp;
-                this.droneTimer = 80; // 4秒后首次释放
+                this.droneTimerMs = 4000; // 4秒后首次释放
                 this.droneCount = 0;
                 break;
             case "phantom":
@@ -81,8 +82,8 @@ class Boss {
                 this.moveSpeed = bossConfig.moveSpeed * 1.0;
                 this.hp *= 0.95;
                 this.maxHp = this.hp;
-                this.teleportTimer = 100; // 5秒后首次瞬移
-                this.teleportFlash = 0;
+                this.teleportTimerMs = 5000; // 5秒后首次瞬移
+                this.teleportFlashMs = 0;
                 this.spiralAngle = 0;
                 break;
         }
@@ -91,18 +92,18 @@ class Boss {
         if (!this.alive)
             return;
         // 受击音效冷却递减
-        if (this.hitSoundCooldown > 0)
-            this.hitSoundCooldown--;
+        if (this.hitSoundCooldownMs > 0)
+            this.hitSoundCooldownMs -= getDt();
         // === 阶段转换效果计时器递减 ===
-        if (this.phaseTransitionFlash > 0)
-            this.phaseTransitionFlash--;
-        if (this.phaseTransitionInvincible > 0)
-            this.phaseTransitionInvincible--;
+        if (this.phaseTransitionFlashMs > 0)
+            this.phaseTransitionFlashMs -= getDt();
+        if (this.phaseTransitionInvincibleMs > 0)
+            this.phaseTransitionInvincibleMs -= getDt();
         // === 类型特有行为更新 ===
         this._updateTypeBehavior();
-        // 水平巡逻移动（突击型俯冲时不巡逻）
+        // 水平巡逻移动（突击型俯冲时不巡逻），速度 px/s × dt
         if (!(this.bossType === "assault" && this.isDiving)) {
-            this.x += this.moveSpeed * this.moveDirection;
+            this.x += this.moveSpeed * this.moveDirection * getDtSec();
             if (this.x - this.bossWidth / 2 <= 0) {
                 this.x = this.bossWidth / 2;
                 this.moveDirection = 1;
@@ -125,21 +126,21 @@ class Boss {
         }
         // === 阶段转换检测：进入更高阶段时触发闪烁 + 短暂无敌 ===
         if (this.attackPhase > this.lastAttackPhase) {
-            this.phaseTransitionFlash = 30; // 1.5 秒屏幕闪烁
-            this.phaseTransitionInvincible = 50; // 约 2.5 秒无敌帧
+            this.phaseTransitionFlashMs = 1500; // 1.5 秒屏幕闪烁
+            this.phaseTransitionInvincibleMs = 2500; // 约 2.5 秒无敌
             // 转换瞬间发射圆形弹幕作为「觉醒」宣告
             fireCircle(this.x, this.y, 10 + this.bossIndex, bossConfig.bullet.speed * 0.5, bossConfig.bullet.size * 0.7, "#fff");
         }
         this.lastAttackPhase = this.attackPhase;
         // 攻击逻辑（随 bossIndex 递增强度）
         const diffConfig = getDifficultyConfig(getDifficulty());
-        const baseInterval = bossConfig.bullet.interval;
-        // 后续 BOSS 攻击间隔缩短：每级减 3 帧，最低 20 帧（1秒）
-        const bossInterval = Math.max(20, baseInterval - this.bossIndex * 3);
-        const interval = Math.round(bossInterval / diffConfig.bossAttackSpeedMultiplier);
-        this.attackTimer++;
-        if (this.attackTimer >= interval) {
-            this.attackTimer = 0;
+        const baseIntervalMs = bossConfig.bullet.intervalMs;
+        // 后续 BOSS 攻击间隔缩短：每级减 150ms，最低 1000ms（1秒）
+        const bossIntervalMs = Math.max(1000, baseIntervalMs - this.bossIndex * 150);
+        const intervalMs = Math.round(bossIntervalMs / diffConfig.bossAttackSpeedMultiplier);
+        this.attackTimerMs += getDt();
+        if (this.attackTimerMs >= intervalMs) {
+            this.attackTimerMs = 0;
             this._firePattern();
         }
     }
@@ -163,28 +164,28 @@ class Boss {
     // 突击型：周期性俯冲到玩家附近再返回
     _updateAssault() {
         if (this.isDiving) {
-            // 俯冲中：快速向目标Y移动
-            this.y += this.diveSpeed;
+            // 俯冲中：快速向目标Y移动（速度 px/s × dt）
+            this.y += this.diveSpeed * getDtSec();
             if (this.y >= this.diveTargetY) {
-                // 到达最低点，发射近距离密集弹幕
-                fireFan(this.x, this.y, this.bossHeight, 6 + this.bossIndex, Math.PI * 0.8, 4, 6, "#f80");
+                // 到达最低点，发射近距离密集弹幕（速度 px/s）
+                fireFan(this.x, this.y, this.bossHeight, 6 + this.bossIndex, Math.PI * 0.8, 80, 6, "#f80");
                 this.isDiving = false;
-                this.diveCooldown = 150; // 7.5秒后再次俯冲
+                this.diveCooldownMs = 7500; // 7.5秒后再次俯冲
             }
         }
         else {
             // 返回顶部
             const homeY = this.bossHeight / 2 + Math.round(20 * fontScale);
             if (this.y > homeY) {
-                this.y -= 3; // 缓慢返回
+                this.y -= 60 * getDtSec(); // 缓慢返回（60px/s）
                 if (this.y < homeY)
                     this.y = homeY;
             }
             // 俯冲冷却倒计时
-            this.diveCooldown--;
-            if (this.diveCooldown <= 0 && this.attackPhase >= 2) {
+            this.diveCooldownMs -= getDt();
+            if (this.diveCooldownMs <= 0 && this.attackPhase >= 2) {
                 this.isDiving = true;
-                this.diveSpeed = 6;
+                this.diveSpeed = 120; // 俯冲速度（px/s，原 6px/帧 × 20）
                 this.diveTargetY = getHeroY() - 60; // 俯冲到玩家上方60px
             }
         }
@@ -192,17 +193,17 @@ class Boss {
     // 堡垒型：护盾自动恢复
     _updateFortress() {
         if (this.shieldHp < this.shieldMaxHp) {
-            this.shieldRegenTimer++;
-            if (this.shieldRegenTimer >= 60) { // 3秒恢复一次
+            this.shieldRegenTimerMs += getDt();
+            if (this.shieldRegenTimerMs >= 3000) { // 3秒恢复一次
                 this.shieldHp = Math.min(this.shieldMaxHp, this.shieldHp + this.shieldMaxHp * 0.1);
-                this.shieldRegenTimer = 0;
+                this.shieldRegenTimerMs = 0;
             }
         }
     }
     // 母舰型：周期性释放自爆无人机（以敌机弹幕形式）
     _updateCarrier() {
-        this.droneTimer--;
-        if (this.droneTimer <= 0) {
+        this.droneTimerMs -= getDt();
+        if (this.droneTimerMs <= 0) {
             // 释放 2+1 架自爆无人机（朝玩家方向）
             const droneCount = 2 + Math.floor(this.bossIndex / 2);
             const heroX = getHeroX();
@@ -210,30 +211,30 @@ class Boss {
             for (let i = 0; i < droneCount; i++) {
                 const offsetX = (i - (droneCount - 1) / 2) * 25;
                 const angle = Math.atan2(heroY - this.y, heroX - (this.x + offsetX));
-                // 无人机：较大较慢的追踪弹
-                addBullet(this.x + offsetX, this.y + this.bossHeight / 2, Math.cos(angle) * 2, Math.sin(angle) * 2, 8, // 大半径
+                // 无人机：较大较慢的追踪弹（速度 px/s）
+                addBullet(this.x + offsetX, this.y + this.bossHeight / 2, Math.cos(angle) * 40, Math.sin(angle) * 40, 8, // 大半径
                 "#8f4");
             }
             this.droneCount++;
-            // 间隔随阶段缩短
-            const baseDroneInterval = this.attackPhase >= 3 ? 60 : 100;
-            this.droneTimer = baseDroneInterval - Math.min(this.bossIndex * 5, 30);
+            // 间隔随阶段缩短（ms）
+            const baseDroneIntervalMs = this.attackPhase >= 3 ? 3000 : 5000;
+            this.droneTimerMs = baseDroneIntervalMs - Math.min(this.bossIndex * 250, 1500);
         }
     }
     // 幻影型：周期性瞬移 + 持续螺旋弹幕
     _updatePhantom() {
         // 瞬移残影倒计时
-        if (this.teleportFlash > 0)
-            this.teleportFlash--;
-        // 螺旋弹幕角度持续递增（用于 _firePatternPhantom 的螺旋发射）
-        this.spiralAngle += 0.25;
+        if (this.teleportFlashMs > 0)
+            this.teleportFlashMs -= getDt();
+        // 螺旋弹幕角度持续递增（5 rad/s，原 0.25/帧 × 20）
+        this.spiralAngle += 5 * getDtSec();
         // 瞬移冷却
-        this.teleportTimer--;
-        if (this.teleportTimer <= 0) {
+        this.teleportTimerMs -= getDt();
+        if (this.teleportTimerMs <= 0) {
             this._teleport();
-            // 瞬移间隔随阶段缩短
-            const baseInterval = this.attackPhase >= 3 ? 70 : (this.attackPhase >= 2 ? 90 : 110);
-            this.teleportTimer = Math.max(40, baseInterval - this.bossIndex * 4);
+            // 瞬移间隔随阶段缩短（ms）
+            const baseIntervalMs = this.attackPhase >= 3 ? 3500 : (this.attackPhase >= 2 ? 4500 : 5500);
+            this.teleportTimerMs = Math.max(2000, baseIntervalMs - this.bossIndex * 200);
         }
     }
     // 瞬移到新位置（顶部区域内随机 + 偏向玩家 X 方向）
@@ -258,7 +259,7 @@ class Boss {
         this.x = targetX;
         this.y = Math.max(homeY - 10, targetY);
         // 触发残影
-        this.teleportFlash = 15;
+        this.teleportFlashMs = 750;
         // 瞬移后立即发射一轮圆形弹幕（警告效果）
         fireCircle(this.x, this.y, 6 + Math.floor(this.bossIndex / 2), bossConfig.bullet.speed * 0.6, bossConfig.bullet.size * 0.7, "#c8f");
     }
@@ -364,31 +365,31 @@ class Boss {
     takeDamage(damage) {
         if (!this.alive)
             return;
-        // 阶段转换无敌帧：转换期间免疫伤害（让玩家看清觉醒效果）
-        if (this.phaseTransitionInvincible > 0)
+        // 阶段转换无敌期：转换期间免疫伤害（让玩家看清觉醒效果）
+        if (this.phaseTransitionInvincibleMs > 0)
             return;
         // 堡垒型：先扣护盾
         if (this.bossType === "fortress" && this.shieldHp > 0) {
             if (damage <= this.shieldHp) {
                 this.shieldHp -= damage;
-                this.shieldRegenTimer = 0; // 受击重置恢复计时
-                if (this.hitSoundCooldown <= 0) {
+                this.shieldRegenTimerMs = 0; // 受击重置恢复计时
+                if (this.hitSoundCooldownMs <= 0) {
                     playBossHit();
-                    this.hitSoundCooldown = 6;
+                    this.hitSoundCooldownMs = 300;
                 }
                 return; // 护盾完全吸收
             }
             else {
                 const overflow = damage - this.shieldHp;
                 this.shieldHp = 0;
-                this.shieldRegenTimer = 0;
+                this.shieldRegenTimerMs = 0;
                 damage = overflow; // 溢出伤害打到本体
             }
         }
         this.hp -= damage;
-        if (this.hitSoundCooldown <= 0) {
+        if (this.hitSoundCooldownMs <= 0) {
             playBossHit();
-            this.hitSoundCooldown = 6; // 6 帧冷却，与敌机受击一致
+            this.hitSoundCooldownMs = 300; // 300ms 冷却，与敌机受击一致
         }
         if (this.hp <= 0) {
             this.hp = 0;
@@ -432,8 +433,8 @@ class Boss {
                 break;
         }
         // 阶段转换无敌期间：BOSS 周围白色脉冲边框（提示玩家此时无敌）
-        if (this.phaseTransitionInvincible > 0) {
-            const invPulse = 0.5 + 0.5 * Math.sin(this.phaseTransitionInvincible * 0.4);
+        if (this.phaseTransitionInvincibleMs > 0) {
+            const invPulse = 0.5 + 0.5 * Math.sin(this.phaseTransitionInvincibleMs * 0.008);
             ctx.save();
             ctx.globalAlpha = 0.6 * invPulse;
             ctx.strokeStyle = "#fff";
@@ -451,16 +452,16 @@ class Boss {
             this._drawShieldBar();
         }
         // 阶段转换：全屏闪烁效果
-        if (this.phaseTransitionFlash > 0) {
+        if (this.phaseTransitionFlashMs > 0) {
             this._drawPhaseTransitionFlash();
         }
     }
     // 阶段转换全屏闪烁
     _drawPhaseTransitionFlash() {
-        const progress = this.phaseTransitionFlash / 30; // 0~1
+        const progress = this.phaseTransitionFlashMs / 1500; // 0~1
         // 闪烁透明度：前半段渐亮，后半段渐灭，叠加脉冲
         const baseAlpha = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
-        const pulse = 0.3 + 0.7 * Math.abs(Math.sin(this.phaseTransitionFlash * 0.5));
+        const pulse = 0.3 + 0.7 * Math.abs(Math.sin(this.phaseTransitionFlashMs * 0.01));
         const alpha = baseAlpha * pulse * 0.5;
         ctx.save();
         ctx.globalAlpha = alpha;

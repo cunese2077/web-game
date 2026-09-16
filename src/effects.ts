@@ -3,17 +3,18 @@
 import { ctx, fontScale } from "./canvas.js";
 import { t } from "./i18n.js";
 import { ObjectPool } from "./pool.js";
+import { getDt } from "./frameTime.js";
 
 // ========== 得分动效系统 ==========
 const scoreEffects: ScoreEffectObj[] = [];
 const scoreEffectPool = new ObjectPool<ScoreEffectObj>(() => new ScoreEffectObj(0, 0, 0));
-const SCORE_EFFECT_FRAMES: number = 30;
+const SCORE_EFFECT_DURATION_MS: number = 1500;  // 原 30 帧 × 50ms
 
 class ScoreEffectObj {
   x!: number;         // ! 断言：构造函数委托 init() 赋值（对象池复用入口）
   y!: number;
   score!: number;
-  frame!: number;
+  timeMs!: number;    // 剩余时长（ms，帧率无关）
   removable!: boolean;
 
   constructor(x: number, y: number, score: number) {
@@ -25,19 +26,19 @@ class ScoreEffectObj {
     this.x = x;
     this.y = y;
     this.score = score;
-    this.frame = SCORE_EFFECT_FRAMES;
+    this.timeMs = SCORE_EFFECT_DURATION_MS;
     this.removable = false;
   }
 
   update(): void {
-    this.frame--;
-    if (this.frame <= 0) {
+    this.timeMs -= getDt();
+    if (this.timeMs <= 0) {
       this.removable = true;
     }
   }
 
   draw(): void {
-    const progress = 1 - this.frame / SCORE_EFFECT_FRAMES;
+    const progress = 1 - this.timeMs / SCORE_EFFECT_DURATION_MS;
     const floatY = this.y - progress * 40;
     const alpha = 1 - progress * 0.8;
     const scale = 1 + progress * 0.3;
@@ -92,45 +93,45 @@ class DamageEffectObj {
   fontSize!: number;
   color!: string;
   floatDistance!: number;
-  frames!: number;
-  frame!: number;
+  durationMs!: number;  // 总时长（ms，帧率无关）
+  timeMs!: number;      // 剩余时长（ms）
   removable!: boolean;
   crit!: boolean;
 
-  constructor(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number, crit: boolean = false) {
-    this.init(x, y, damage, fontSize, color, floatDistance, frames, crit);
+  constructor(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, durationMs: number, crit: boolean = false) {
+    this.init(x, y, damage, fontSize, color, floatDistance, durationMs, crit);
   }
 
   // 重置全部状态（对象池复用入口，构造函数也走这里保证两条路径一致）
-  init(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number, crit: boolean = false): void {
+  init(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, durationMs: number, crit: boolean = false): void {
     this.x = x;
     this.y = y;
     this.damage = damage;
     this.fontSize = fontSize;
     this.color = color;
     this.floatDistance = floatDistance;
-    this.frames = frames;
-    this.frame = frames;
+    this.durationMs = durationMs;
+    this.timeMs = durationMs;
     this.removable = false;
     this.crit = crit;
   }
 
   update(): void {
-    this.frame--;
-    if (this.frame <= 0) {
+    this.timeMs -= getDt();
+    if (this.timeMs <= 0) {
       this.removable = true;
     }
   }
 
   // 当前实际渲染的 y 位置（含上浮进度），用于动态偏移计算
   getCurrentY(): number {
-    const progress = 1 - this.frame / this.frames;
+    const progress = 1 - this.timeMs / this.durationMs;
     return this.y - progress * this.floatDistance;
   }
 
   draw(): void {
     const floatY = this.getCurrentY();
-    const alpha = 1 - (1 - this.frame / this.frames) * 0.8;
+    const alpha = 1 - (1 - this.timeMs / this.durationMs) * 0.8;
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -139,7 +140,7 @@ class DamageEffectObj {
 
     if (this.crit) {
       // 暴击效果：金色 + 更强发光 + 缩放动画
-      const progress = 1 - this.frame / this.frames;
+      const progress = 1 - this.timeMs / this.durationMs;
       const scale = 1 + (1 - progress) * 0.3;
       ctx.translate(this.x, floatY);
       ctx.scale(scale, scale);
@@ -173,14 +174,14 @@ class DamageEffectObj {
 //   3. 找到第一个与所有现存动效当前 y 距离 >= stackOffset 的空槽，用作新动效起始 y
 //   4. 优先用最低位置（最接近敌机），只有被占用才向上找
 //
-// 【不重叠的数学保证】所有动效上浮速度相同（每帧 floatDistance/frames），
+// 【不重叠的数学保证】所有动效上浮速度相同（floatDistance/durationMs，帧率无关），
 //   因此两个动效的相对距离在整个生命周期内恒定 = 起始 y 差值。
 //   只要起始间距 >= stackOffset（>fontSize），整个生命周期永不重叠。
 //
 // 【兜底】找不到不重叠的空槽时，跳过本次伤害文本显示（return），彻底避免重叠。
-//   场景：大型敌机持续受击，连续命中动效起始 y 间距仅 ~6px（敌机下移 2px/帧 × 子弹间隔 3 帧），
+//   场景：大型敌机持续受击，连续命中动效起始 y 间距很小（敌机下移速度 × 子弹间隔），
 //   远小于 stackOffset，向上找空槽很快跑出屏幕顶部。此时已有足够的伤害文本在显示，跳过不影响信息传达。
-function addDamageEffect(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, frames: number, stackOffset: number, crit: boolean = false): void {
+function addDamageEffect(x: number, y: number, damage: number, fontSize: number, color: string, floatDistance: number, durationMs: number, stackOffset: number, crit: boolean = false): void {
   const xRange = fontSize * 2;        // x 检测范围：字号 2 倍（同 x 附近的动效才需要堆叠）
   // 【关键】只收集"屏幕内可见"的动效参与堆叠计算（curY >= 0）。
   // 已跑出屏幕顶部（curY < 0）的动效不可见，不占用空槽，否则会阻挡新动效找空槽导致兜底重叠。
@@ -227,7 +228,7 @@ function addDamageEffect(x: number, y: number, damage: number, fontSize: number,
   }
 
   const e = damageEffectPool.acquire();
-  e.init(x, startY, damage, fontSize, color, floatDistance, frames, crit);
+  e.init(x, startY, damage, fontSize, color, floatDistance, durationMs, crit);
   damageEffects.push(e);
 }
 

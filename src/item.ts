@@ -1,6 +1,7 @@
 // 道具模块 - 支持多种道具类型：回血、双倍火力、护盾、散弹
 import { ctx, height } from "./canvas.js";
 import { itemConfig } from "./config.js";
+import { getDt, getDtSec } from "./frameTime.js";
 import type { ItemType } from "./types.js";
 
 const items: Item[] = [];
@@ -10,20 +11,20 @@ class Item {
   y: number;
   type: ItemType;
   removable: boolean;
-  animCount: number;
+  animTimeMs: number;   // 动画时间累积（ms，帧率无关）
 
   constructor(x: number, y: number, type: ItemType = "heal") {
     this.x = x;
     this.y = y;
     this.type = type;
     this.removable = false;
-    this.animCount = 0;
+    this.animTimeMs = 0;
   }
 
   draw(frozen: boolean = false): void {
     if (!frozen) {
-      this.animCount++;
-      this.y += itemConfig.speed;
+      this.animTimeMs += getDt();
+      this.y += itemConfig.speed * getDtSec();
 
       if (this.y > height + itemConfig.size) {
         this.removable = true;
@@ -32,7 +33,7 @@ class Item {
     }
 
     const size = itemConfig.size;
-    const scale = 1 + Math.sin(this.animCount * 0.1) * 0.15;
+    const scale = 1 + Math.sin(this.animTimeMs * 0.002) * 0.15;
     const cx = this.x;
     const cy = this.y;
     const cfg = itemConfig.types[this.type];

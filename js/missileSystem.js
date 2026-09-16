@@ -3,8 +3,9 @@
 import { ctx, width, height } from "./canvas.js";
 import { playMissile, playMissileHit } from "./audio.js";
 import { getWeaponLevel, getDamagePassiveMultiplier, getCritChance, getExplosionRadiusBonus, getMultiMissileBonus, hasNukeWarhead, hasDoomBarrage, hasWolfPack, hasQuantumAnnihilate, } from "./upgrade.js";
-import { MISSILE_LEVELS, MISSILE_INTERVAL } from "./weaponLevels.js";
+import { MISSILE_LEVELS, MISSILE_INTERVAL_MS, ENEMY_SLOW_DURATION_MS } from "./weaponLevels.js";
 import { addFireworkBurst, addHitFlash } from "./weaponEffects.js";
+import { getDt, getDtSec } from "./frameTime.js";
 class HomingMissile {
     constructor(x, y, damage, explosionRadius) {
         this.x = x;
@@ -14,9 +15,9 @@ class HomingMissile {
         this.hasExplosion = explosionRadius > 0;
         this.trail = [];
         this.removable = false;
-        this.speed = 8;
+        this.speedPerSec = 160; // 原 8px/帧 × 20
         this.angle = -Math.PI / 2; // 初始朝上
-        this.turnRate = 0.15; // 每帧最大转向 ~8.6°
+        this.turnRatePerSec = 3; // 原 0.15 rad/帧 × 20（~8.6°/帧）
     }
     update(enemies) {
         // 记录拖尾
@@ -38,7 +39,7 @@ class HomingMissile {
             }
         }
         if (target) {
-            // 渐进转向：计算目标角度，限制每帧转向量
+            // 渐进转向：计算目标角度，限制每步转向量（角速度 × dt）
             const targetAngle = Math.atan2(target.y + target.height / 2 - this.y, target.x + target.width / 2 - this.x);
             let diff = targetAngle - this.angle;
             // 归一化到 [-π, π]
@@ -47,25 +48,26 @@ class HomingMissile {
             while (diff < -Math.PI)
                 diff += Math.PI * 2;
             // 限制转向速率
-            if (diff > this.turnRate)
-                diff = this.turnRate;
-            if (diff < -this.turnRate)
-                diff = -this.turnRate;
+            const maxTurn = this.turnRatePerSec * getDtSec();
+            if (diff > maxTurn)
+                diff = maxTurn;
+            if (diff < -maxTurn)
+                diff = -maxTurn;
             this.angle += diff;
         }
         else {
-            // 无目标：渐进转向朝上
+            // 无目标：渐进转向朝上（1 rad/s，原 0.05/帧）
             let diff = -Math.PI / 2 - this.angle;
             while (diff > Math.PI)
                 diff -= Math.PI * 2;
             while (diff < -Math.PI)
                 diff += Math.PI * 2;
             if (Math.abs(diff) > 0.02) {
-                this.angle += diff > 0 ? 0.05 : -0.05;
+                this.angle += (diff > 0 ? 1 : -1) * getDtSec();
             }
         }
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
+        this.x += Math.cos(this.angle) * this.speedPerSec * getDtSec();
+        this.y += Math.sin(this.angle) * this.speedPerSec * getDtSec();
         // 出界检测
         if (this.y < -20 || this.y > height + 20 || this.x < -20 || this.x > width + 20) {
             this.removable = true;
@@ -100,7 +102,7 @@ class HomingMissile {
 }
 // ========== 状态管理 ==========
 const missiles = [];
-let missileCooldown = 0;
+let missileCooldownMs = 0; // 发射冷却（ms，帧率无关）
 // 注入接口：狼群战术僚机导弹由 wingmanSystem 构造后经此加入统一更新
 function pushMissile(x, y, damage, explosionRadius) {
     missiles.push(new HomingMissile(x, y, damage, explosionRadius));
@@ -111,11 +113,11 @@ function updateMissileSystem(c) {
     // ---- 追踪导弹发射 ----
     const missileLv = getWeaponLevel("homingMissile");
     if (missileLv > 0) {
-        missileCooldown++;
+        missileCooldownMs += getDt();
         const idx = Math.min(missileLv, MISSILE_LEVELS.length) - 1;
         const cfg = MISSILE_LEVELS[idx];
-        if (missileCooldown >= MISSILE_INTERVAL) {
-            missileCooldown = 0;
+        if (missileCooldownMs >= MISSILE_INTERVAL_MS) {
+            missileCooldownMs = 0;
             const baseDamage = cfg.damage * getDamagePassiveMultiplier() * c.firepowerMul;
             // 专属道具：核弹头
             const nukeMul = hasNukeWarhead() ? 2 : 1;
@@ -175,7 +177,7 @@ function updateMissileSystem(c) {
                             }
                         }
                     }
-                    // 进化：量子歼灭 — 导弹命中触发 EMP 脉冲（30px 范围减速 60 帧）
+                    // 进化：量子歼灭 — 导弹命中触发 EMP 脉冲（30px 范围减速 3 秒）
                     if (hasQuantumAnnihilate()) {
                         const empRadius = 30;
                         for (const e2 of allEnemies) {
@@ -184,11 +186,11 @@ function updateMissileSystem(c) {
                             const dx2 = ms.x - (e2.x + e2.width / 2);
                             const dy2 = ms.y - (e2.y + e2.height / 2);
                             if (Math.sqrt(dx2 * dx2 + dy2 * dy2) < empRadius) {
-                                c.slowEnemy(e2.id, 0.4, 60);
+                                c.slowEnemy(e2.id, 0.4, ENEMY_SLOW_DURATION_MS);
                             }
                         }
-                        // EMP 视觉闪光
-                        addHitFlash(ms.x, ms.y, empRadius, "#4af", 12);
+                        // EMP 视觉闪光（ms 制：原 12 帧 × 50）
+                        addHitFlash(ms.x, ms.y, empRadius, "#4af", 600);
                     }
                     ms.removable = true;
                     break;
@@ -206,6 +208,6 @@ function updateMissileSystem(c) {
 // 清理导弹状态（游戏重置时由门面调用）
 function clearMissiles() {
     missiles.length = 0;
-    missileCooldown = 0;
+    missileCooldownMs = 0;
 }
 export { updateMissileSystem, pushMissile, clearMissiles };

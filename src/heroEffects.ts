@@ -1,19 +1,27 @@
 // 玩家特效模块（从 hero.ts 拆出）：护盾光环/进化光环/buff 飘字/治疗/升级特效绘制
-// 只读 HeroFxState 状态束（buff 飘字数组原地更新），帧递减由 Hero.draw 主循环驱动
+// 只读 HeroFxState 状态束（buff 飘字数组原地更新），ms 递减由 getDt() 驱动（帧率无关）
 import { ctx, fontScale } from "./canvas.js";
 import { heroImg } from "./resources.js";
 import { t } from "./i18n.js";
 import { getLevel } from "./level.js";
+import { getDt } from "./frameTime.js";
 import type { BuffFloat } from "./types.js";
+
+// 治疗特效总时长（ms，原 30 帧 × 50ms）
+const HEAL_ANIM_MS = 1500;
+// 升级特效总时长（ms，原 60 帧 × 50ms）
+const LEVEL_UP_ANIM_MS = 3000;
+// buff 飘字总时长（ms，原 30 帧 × 50ms）
+const BUFF_FLOAT_MS = 1500;
 
 // 特效绘制所需的玩家状态束（由 Hero 类实例传入）
 interface HeroFxState {
   x: number;
   y: number;
-  count: number;
+  animTimeMs: number;
   buffFloats: BuffFloat[];
-  healAnim: number;
-  levelUpAnim: number;
+  healAnimMs: number;
+  levelUpAnimMs: number;
 }
 
 // 护盾 buff 光环：蓝色脉冲圆环
@@ -21,7 +29,8 @@ function drawShieldAura(h: HeroFxState): void {
   const cx = h.x + heroImg[0].width / 2;
   const cy = h.y + heroImg[0].height / 2;
   const radius = Math.max(heroImg[0].width, heroImg[0].height) * 0.6;
-  const alpha = 0.3 + Math.sin(h.count * 0.15) * 0.15;
+  // 脉冲角频率 3 rad/s（原 count × 0.15/帧 × 20）
+  const alpha = 0.3 + Math.sin(h.animTimeMs * 0.003) * 0.15;
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -40,7 +49,8 @@ function drawEvolutionAura(h: HeroFxState): void {
   const cx = h.x + heroImg[0].width / 2;
   const cy = h.y + heroImg[0].height / 2;
   const radius = Math.max(heroImg[0].width, heroImg[0].height) * 0.65;
-  const alpha = 0.35 + Math.sin(h.count * 0.12) * 0.2;
+  // 脉冲角频率 2.4 rad/s（原 count × 0.12/帧 × 20）
+  const alpha = 0.35 + Math.sin(h.animTimeMs * 0.0024) * 0.2;
 
   ctx.save();
   // 外层紫色脉冲环
@@ -53,9 +63,9 @@ function drawEvolutionAura(h: HeroFxState): void {
   ctx.shadowBlur = 12;
   ctx.stroke();
 
-  // 3 个旋转小光点
+  // 3 个旋转小光点（角速度 1.2 rad/s，原 count × 0.06/帧 × 20）
   const particleRadius = radius + 4;
-  const speed = h.count * 0.06;
+  const speed = h.animTimeMs * 0.0012;
   for (let i = 0; i < 3; i++) {
     const angle = speed + (Math.PI * 2 / 3) * i;
     const px = cx + Math.cos(angle) * particleRadius;
@@ -77,12 +87,12 @@ function drawBuffFloats(h: HeroFxState): void {
 
   for (let i = h.buffFloats.length - 1; i >= 0; i--) {
     const bf = h.buffFloats[i];
-    bf.frame--;
-    if (bf.frame <= 0) {
+    bf.timeMs -= getDt();
+    if (bf.timeMs <= 0) {
       h.buffFloats.splice(i, 1);
       continue;
     }
-    const progress = 1 - bf.frame / bf.maxFrame;
+    const progress = 1 - bf.timeMs / bf.maxTimeMs;
     const floatY = heroCy - 30 - progress * 50;
     const alpha = 1 - progress;
     ctx.save();
@@ -101,7 +111,7 @@ function drawBuffFloats(h: HeroFxState): void {
 function drawHealEffect(h: HeroFxState): void {
   const heroCx = h.x + heroImg[0].width / 2;
   const heroCy = h.y + heroImg[0].height / 2;
-  const progress = 1 - h.healAnim / 30;
+  const progress = 1 - h.healAnimMs / HEAL_ANIM_MS;
 
   const floatY = heroCy - 40 - progress * 50;
   const alpha = 1 - progress;
@@ -132,7 +142,7 @@ function drawLevelUpEffect(h: HeroFxState): void {
   const lv = getLevel();
   const heroCx = h.x + heroImg[0].width / 2;
   const heroCy = h.y + heroImg[0].height / 2;
-  const progress = 1 - h.levelUpAnim / 60;
+  const progress = 1 - h.levelUpAnimMs / LEVEL_UP_ANIM_MS;
 
   const floatY = heroCy - 60 - progress * 80;
   const alpha = 1 - progress;
@@ -160,4 +170,4 @@ function drawLevelUpEffect(h: HeroFxState): void {
   ctx.restore();
 }
 
-export { drawShieldAura, drawEvolutionAura, drawBuffFloats, drawHealEffect, drawLevelUpEffect };
+export { drawShieldAura, drawEvolutionAura, drawBuffFloats, drawHealEffect, drawLevelUpEffect, HEAL_ANIM_MS, LEVEL_UP_ANIM_MS, BUFF_FLOAT_MS };

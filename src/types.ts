@@ -58,13 +58,13 @@ export interface SmallEnemyMoveConfig {
 export interface SineMoveConfig {
   type: "sine";
   amplitude: number;
-  frequency: number;
+  frequency: number;       // 摆动角频率（rad/s，帧率无关）
 }
 
 export interface ZigzagMoveConfig {
   type: "zigzag";
   amplitude: number;
-  horizontalSpeed: number;
+  horizontalSpeed: number; // 横向速度（px/s，帧率无关）
 }
 
 export interface DiveMoveConfig {
@@ -72,7 +72,7 @@ export interface DiveMoveConfig {
   triggerRange: number;      // 进入俯冲的垂直距离（距玩家上方此距离内触发）
   diveSpeedMultiplier: number; // 俯冲时速度倍率
   wobbleAmplitude: number;    // 阶段1小幅左右摆动振幅
-  wobbleFrequency: number;    // 阶段1摆动频率
+  wobbleFrequency: number;    // 阶段1摆动角频率（rad/s，帧率无关）
 }
 
 export type EnemyMoveConfig = SmallEnemyMoveConfig | SineMoveConfig | ZigzagMoveConfig | DiveMoveConfig;
@@ -96,7 +96,7 @@ export interface DamageTextConfig {
   fontSize: number;       // 字体大小
   color: string;          // 文字颜色
   floatDistance: number;  // 上浮距离（像素）
-  frames: number;         // 持续帧数
+  durationMs: number;     // 持续时长（ms，帧率无关）
   stackOffset: number;    // 堆叠偏移步长（像素）：新动效相对同 x 附近最高现有动效的上方间距
                           // 动态防重叠：生成时查找同 x 附近（fontSize*2 范围内）现存动效的当前 y，
                           // 在最高动效之上再偏移 stackOffset，确保不重叠（含单帧多弹 + 跨帧累积场景）
@@ -104,7 +104,7 @@ export interface DamageTextConfig {
 
 // --- 敌机受击动效配置（全局，所有敌机共用） ---
 export interface HitEffectConfig {
-  soundCoolDown: number;      // 受击音效冷却帧数（防抖）
+  soundCoolDownMs: number;    // 受击音效冷却（ms，防抖，帧率无关）
   damageText: DamageTextConfig;  // 伤害浮动动效配置
 }
 
@@ -127,7 +127,7 @@ export interface EnemySpawnScalingConfig {
 
 // --- 敌机配置 ---
 export interface SmallEnemyConfig {
-  speed: number;
+  speed: number;   // 下落速度（px/s，帧率无关）
   hp: number;
   score: number;
   spawnWeight: number;
@@ -152,7 +152,7 @@ export interface BigEnemyConfig {
   score: number;
   spawnProbBase: number;
   spawnProbMax: number;
-  coolDownFrames: number;
+  coolDownMs: number;         // 生成冷却（ms，帧率无关）
   move: ZigzagMoveConfig;
   hpBar: HpBarConfig;
   scaling: EnemyScalingConfig;
@@ -168,8 +168,8 @@ export interface EliteEnemyConfig {
   move: DiveMoveConfig;
   hpBar: HpBarConfig;
   scaling: EnemyScalingConfig;
-  shootInterval: number;     // 射击间隔（帧）
-  bulletSpeed: number;       // 子弹速度
+  shootIntervalMs: number;   // 射击间隔（ms，帧率无关）
+  bulletSpeedPxPerSec: number; // 子弹速度（px/s，帧率无关）
   bulletSize: number;        // 子弹半径
 }
 
@@ -184,7 +184,7 @@ export interface EnemyConfig {
 export type BuffKey = "firepower" | "shield" | "spread";
 
 export interface BuffEntryConfig {
-  duration: number;
+  durationMs: number;   // 持续时长（ms，帧率无关）
   color: string;
   icon: string;
   label: TextKey;   // buff 标签的 i18n key（如 "buff.firepower"），绘制时用 t() 转换
@@ -195,7 +195,7 @@ export interface FirepowerBuffConfig extends BuffEntryConfig {
 }
 
 export interface ShieldBuffConfig extends BuffEntryConfig {
-  invincibleFrames: number;
+  invincibleMs: number;   // 破盾后无敌时长（ms，帧率无关）
 }
 
 export interface SpreadBuffConfig extends BuffEntryConfig {
@@ -226,7 +226,7 @@ export interface ItemTypeConfig {
 
 export interface ItemConfig {
   size: number;
-  speed: number;
+  speed: number;   // 下落速度（px/s，帧率无关）
   types: Record<ItemType, ItemTypeConfig>;
 }
 
@@ -257,9 +257,9 @@ export interface DropConfig {
 // --- 玩家战机配置 ---
 export interface HeroConfig {
   maxHp: number;
-  invincibleFrames: number;
-  bulletInterval: number;
-  enemySpawnInterval: number;
+  invincibleMs: number;          // 受击后无敌时长（ms，帧率无关）
+  bulletIntervalMs: number;      // 基础射击间隔（ms，帧率无关）
+  enemySpawnIntervalMs: number;  // 敌机生成间隔（ms，帧率无关，难度乘数在其上缩放）
 }
 
 // --- 子弹配置 ---
@@ -315,12 +315,12 @@ export interface UpgradeOffer {
 
 // --- BOSS 弹幕配置 ---
 export interface BossBulletConfig {
-  speed: number;            // 弹幕基础速度
+  speed: number;            // 弹幕基础速度（px/s，帧率无关）
   size: number;             // 弹幕半径
   fanCount: number;         // 扇形弹幕数量
   fanSpreadAngle: number;   // 扇形张角（弧度）
   aimedCount: number;       // 定向射击数量
-  interval: number;         // 攻击间隔（帧）
+  intervalMs: number;       // 攻击间隔（ms，帧率无关）
 }
 
 // --- BOSS 配置 ---
@@ -329,20 +329,20 @@ export interface BossConfig {
   hpGrowthFactor: number;    // HP 等级成长因子：baseHP × (1 + hpGrowthFactor × (bossIndex))
   widthRatio: number;        // BOSS 宽度占画布比例
   heightRatio: number;       // BOSS 高度占画布比例
-  moveSpeed: number;         // 水平巡逻速度
-  warningFrames: number;     // 预警持续帧数（gameEngine 20fps，60帧=3秒）
+  moveSpeed: number;         // 水平巡逻速度（px/s，帧率无关）
+  warningMs: number;         // 预警持续时长（ms，帧率无关）
   triggerInterval: number;   // 每隔多少级触发一次 BOSS（5）
   firstTriggerLevel: number; // 首次触发等级（5）
   bullet: BossBulletConfig;  // 弹幕配置
   defeatExpMultiplier: number; // 击败经验倍率（相当于同等级大型敌机经验的倍数）
   defeatItemDropProb: number;  // 击败掉落特殊道具概率
-  enemySpawnRate: number;      // BOSS 战期间敌机生成间隔（帧数，固定值）
+  enemySpawnRateMs: number;    // BOSS 战期间敌机生成间隔（ms，帧率无关，固定值）
 }
 
 // --- Buff 浮动文字 ---
 export interface BuffFloat {
   text: string;
   color: string;
-  frame: number;
-  maxFrame: number;
+  timeMs: number;    // 剩余时长（ms，帧率无关）
+  maxTimeMs: number; // 总时长（ms）
 }

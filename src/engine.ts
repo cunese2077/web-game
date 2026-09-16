@@ -22,7 +22,7 @@ import Item from "./item.js";
 import { paintBg, paintLogo, loading, drawPause, drawGameOver, drawSettings, getSettingsBtnArea, getGameDataBtnArea, handleSettingsClick, isGameDataOpen, openGameData, drawGameData, handleGameDataClick, getPauseBackBtnArea, getGameOverBackBtnArea, getContinueBtnArea, setMousePosition, addDamageEffect, drawScoreEffects, clearScoreEffects, drawDamageEffects, clearDamageEffects, resetGameOverAnim } from "./ui.js";
 import { drawUpgradeUI, handleUpgradeClick, clearUpgradeUI } from "./upgradeUI.js";
 import { updateAndDrawSpecialWeapons, clearSpecialWeapons } from "./specialWeapons.js";
-import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, restoreBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
+import { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, consumeBossWarningSoundTick, spawnBoss, restoreBoss, updateAndDrawBoss, isBossAlive, clearBoss, getBossWarningTimer, getActiveBoss, getSessionBossKillCount } from "./boss.js";
 import { updateAndDrawBullets, clearBullets } from "./enemyBullet.js";
 import { resumeAudio, playGameOver, playUpgradeSelect, playEvolution, playBossWarning, startBgm, stopBgm } from "./audio.js";
 import { loadSettings, isSettingsOpen, openSettings, closeSettings, toggleSound, getDifficulty } from "./settings.js";
@@ -32,6 +32,8 @@ import { getUpgradeSaveState, restoreUpgradeState, startUpgradeSelection, getMax
 import { tryUpdateHighScore, tryUpdateHighLevel } from "./record.js";
 import { recordGameEnd } from "./achievement.js";
 import { isDebugMode, isDebugPanelVisible, drawDebugPanel, drawDebugToggle, handleDebugClick, handleDebugToggleClick, initDebugControls } from "./debug.js";
+// 帧率步长统一来自 frameTime.ts（#6 60fps 改造：切换帧率只改 frameTime.TARGET_DELTA 一处）
+import { TARGET_DELTA, getDt } from "./frameTime.js";
 import type { GamePhase } from "./types.js";
 
 let curPhase: GamePhase = PHASE_DOWNLOAD;
@@ -41,19 +43,19 @@ let loadAnim: (() => GamePhase) | null = null;
 let gameOverSoundPlayed: boolean = false;
 let gameOverRecordUpdated: boolean = false;
 
-// 进化全屏闪光动画（选中进化道具时触发）
-let evolutionFlashFrames: number = 0;
-const EVOLUTION_FLASH_DURATION: number = 30; // 1.5秒@20fps
+// 进化全屏闪光动画（选中进化道具时触发，ms 帧率无关）
+let evolutionFlashMs: number = 0;
+const EVOLUTION_FLASH_DURATION_MS: number = 1500; // 1.5秒
 
-// BOSS 击败慢动作效果
-let bossDefeatSlowMo: number = 0;
+// BOSS 击败慢动作效果（ms 帧率无关）
+let bossDefeatSlowMoMs: number = 0;
 let bossDefeatX: number = 0;
 let bossDefeatY: number = 0;
 
 // ========== 中断续玩 ==========
-// 自动保存帧计数器（每 100 帧 = 5秒@20fps 存一次）
-const SAVE_INTERVAL_FRAMES: number = 100;
-let saveFrameCounter: number = 0;
+// 自动保存计时器（每 5000ms 存一次，帧率无关）
+const SAVE_INTERVAL_MS: number = 5000;
+let saveAccumMs: number = 0;
 // 恢复标记：从开始界面点"继续游戏"进入 loading，loading 完成时应用快照
 let pendingRestore: boolean = false;
 
@@ -95,7 +97,7 @@ function _applyRestore(): void {
   hero.y = snap.hero.y;
   hero.maxHp = getMaxHp();
   hero.hp = Math.max(1, Math.min(snap.hero.hp, hero.maxHp));
-  hero.invincible = 60; // 3秒@20fps 保护
+  hero.invincibleMs = 3000; // 3 秒保护
   hero.lastLevel = getLevel();  // 防止恢复等级差被误判为新升级（触发升级弹窗/回血）
   if (snap.bossPending && snap.boss) {
     // 原局在 BOSS 战：按快照恢复 BOSS（保留中断时血量与攻击阶段）
@@ -119,17 +121,17 @@ function _applyRestore(): void {
 
 // BOSS 预警 UI 绘制
 function _drawBossWarningUI(): void {
-  const timer = getBossWarningTimer();
-  const seconds = Math.ceil(timer / 20); // 20fps
+  const timerMs = getBossWarningTimer();
+  const seconds = Math.ceil(timerMs / 1000);
   ctx.save();
 
   // 红色闪烁遮罩
-  const pulse = 0.25 + 0.2 * Math.sin(timer * 0.3);
+  const pulse = 0.25 + 0.2 * Math.sin(timerMs * 0.006);
   ctx.fillStyle = `rgba(180, 0, 0, ${pulse})`;
   ctx.fillRect(0, 0, width, height);
 
   // 顶部和底部警告条纹
-  ctx.fillStyle = `rgba(255, 200, 0, ${0.4 + 0.3 * Math.sin(timer * 0.3)})`;
+  ctx.fillStyle = `rgba(255, 200, 0, ${0.4 + 0.3 * Math.sin(timerMs * 0.006)})`;
   const stripeH = Math.round(4 * fontScale);
   ctx.fillRect(0, 0, width, stripeH);
   ctx.fillRect(0, height - stripeH, width, stripeH);
@@ -155,11 +157,10 @@ function _drawBossWarningUI(): void {
   ctx.restore();
 }
 
-// BOSS 击败爆炸演出（慢动作期间绘制）
+// BOSS 击败爆炸演出（慢动作期间绘制，ms 时间基准）
 function _drawBossExplosion(): void {
-  const totalFrames = 35;
-  const elapsed = totalFrames - bossDefeatSlowMo;
-  const progress = elapsed / totalFrames; // 0→1
+  const totalMs = 1750;
+  const progress = (totalMs - bossDefeatSlowMoMs) / totalMs; // 0→1
 
   ctx.save();
 
@@ -279,7 +280,7 @@ function processUpgradeSelection(clickX: number, clickY: number): void {
   if (result === "selected" || result === "selected_evolution") {
     if (result === "selected_evolution") {
       playEvolution();
-      evolutionFlashFrames = EVOLUTION_FLASH_DURATION;
+      evolutionFlashMs = EVOLUTION_FLASH_DURATION_MS;
     } else {
       playUpgradeSelect();
     }
@@ -389,9 +390,9 @@ function start(): void {
         clearUpgradeUI();
         gameOverSoundPlayed = false;
         gameOverRecordUpdated = false;
-        evolutionFlashFrames = 0;
+        evolutionFlashMs = 0;
         resetGameOverAnim();
-        bossDefeatSlowMo = 0;
+        bossDefeatSlowMoMs = 0;
         clearSave();  // 放弃本局：清除中断续玩快照
         curPhase = PHASE_READY;
       } else {
@@ -423,9 +424,9 @@ function start(): void {
         clearUpgradeUI();
         gameOverSoundPlayed = false;
         gameOverRecordUpdated = false;
-        evolutionFlashFrames = 0;
+        evolutionFlashMs = 0;
         resetGameOverAnim();
-        bossDefeatSlowMo = 0;
+        bossDefeatSlowMoMs = 0;
         clearSave();  // 放弃本局：清除中断续玩快照
         curPhase = PHASE_READY;
       } else {
@@ -449,9 +450,9 @@ function start(): void {
         clearUpgradeUI();
         gameOverSoundPlayed = false;
         gameOverRecordUpdated = false;
-        evolutionFlashFrames = 0;
+        evolutionFlashMs = 0;
         resetGameOverAnim();
-        bossDefeatSlowMo = 0;
+        bossDefeatSlowMoMs = 0;
         clearSave();  // 重新开始新游戏：旧快照失效
         curPhase = PHASE_LOADING;
       }
@@ -528,7 +529,7 @@ function gameEngine(): void {
           curPhase,
           () => Enemy.getEnemyProxies(),
           (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
-          (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
+          (enemyId, factor, durationMs) => Enemy.applySlow(enemyId, factor, durationMs),
         );
       }
       drawScoreEffects();
@@ -550,7 +551,7 @@ function gameEngine(): void {
           curPhase,
           () => Enemy.getEnemyProxies(),
           (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
-          (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
+          (enemyId, factor, durationMs) => Enemy.applySlow(enemyId, factor, durationMs),
         );
       }
       drawScoreEffects();
@@ -565,15 +566,15 @@ function gameEngine(): void {
         // 绘制预警 UI（半透明红色遮罩，不阻挡交互）
         _drawBossWarningUI();
       }
-      // 预警期间每 45 帧播放一次警报音效
-      if (getBossWarningTimer() > 0 && getBossWarningTimer() % 45 === 0) {
+      // 预警期间每 2250ms 播放一次警报音效（帧率无关节拍）
+      if (consumeBossWarningSoundTick()) {
         playBossWarning();
       }
       break;
     case PHASE_BOSS:
       if (pBg) pBg();
       startBgm("boss");     // 幂等：BOSS 战保持紧张 BGM
-      if (bossDefeatSlowMo > 0) {
+      if (bossDefeatSlowMoMs > 0) {
         // === 慢动作：BOSS 被击败后的爆炸演出 ===
         Enemy.drawEnemy(true);
         Item.drawItems(true);
@@ -582,8 +583,8 @@ function gameEngine(): void {
         _drawBossExplosion();
         drawScoreEffects();
         drawDamageEffects();
-        bossDefeatSlowMo--;
-        if (bossDefeatSlowMo <= 0) {
+        bossDefeatSlowMoMs -= getDt();
+        if (bossDefeatSlowMoMs <= 0) {
           clearBullets();
           curPhase = PHASE_PLAY;
         }
@@ -599,7 +600,7 @@ function gameEngine(): void {
             curPhase,
             () => Enemy.getEnemyProxies(),
             (enemy, damage, isCrit, skipHitSound) => Enemy.applyDamage(enemy.id, damage, isCrit, skipHitSound),
-            (enemyId, factor, frames) => Enemy.applySlow(enemyId, factor, frames),
+            (enemyId, factor, durationMs) => Enemy.applySlow(enemyId, factor, durationMs),
           );
         }
         // BOSS 更新+绘制
@@ -617,7 +618,7 @@ function gameEngine(): void {
             bossDefeatX = boss.x;
             bossDefeatY = boss.y;
           }
-          bossDefeatSlowMo = 35; // 1.75秒@20fps
+          bossDefeatSlowMoMs = 1750; // 1.75秒
         }
       }
       break;
@@ -666,9 +667,9 @@ function gameEngine(): void {
   }
 
   // 进化全屏闪光（绘制在最上层，调试面板之下）
-  if (evolutionFlashFrames > 0) {
-    evolutionFlashFrames--;
-    const progress = 1 - evolutionFlashFrames / EVOLUTION_FLASH_DURATION;
+  if (evolutionFlashMs > 0) {
+    evolutionFlashMs -= getDt();
+    const progress = 1 - evolutionFlashMs / EVOLUTION_FLASH_DURATION_MS;
     // 前半段：白色爆闪渐隐；后半段：紫色脉冲渐隐
     let alpha: number;
     let color: string;
@@ -676,7 +677,7 @@ function gameEngine(): void {
       alpha = 0.7 * (1 - progress / 0.3);
       color = `rgba(255, 255, 255, ${alpha})`;
     } else {
-      const pulse = 0.5 + 0.5 * Math.sin(evolutionFlashFrames * 0.4);
+      const pulse = 0.5 + 0.5 * Math.sin(evolutionFlashMs * 0.008);
       alpha = 0.3 * (1 - (progress - 0.3) / 0.7) * pulse;
       color = `rgba(180, 80, 255, ${alpha})`;
     }
@@ -698,7 +699,6 @@ loadSettings();
 initDebugControls();
 download(start);
 
-const TARGET_DELTA: number = 50;
 let lastTimestamp: number = 0;
 
 function gameLoop(timestamp: number): void {
@@ -707,9 +707,9 @@ function gameLoop(timestamp: number): void {
     lastTimestamp = timestamp - (delta % TARGET_DELTA);
     gameEngine();
     // 中断续玩：游戏中定时保存（页面隐藏时另有即时保存兜底）
-    saveFrameCounter++;
-    if (saveFrameCounter >= SAVE_INTERVAL_FRAMES) {
-      saveFrameCounter = 0;
+    saveAccumMs += getDt();
+    if (saveAccumMs >= SAVE_INTERVAL_MS) {
+      saveAccumMs = 0;
       _saveSnapshot();
     }
   }

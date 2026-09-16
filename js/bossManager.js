@@ -1,9 +1,13 @@
 // BOSS 管理模块（从 boss.ts 拆出）：触发检查/预警/生成/存活查询/重置
 import { bossConfig } from "./config.js";
 import { Boss } from "./bossEntity.js";
+import { getDt } from "./frameTime.js";
+// 预警期间警报音效间隔（原 45 帧 × 50ms，帧率无关）
+const BOSS_WARNING_SOUND_INTERVAL_MS = 2250;
 // BOSS 管理状态
 let activeBoss = null;
-let bossWarningTimer = 0; // 预警倒计时帧数
+let bossWarningTimerMs = 0; // 预警倒计时（ms，帧率无关）
+let bossWarningSoundAccumMs = 0; // 警报音效累积计时（ms）
 let triggeredBossLevels = new Set(); // 已触发的 BOSS 等级
 let sessionBossKillCount = 0; // 本局击败 BOSS 计数
 // 检查是否应触发 BOSS（在升级时调用）
@@ -21,13 +25,25 @@ function checkBossTrigger(level) {
 }
 // 开始 BOSS 预警
 function startBossWarning() {
-    bossWarningTimer = bossConfig.warningFrames;
+    bossWarningTimerMs = bossConfig.warningMs;
+    bossWarningSoundAccumMs = 0;
 }
-// 预警帧更新，返回 true 表示预警结束，应进入 BOSS 战
+// 预警时间更新，返回 true 表示预警结束，应进入 BOSS 战
 function updateBossWarning() {
-    if (bossWarningTimer > 0) {
-        bossWarningTimer--;
-        return bossWarningTimer === 0;
+    if (bossWarningTimerMs > 0) {
+        bossWarningTimerMs -= getDt();
+        return bossWarningTimerMs <= 0;
+    }
+    return false;
+}
+// 预警期间警报音效节拍：每 2250ms 触发一次（帧率无关）
+function consumeBossWarningSoundTick() {
+    if (bossWarningTimerMs <= 0)
+        return false;
+    bossWarningSoundAccumMs += getDt();
+    if (bossWarningSoundAccumMs >= BOSS_WARNING_SOUND_INTERVAL_MS) {
+        bossWarningSoundAccumMs -= BOSS_WARNING_SOUND_INTERVAL_MS;
+        return true;
     }
     return false;
 }
@@ -79,13 +95,14 @@ function isBossAlive() {
 // 清理 BOSS 状态（游戏重置时调用）
 function clearBoss() {
     activeBoss = null;
-    bossWarningTimer = 0;
+    bossWarningTimerMs = 0;
+    bossWarningSoundAccumMs = 0;
     triggeredBossLevels = new Set();
     sessionBossKillCount = 0;
 }
-// 获取预警剩余帧数
+// 获取预警剩余时长（ms）
 function getBossWarningTimer() {
-    return bossWarningTimer;
+    return bossWarningTimerMs;
 }
 // 获取本局击败 BOSS 数
 function getSessionBossKillCount() {
@@ -95,4 +112,4 @@ function getSessionBossKillCount() {
 function incrementSessionBossKillCount() {
     sessionBossKillCount++;
 }
-export { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, spawnBoss, restoreBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, incrementSessionBossKillCount, };
+export { checkBossTrigger, registerDebugBossLevel, startBossWarning, updateBossWarning, consumeBossWarningSoundTick, spawnBoss, restoreBoss, updateAndDrawBoss, getActiveBoss, isBossAlive, clearBoss, getBossWarningTimer, getSessionBossKillCount, incrementSessionBossKillCount, };

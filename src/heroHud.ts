@@ -5,8 +5,9 @@ import { t } from "./i18n.js";
 import { getGameScore } from "./score.js";
 import { getLevel, getExp, getExpToNext } from "./level.js";
 import { isSoundEnabled } from "./settings.js";
-import { getBulletDamage, getBulletInterval } from "./upgrade.js";
+import { getBulletDamage, getBulletIntervalMs } from "./upgrade.js";
 import { buffConfig } from "./config.js";
+import { getDt } from "./frameTime.js";
 import { setPauseBtnArea } from "./heroState.js";
 import type { BuffState } from "./types.js";
 
@@ -14,9 +15,9 @@ import type { BuffState } from "./types.js";
 interface HeroHudState {
   hp: number;
   maxHp: number;
-  hpFlash: number;
-  buffs: BuffState;
-  levelUpAnim: number;
+  hpFlashMs: number;
+  buffs: BuffState;   // 各 buff 剩余时长（ms）
+  levelUpAnimMs: number;
 }
 
 // 分数（左上角）
@@ -153,22 +154,23 @@ function drawHp(h: HeroHudState): void {
   const x = width - barWidth - Math.round(10 * fontScale);
   const y = height - barHeight - Math.round(10 * fontScale);
 
-  if (h.hpFlash > 0) {
-    h.hpFlash--;
+  if (h.hpFlashMs > 0) {
+    h.hpFlashMs = Math.max(0, h.hpFlashMs - getDt());
   }
 
   ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
   ctx.fillRect(x, y, barWidth, barHeight);
 
   const ratio = h.hp / h.maxHp;
-  if (h.hpFlash > 0 && h.hpFlash % 6 < 3) {
+  // 受击闪白：150ms 明暗交替（原 hpFlash % 6 < 3 帧制闪烁，数学恒等）
+  if (h.hpFlashMs > 0 && Math.floor(h.hpFlashMs / 150) % 2 === 0) {
     ctx.fillStyle = "#fff";
   } else {
     ctx.fillStyle = ratio > 0.5 ? "#0f0" : ratio > 0.25 ? "#ff0" : "#f00";
   }
   ctx.fillRect(x, y, barWidth * ratio, barHeight);
 
-  if (h.hpFlash > 0) {
+  if (h.hpFlashMs > 0) {
     ctx.shadowColor = "#0f0";
     ctx.shadowBlur = 8;
   }
@@ -202,7 +204,7 @@ function drawBuffs(h: HeroHudState): void {
     const key = activeBuffs[i];
     const cfg = buffConfig[key];
     const y = baseY - i * (barHeight + Math.round(4 * fontScale));
-    const ratio = h.buffs[key] / cfg.duration;
+    const ratio = h.buffs[key] / cfg.durationMs;
 
     ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
     ctx.fillRect(baseX, y, barWidth, barHeight);
@@ -219,7 +221,7 @@ function drawBuffs(h: HeroHudState): void {
     ctx.textAlign = "left";
     ctx.fillText(t(cfg.label), baseX + Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
     ctx.textAlign = "right";
-    ctx.fillText((h.buffs[key] / 20).toFixed(1) + "s", baseX + barWidth - Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
+    ctx.fillText((h.buffs[key] / 1000).toFixed(1) + "s", baseX + barWidth - Math.round(3 * fontScale), y + barHeight - Math.round(1 * fontScale));
   }
   ctx.textAlign = "left";
 }
@@ -229,7 +231,7 @@ function drawStats(h: HeroHudState): void {
   const currentDamage = getBulletDamage();
   const hasFirepower = h.buffs.firepower > 0;
   const displayDamage = currentDamage * (hasFirepower ? buffConfig.firepower.damageMultiplier : 1);
-  const bulletInterval = getBulletInterval();
+  const bulletIntervalMs = getBulletIntervalMs();
 
   const padding = Math.round(6 * fontScale);
   const lineH = Math.round(14 * fontScale);
@@ -239,7 +241,7 @@ function drawStats(h: HeroHudState): void {
   const panelX = Math.round(10 * fontScale);
   const panelY = height - panelH - Math.round(10 * fontScale);
 
-  const isLevelUp = h.levelUpAnim > 0;
+  const isLevelUp = h.levelUpAnimMs > 0;
   const borderColor = isLevelUp ? "#fd0" : "rgba(255,255,255,0.4)";
   const bgAlpha = isLevelUp ? 0.55 : 0.35;
 
@@ -274,13 +276,13 @@ function drawStats(h: HeroHudState): void {
   ctx.fillText(displayDamage.toFixed(2), valueX, lineY);
   lineY += lineH;
 
-  // RATE
+  // RATE（每秒发射数，由射击间隔换算）
   ctx.textAlign = "left";
   ctx.fillStyle = "#9cf";
   ctx.fillText(t("hud.rate"), labelX, lineY);
   ctx.textAlign = "right";
   ctx.fillStyle = "#fff";
-  ctx.fillText(String(bulletInterval), valueX, lineY);
+  ctx.fillText((1000 / bulletIntervalMs).toFixed(1) + "/s", valueX, lineY);
 
   ctx.textAlign = "left";
 }

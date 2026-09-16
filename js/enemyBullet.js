@@ -1,6 +1,7 @@
 // BOSS 敌机弹幕类
 import { ctx } from "./canvas.js";
 import { width, height } from "./canvas.js";
+import { getDtSec } from "./frameTime.js";
 import { ObjectPool } from "./pool.js";
 class EnemyBullet {
     constructor(x, y, speedX, speedY, size, color) {
@@ -17,8 +18,9 @@ class EnemyBullet {
         this.removable = false;
     }
     update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
+        // 速度单位 px/s × dt（帧率无关）
+        this.x += this.speedX * getDtSec();
+        this.y += this.speedY * getDtSec();
         // 超出屏幕范围标记为可移除
         if (this.y > height + this.size || this.y < -this.size ||
             this.x > width + this.size || this.x < -this.size) {
