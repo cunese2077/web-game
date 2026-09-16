@@ -5,6 +5,7 @@ import { bg, gameLoad, heroImg } from "./resources.js";
 import { PHASE_LOADING, PHASE_PLAY } from "./constants.js";
 import { t } from "./i18n.js";
 import { loadGame } from "./saveGame.js";
+import { getDt, getDtSec } from "./frameTime.js";
 import type { GamePhase } from "./types.js";
 
 // 画滚动背景
@@ -15,7 +16,7 @@ function paintBg(): () => void {
   return function (): void {
     ctx.drawImage(bg, 0, y, width, height);
     ctx.drawImage(bg, 0, y - height, width, height);
-    y++;
+    y += 20 * getDtSec(); // 滚动速度 20px/s（原每帧 1px，dt=50 时恒等）
     // 使用 >= 而非 ===：移动端地址栏显示/隐藏、横竖屏切换会导致画布尺寸缩小，
     // 若 y 已超过新 height，=== 比较永远不成立，y 无限递增使两张 drawImage 都画在画布外，
     // 画布不被覆盖，产生残影累积（子弹/敌机/战机残影不消失）
@@ -23,8 +24,9 @@ function paintBg(): () => void {
   };
 }
 
-// 开始界面动画帧计数器（用于标题浮动、飞机摆动、提示闪烁）
-let logoFrame: number = 0;
+// 开始界面动画时间累积（ms；用于标题浮动、飞机摆动、提示闪烁）
+// 用取模限制增长解决精度丢失（原 % 10000 帧 = 10000 × 50ms）
+let logoTimeMs: number = 0;
 
 // 设置按钮点击区域（供 engine.ts 判断点击）
 let settingsBtnX: number = 0;
@@ -56,7 +58,9 @@ function getContinueBtnArea(): { x: number; y: number; w: number; h: number } | 
 // 画开始界面（飞机装饰 + 标题 + 提示文本，支持多语言，带动画）
 // 水平+垂直居中，避免大屏设备内容偏上
 function paintLogo(): void {
-  logoFrame = (logoFrame + 1) % 10000; // 用取模限制增长，解决精度丢失问题
+  // 时间累积后取模（500000ms = 原 10000 帧），帧号按 50ms 一帧换算（dt=50 时与原帧计数恒等）
+  logoTimeMs = (logoTimeMs + getDt()) % 500000;
+  const logoFrame = Math.floor(logoTimeMs / 50);
   const cx = width / 2;
   const cy = height / 2;
 
@@ -179,15 +183,19 @@ function getGameDataBtnArea(): { x: number; y: number; w: number; h: number } {
   return { x: gameDataBtnX, y: y - settingsBtnHitH, w: gameDataBtnW, h: settingsBtnHitH };
 }
 
-// 加载动画
+// 加载动画（时间制：原每帧 index +0.5，即 100ms 一个刻度、仅整刻度前半段显示）
 function loading(): () => GamePhase {
-  let index: number = 0;
+  let timeMs: number = 0;
   return function (): GamePhase {
-    index % 1 === 0 &&
-      ctx.drawImage(gameLoad[Math.floor(index)], (width - gameLoad[0].width) / 2, height - gameLoad[0].height);
-    index += 0.5;
-    if (index > 3) {
-      index = 0;
+    // 原逻辑：index 每帧 +0.5，仅整刻度（index % 1 === 0）时绘制 gameLoad[floor(index)]
+    // dt=50 恒等：timeMs 恒为 50 的倍数，与原半帧步进完全一致
+    const frame = Math.floor(timeMs / 100);
+    if (timeMs % 100 < 50) {
+      ctx.drawImage(gameLoad[frame], (width - gameLoad[0].width) / 2, height - gameLoad[0].height);
+    }
+    timeMs += getDt();
+    if (timeMs > 300) { // 原 index > 3（第 7 步半帧 3.5）结束，dt=50 时即 350ms
+      timeMs = 0;
       return PHASE_PLAY;
     }
     return PHASE_LOADING;

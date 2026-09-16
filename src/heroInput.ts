@@ -52,7 +52,6 @@ function bindEventsOnce(): void {
       else if (ny > height - h / 2) ny = height - h / 2;
       hero.x = nx;
       hero.y = ny;
-      hero.count = 2;
     }
   };
 

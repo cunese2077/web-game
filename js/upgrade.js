@@ -449,16 +449,17 @@ function consumeBossLegendary() {
     }
     return false;
 }
-// 当前射击间隔（帧数）
-function getBulletInterval() {
+// 当前射击间隔（ms，帧率无关）
+function getBulletIntervalMs() {
     // 基础武器射速加成 + 被动射速加成
     let totalFireRateBonus = getBaseWeaponFireRateBonus() + getFireRatePassiveBonus();
     // 弹幕风暴：射速 ×1.3（额外 +30% 射速加成）
     if (hasBulletStorm())
         totalFireRateBonus += 0.3;
-    const baseInterval = heroConfig.bulletInterval;
     // 射速加成减少射击间隔：interval = base / (1 + bonus)
-    return Math.max(1, Math.round(baseInterval / (1 + totalFireRateBonus)));
+    // 以 50ms 为最小单位取整后再换算 ms，与原帧数制（max(1, round(frames))）数学恒等
+    const intervalUnits = Math.max(1, Math.round(heroConfig.bulletIntervalMs / (50 * (1 + totalFireRateBonus))));
+    return intervalUnits * 50;
 }
 // 当前子弹伤害（单发，不含火力buff）
 function getBulletDamage() {
@@ -498,4 +499,4 @@ function getBuildSummary() {
     }
     return result;
 }
-export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getUpgradeSaveState, restoreUpgradeState, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletInterval, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, getBuildRoute, };
+export { initUpgrades, getWeaponLevel, getPassiveStacks, addPendingLevelUps, getUpgradeSaveState, restoreUpgradeState, getPendingLevelUps, getCurrentOffers, getRerollsLeft, startUpgradeSelection, rerollOffers, applyUpgrade, addBossKillBonus, triggerBossLegendary, getBaseWeaponLevel, getBulletCount, getBaseWeaponDamageBonus, getBaseWeaponFireRateBonus, hasPiercing, hasPiercingItem, getExtraHp, getDamagePassiveMultiplier, getFireRatePassiveBonus, getMoveSpeedBonus, getCritChance, getArmorReduction, getWingmanCount, getWingmanDamageBonus, getExplosionRadiusBonus, getMultiMissileBonus, getChainEnhanceBonus, getFreezeAddonSlow, hasBulletStorm, hasNukeWarhead, hasVoidEnergy, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, getBulletIntervalMs, getBulletDamage, getBulletDamageWithBuff, getMaxHp, getBuildSummary, getBuildRoute, };

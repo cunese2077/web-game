@@ -1,27 +1,34 @@
 // 特殊武器视觉特效模块（从 specialWeapons.ts 拆出）：命中闪光/烟花散开/闪电视觉/激光视觉 + 锯齿线生成
 // 各武器系统经 add* 函数注入特效，门面每帧调用 updateAndDrawWeaponEffects 统一更新绘制
+// 60fps 改造：特效时长帧制 → ms 制（原帧数 × 50）；烟花粒子移动帧制 → px/s 速度制（原每帧位移 × 20）
 import { ctx } from "./canvas.js";
-const LASER_VISUAL_FRAMES = 16;
-const LIGHTNING_VISUAL_FRAMES = 20;
+import { getDt, getDtSec } from "./frameTime.js";
+// 视觉特效时长（ms，原 20fps 帧数 × 50）
+const LASER_VISUAL_DURATION_MS = 800; // 激光视觉：原 16 帧
+const LIGHTNING_VISUAL_DURATION_MS = 1000; // 闪电视觉：原 20 帧
+const FIREWORK_DURATION_MS = 1100; // 烟花散开：原 22 帧
+// 烟花粒子物理（原每帧值 × 20 → px/s）
+const FIREWORK_GRAVITY_PX_PER_SEC = 3; // 微重力：原 0.15/帧
+const FIREWORK_DRAG_PER_FRAME = 0.96; // 空气阻力：每 50ms 衰减一次的系数
 // ========== 命中闪光特效 ==========
 // 导弹命中爆炸 / 闪电命中电弧 / 激光命中冲击 的视觉闪光
 class HitFlash {
-    constructor(x, y, radius, color, frames) {
+    constructor(x, y, radius, color, durationMs) {
         this.x = x;
         this.y = y;
         this.radius = radius;
         this.color = color;
-        this.frame = 0;
-        this.maxFrame = frames;
+        this.timeMs = 0;
+        this.durationMs = durationMs;
     }
     get removable() {
-        return this.frame >= this.maxFrame;
+        return this.timeMs >= this.durationMs;
     }
     update() {
-        this.frame++;
+        this.timeMs += getDt();
     }
     draw() {
-        const progress = this.frame / this.maxFrame;
+        const progress = this.timeMs / this.durationMs;
         const alpha = 1 - progress;
         const currentRadius = this.radius * (0.5 + progress * 1.5);
         ctx.save();
@@ -39,12 +46,13 @@ class HitFlash {
 // 多个粒子从命中点向四周散开，带拖尾渐隐
 class FireworkBurst {
     constructor(x, y, radius, colors, particleCount) {
-        this.frame = 0;
-        this.maxFrame = 22;
+        this.timeMs = 0;
+        this.durationMs = FIREWORK_DURATION_MS;
         this.particles = [];
         for (let i = 0; i < particleCount; i++) {
             const angle = (Math.PI * 2 / particleCount) * i + (Math.random() - 0.5) * 0.5;
-            const speed = radius * (0.14 + Math.random() * 0.10);
+            // 初速度 px/s（原每帧位移 × 20，dt=50 时与原帧逻辑恒等）
+            const speed = radius * (0.14 + Math.random() * 0.10) * 20;
             this.particles.push({
                 x: x,
                 y: y,
@@ -56,20 +64,23 @@ class FireworkBurst {
         }
     }
     get removable() {
-        return this.frame >= this.maxFrame;
+        return this.timeMs >= this.durationMs;
     }
     update() {
-        this.frame++;
+        this.timeMs += getDt();
+        const dtSec = getDtSec();
+        // 空气阻力：原每帧 ×0.96 → 按 50ms 一次指数衰减（dt=50 时恒等于 ×0.96）
+        const drag = Math.pow(FIREWORK_DRAG_PER_FRAME, dtSec * 20);
         for (const p of this.particles) {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.15; // 微重力，粒子缓慢下落
-            p.vx *= 0.96; // 空气阻力
-            p.vy *= 0.96;
+            p.x += p.vx * dtSec;
+            p.y += p.vy * dtSec;
+            p.vy += FIREWORK_GRAVITY_PX_PER_SEC * dtSec; // 微重力，粒子缓慢下落
+            p.vx *= drag; // 空气阻力
+            p.vy *= drag;
         }
     }
     draw() {
-        const progress = this.frame / this.maxFrame;
+        const progress = this.timeMs / this.durationMs;
         const alpha = 1 - progress;
         for (const p of this.particles) {
             ctx.save();
@@ -88,20 +99,20 @@ class FireworkBurst {
 class LightningBolt {
     constructor(segments, damage, slowFactor, hitEnemyIds) {
         this.segments = segments;
-        this.frame = 0;
-        this.maxFrame = LIGHTNING_VISUAL_FRAMES;
+        this.timeMs = 0;
+        this.durationMs = LIGHTNING_VISUAL_DURATION_MS;
         this.damage = damage;
         this.slowFactor = slowFactor;
         this.hitEnemyIds = hitEnemyIds;
     }
     get removable() {
-        return this.frame >= this.maxFrame;
+        return this.timeMs >= this.durationMs;
     }
     update() {
-        this.frame++;
+        this.timeMs += getDt();
     }
     draw() {
-        const alpha = 1 - this.frame / this.maxFrame;
+        const alpha = 1 - this.timeMs / this.durationMs;
         ctx.save();
         ctx.globalAlpha = alpha;
         // 外层发光：宽+蓝紫色
@@ -135,17 +146,17 @@ class LaserBeam {
         this.x = x;
         this.y = y;
         this.beamLength = beamLength;
-        this.frame = 0;
-        this.maxFrame = LASER_VISUAL_FRAMES;
+        this.timeMs = 0;
+        this.durationMs = LASER_VISUAL_DURATION_MS;
     }
     get removable() {
-        return this.frame >= this.maxFrame;
+        return this.timeMs >= this.durationMs;
     }
     update() {
-        this.frame++;
+        this.timeMs += getDt();
     }
     draw() {
-        const alpha = 1 - this.frame / this.maxFrame;
+        const alpha = 1 - this.timeMs / this.durationMs;
         const endY = this.y - this.beamLength;
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -208,8 +219,8 @@ function generateJaggedLine(x1, y1, x2, y2, segments = 4) {
     return result;
 }
 // ========== 注入接口（各武器系统调用） ==========
-function addHitFlash(x, y, radius, color, frames) {
-    hitFlashes.push(new HitFlash(x, y, radius, color, frames));
+function addHitFlash(x, y, radius, color, durationMs) {
+    hitFlashes.push(new HitFlash(x, y, radius, color, durationMs));
 }
 function addFireworkBurst(x, y, radius, colors, particleCount) {
     fireworkBursts.push(new FireworkBurst(x, y, radius, colors, particleCount));

@@ -7,6 +7,7 @@ import { getBuildSummary } from "./upgrade.js";
 import { getHighScore, getHighLevel } from "./record.js";
 import { getStats, getLastGame, getAchievementDefs } from "./achievement.js";
 import { t } from "./i18n.js";
+import { getDt } from "./frameTime.js";
 // 游戏结束界面返回主页按钮点击区域
 let gameOverBackBtnX = 0;
 let gameOverBackBtnW = 0;
@@ -15,10 +16,10 @@ let gameOverBackBtnH = 0;
 function getGameOverBackBtnArea() {
     return { x: gameOverBackBtnX, y: gameOverBackBtnY, w: gameOverBackBtnW, h: gameOverBackBtnH };
 }
-// 结算入场动画帧计数器
-let gameOverAnimFrame = 0;
+// 结算入场动画时间累积（ms，原帧计数 × 50）
+let gameOverAnimTimeMs = 0;
 function resetGameOverAnim() {
-    gameOverAnimFrame = 0;
+    gameOverAnimTimeMs = 0;
 }
 // 稀有度颜色（Build 摘要条目）
 function rarityColor(rarity) {
@@ -55,31 +56,31 @@ function drawGroup(title, entries, startY, cx, halfW, itemFontSize, lineHeight) 
 }
 // 画游戏结束界面（含 Build 摘要）
 function drawGameOver() {
-    gameOverAnimFrame++;
-    // 入场动画辅助函数
+    gameOverAnimTimeMs += getDt();
+    // 入场动画辅助函数（start/dur 均为 ms，原帧值 × 50）
     const animAlpha = (start, dur) => {
-        if (gameOverAnimFrame < start)
+        if (gameOverAnimTimeMs < start)
             return 0;
-        if (gameOverAnimFrame >= start + dur)
+        if (gameOverAnimTimeMs >= start + dur)
             return 1;
-        return (gameOverAnimFrame - start) / dur;
+        return (gameOverAnimTimeMs - start) / dur;
     };
     const animOffset = (start, dur, dist) => {
-        if (gameOverAnimFrame < start)
+        if (gameOverAnimTimeMs < start)
             return -dist;
-        if (gameOverAnimFrame >= start + dur)
+        if (gameOverAnimTimeMs >= start + dur)
             return 0;
-        return -dist * (1 - (gameOverAnimFrame - start) / dur);
+        return -dist * (1 - (gameOverAnimTimeMs - start) / dur);
     };
-    // 遮罩渐入
-    const overlayAlpha = animAlpha(0, 8) * 0.7;
+    // 遮罩渐入（原 0 起 8 帧）
+    const overlayAlpha = animAlpha(0, 400) * 0.7;
     ctx.fillStyle = `rgba(0, 0, 0, ${overlayAlpha})`;
     ctx.fillRect(0, 0, width, height);
     const cx = width / 2;
     let curY = height * 0.12;
-    // === 上半部分：标题+得分+等级+纪录（渐入+下滑）===
-    const topAlpha = animAlpha(4, 12);
-    const topOffset = animOffset(4, 12, 25);
+    // === 上半部分：标题+得分+等级+纪录（渐入+下滑，原 4 帧 12 帧）===
+    const topAlpha = animAlpha(200, 600);
+    const topOffset = animOffset(200, 600, 25);
     ctx.save();
     ctx.globalAlpha = topAlpha;
     ctx.textAlign = "center";
@@ -142,9 +143,9 @@ function drawGameOver() {
         curY += Math.round(22 * fontScale);
     }
     ctx.restore(); // 上半部分动画结束
-    // === 下半部分：Build摘要+成就+统计+按钮（延迟渐入）===
-    const bottomAlpha = animAlpha(14, 12);
-    const bottomOffset = animOffset(14, 12, 20);
+    // === 下半部分：Build摘要+成就+统计+按钮（延迟渐入，原 14 帧 12 帧）===
+    const bottomAlpha = animAlpha(700, 600);
+    const bottomOffset = animOffset(700, 600, 20);
     ctx.save();
     ctx.globalAlpha = bottomAlpha;
     ctx.textAlign = "center";

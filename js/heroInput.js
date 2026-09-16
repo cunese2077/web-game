@@ -55,7 +55,6 @@ function bindEventsOnce() {
                 ny = height - h / 2;
             hero.x = nx;
             hero.y = ny;
-            hero.count = 2;
         }
     };
     canvas.addEventListener("mousemove", move, false);

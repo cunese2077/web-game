@@ -14,25 +14,38 @@ import { getLevel } from "./level.js";
 import { getActiveBoss } from "./boss.js";
 import { getBullets } from "./enemyBullet.js";
 import { t } from "./i18n.js";
-import { addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletInterval, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, } from "./upgrade.js";
+import { getDt } from "./frameTime.js";
+import { addPendingLevelUps, getPendingLevelUps, getBulletCount, getBulletIntervalMs, getMaxHp, hasPiercing, startUpgradeSelection, getArmorReduction, hasDoomBarrage, hasQuantumAnnihilate, hasAnnihilateSquad, hasThunderPierce, hasWolfPack, hasPrismArray, } from "./upgrade.js";
 import { setActiveHero } from "./heroState.js";
 import { bindEventsOnce } from "./heroInput.js";
 import { drawScore, drawLevel, drawHp, drawBuffs, drawStats } from "./heroHud.js";
-import { drawShieldAura, drawEvolutionAura, drawBuffFloats, drawHealEffect, drawLevelUpEffect } from "./heroEffects.js";
+import { drawShieldAura, drawEvolutionAura, drawBuffFloats, drawHealEffect, drawLevelUpEffect, HEAL_ANIM_MS, LEVEL_UP_ANIM_MS, BUFF_FLOAT_MS } from "./heroEffects.js";
+// 当前敌机生成间隔（ms）
+// 与原帧制公式 Math.max(1, Math.round(frames × multiplier)) 数学恒等：
+// 先以 50ms 单位取整帧数，再换算为 ms
+function getSpawnIntervalMs(isBossBattle) {
+    if (isBossBattle) {
+        return bossConfig.enemySpawnRateMs;
+    }
+    const diffConfig = getDifficultyConfig(getDifficulty());
+    const intervalFrames = Math.max(1, Math.round(heroConfig.enemySpawnIntervalMs * diffConfig.enemySpawnRateMultiplier / 50));
+    return intervalFrames * 50;
+}
 class Hero {
     constructor() {
         this.x = (width - heroImg[0].width) / 2;
         this.y = height - heroImg[0].height;
         this.index = 0;
-        this.count = 0;
-        this.hCount = 0;
-        this.eCount = 0;
+        this.animTimeMs = 0;
+        this.deathAnimMs = 0;
+        this.fireCooldownMs = getBulletIntervalMs();
+        this.spawnCooldownMs = getSpawnIntervalMs(false);
         this.maxHp = getMaxHp();
         this.hp = this.maxHp;
-        this.invincible = 0;
+        this.invincibleMs = 0;
         this.dying = false;
-        this.healAnim = 0;
-        this.hpFlash = 0;
+        this.healAnimMs = 0;
+        this.hpFlashMs = 0;
         this.damageTaken = 0;
         this.buffs = {
             firepower: 0,
@@ -40,7 +53,7 @@ class Hero {
             spread: 0,
         };
         this.buffFloats = [];
-        this.levelUpAnim = 0;
+        this.levelUpAnimMs = 0;
         this.lastLevel = getLevel();
         this._getCurrentPhase = () => PHASE_DOWNLOAD;
         this._setCurrentPhase = () => { };
@@ -48,9 +61,11 @@ class Hero {
         bindEventsOnce();
     }
     draw(curPhase) {
-        this.count++;
+        this.animTimeMs += getDt();
         if (this.dying) {
-            this.index++;
+            // 死亡动画：每 50ms 推进一张精灵（与原每帧递增数学恒等）
+            this.deathAnimMs += getDt();
+            this.index = 2 + Math.ceil(this.deathAnimMs / 50);
             if (this.index >= heroImg.length) {
                 this._setCurrentPhase(PHASE_GAME_OVER);
                 this.index = heroImg.length - 1;
@@ -60,8 +75,8 @@ class Hero {
             drawHp(this);
             return this._getCurrentPhase();
         }
-        if (this.invincible > 0) {
-            this.invincible--;
+        if (this.invincibleMs > 0) {
+            this.invincibleMs = Math.max(0, this.invincibleMs - getDt());
         }
         // 更新 maxHp（升级选择可能改变了被动层数）
         this.maxHp = getMaxHp();
@@ -76,11 +91,10 @@ class Hero {
             }
             this.hit();
         }
-        if (this.count % 3 === 0 && this.index <= 1) {
-            this.index = this.index === 0 ? 1 : 0;
-            this.count = 0;
-        }
-        if (this.invincible > 0 && this.invincible % 4 < 2) {
+        // 扑翼动画：每 150ms 交替一张精灵（原每 3 帧交替，数学恒等）
+        this.index = Math.floor(this.animTimeMs / 150) % 2;
+        // 无敌闪烁：100ms 明暗交替（原 invincible % 4 < 2 帧制闪烁，数学恒等）
+        if (this.invincibleMs > 0 && Math.floor(this.invincibleMs / 100) % 2 === 0) {
             // 不绘制战机，产生闪烁
         }
         else {
@@ -103,32 +117,27 @@ class Hero {
             const pickedTypes = Item.checkCollision(this.x, this.y, heroImg[0].width, heroImg[0].height);
             this._handleItemPickup(pickedTypes);
         }
-        if (this.healAnim > 0) {
+        if (this.healAnimMs > 0) {
             drawHealEffect(this);
-            this.healAnim--;
+            this.healAnimMs = Math.max(0, this.healAnimMs - getDt());
         }
-        if (this.levelUpAnim > 0) {
+        if (this.levelUpAnimMs > 0) {
             drawLevelUpEffect(this);
-            this.levelUpAnim--;
+            this.levelUpAnimMs = Math.max(0, this.levelUpAnimMs - getDt());
         }
         // 射击逻辑：由升级状态驱动，升级选择时暂停
         if (curPhase === PHASE_PLAY || curPhase === PHASE_BOSS_WARNING || curPhase === PHASE_BOSS) {
-            this.hCount++;
-            const bulletInterval = getBulletInterval();
-            if (this.hCount % bulletInterval === 0) {
+            // 射击冷却：到期发射并重置（原 hCount % bulletInterval === 0 帧制，数学恒等）
+            this.fireCooldownMs -= getDt();
+            if (this.fireCooldownMs <= 0) {
                 this._shoot();
-                this.hCount = 0;
+                this.fireCooldownMs += getBulletIntervalMs();
             }
-            this.eCount++;
-            const diffConfig = getDifficultyConfig(getDifficulty());
-            let spawnInterval = Math.max(1, Math.round(heroConfig.enemySpawnInterval * diffConfig.enemySpawnRateMultiplier));
-            // BOSS 战期间使用固定生成间隔
-            if (curPhase === PHASE_BOSS) {
-                spawnInterval = bossConfig.enemySpawnRate;
-            }
-            if (this.eCount % spawnInterval === 0) {
+            // 敌机生成冷却：到期生成并重置（原 eCount % spawnInterval === 0 帧制，数学恒等）
+            this.spawnCooldownMs -= getDt();
+            if (this.spawnCooldownMs <= 0) {
                 Enemy.add(new Enemy());
-                this.eCount = 0;
+                this.spawnCooldownMs += getSpawnIntervalMs(curPhase === PHASE_BOSS);
             }
         }
         return this._getCurrentPhase();
@@ -169,7 +178,7 @@ class Hero {
         const keys = ["firepower", "shield", "spread"];
         for (const key of keys) {
             if (this.buffs[key] > 0) {
-                this.buffs[key]--;
+                this.buffs[key] = Math.max(0, this.buffs[key] - getDt());
             }
         }
     }
@@ -179,23 +188,23 @@ class Hero {
                 case "heal":
                     if (this.hp < this.maxHp) {
                         this.hp = Math.min(this.hp + 1, this.maxHp);
-                        this.healAnim = 30;
-                        this.hpFlash = 30;
+                        this.healAnimMs = HEAL_ANIM_MS;
+                        this.hpFlashMs = HEAL_ANIM_MS;
                         playHeal();
                     }
                     break;
                 case "firepower":
-                    this.buffs.firepower = buffConfig.firepower.duration;
+                    this.buffs.firepower = buffConfig.firepower.durationMs;
                     this._addBuffFloat(t(itemConfig.types.firepower.label), itemConfig.types.firepower.color);
                     playFirepower();
                     break;
                 case "shield":
-                    this.buffs.shield = buffConfig.shield.duration;
+                    this.buffs.shield = buffConfig.shield.durationMs;
                     this._addBuffFloat(t(itemConfig.types.shield.label), itemConfig.types.shield.color);
                     playShield();
                     break;
                 case "spread":
-                    this.buffs.spread = buffConfig.spread.duration;
+                    this.buffs.spread = buffConfig.spread.durationMs;
                     this._addBuffFloat(t(itemConfig.types.spread.label), itemConfig.types.spread.color);
                     playSpread();
                     break;
@@ -203,7 +212,7 @@ class Hero {
         }
     }
     _addBuffFloat(text, color) {
-        this.buffFloats.push({ text, color, frame: 30, maxFrame: 30 });
+        this.buffFloats.push({ text, color, timeMs: BUFF_FLOAT_MS, maxTimeMs: BUFF_FLOAT_MS });
     }
     _checkLevelUp() {
         const currentLevel = getLevel();
@@ -216,8 +225,8 @@ class Hero {
             this.maxHp = getMaxHp();
             this.hp = Math.min(this.hp + levelsGained, this.maxHp);
             // 升级特效
-            this.levelUpAnim = 60;
-            this.hpFlash = 20;
+            this.levelUpAnimMs = LEVEL_UP_ANIM_MS;
+            this.hpFlashMs = 1000;
             playLevelUp();
             // 进入升级选择阶段
             const hasOffers = startUpgradeSelection();
@@ -231,7 +240,7 @@ class Hero {
         }
     }
     hit() {
-        if (this.dying || this.invincible > 0)
+        if (this.dying || this.invincibleMs > 0)
             return;
         if (isGodMode())
             return;
@@ -252,7 +261,7 @@ class Hero {
                 py <= d.y + d.height) {
                 if (this.buffs.shield > 0) {
                     this.buffs.shield = 0;
-                    this.invincible = buffConfig.shield.invincibleFrames;
+                    this.invincibleMs = buffConfig.shield.invincibleMs;
                     break;
                 }
                 // 碰撞伤害：基础值按敌机类型分级 × 难度乘数，再减护甲
@@ -268,7 +277,7 @@ class Hero {
                     this.index = 2;
                 }
                 else {
-                    this.invincible = heroConfig.invincibleFrames;
+                    this.invincibleMs = heroConfig.invincibleMs;
                 }
                 break;
             }
@@ -283,9 +292,9 @@ class Hero {
                 this.y < bounds.bottom && this.y + hh > bounds.top) {
                 if (this.buffs.shield > 0) {
                     this.buffs.shield = 0;
-                    this.invincible = buffConfig.shield.invincibleFrames;
+                    this.invincibleMs = buffConfig.shield.invincibleMs;
                 }
-                else if (this.invincible <= 0) {
+                else if (this.invincibleMs <= 0) {
                     const diffConfig = getDifficultyConfig(getDifficulty());
                     const bossDmg = Math.max(1, Math.round(3 * diffConfig.enemyDamageMultiplier) - getArmorReduction());
                     this.hp -= bossDmg;
@@ -297,7 +306,7 @@ class Hero {
                         this.index = 2;
                     }
                     else {
-                        this.invincible = heroConfig.invincibleFrames;
+                        this.invincibleMs = heroConfig.invincibleMs;
                     }
                 }
             }
@@ -314,10 +323,10 @@ class Hero {
             if (dist < b.size + Math.max(hw, hh) / 2 * 0.5) {
                 if (this.buffs.shield > 0) {
                     this.buffs.shield = 0;
-                    this.invincible = buffConfig.shield.invincibleFrames;
+                    this.invincibleMs = buffConfig.shield.invincibleMs;
                     b.removable = true;
                 }
-                else if (this.invincible <= 0) {
+                else if (this.invincibleMs <= 0) {
                     const diffConfig = getDifficultyConfig(getDifficulty());
                     const bulletDmg = Math.max(1, Math.round(1 * diffConfig.enemyDamageMultiplier));
                     this.hp -= bulletDmg;
@@ -330,7 +339,7 @@ class Hero {
                         this.index = 2;
                     }
                     else {
-                        this.invincible = heroConfig.invincibleFrames;
+                        this.invincibleMs = heroConfig.invincibleMs;
                     }
                 }
             }
