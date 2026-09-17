@@ -19,6 +19,7 @@ class Bullet {
   n!: number;             // ! 断言：构造函数委托 init() 赋值（对象池复用入口）
   isDiagonal!: boolean;
   piercing!: boolean;
+  hitBoss!: boolean;      // 穿透弹是否已对 BOSS 结算过伤害（每弹只结算一次，帧率无关）
   hitEnemyIds: Set<number>;
   mx!: number;
   my!: number;
@@ -36,6 +37,7 @@ class Bullet {
     this.n = n;
     this.isDiagonal = isDiagonal;
     this.piercing = piercing;
+    this.hitBoss = false;
     this.hitEnemyIds.clear();  // 复用 Set 实例，避免每次射击重新分配
     this.mx = heroX + (heroW - m.width) / 2 + this.n;
     this.my = this.n === 0 ? heroY - m.height : heroY + m.height;

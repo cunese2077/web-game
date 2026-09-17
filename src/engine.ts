@@ -16,6 +16,7 @@ import { Hero, getSoundIconArea, getPauseBtnArea, getHeroBuffs, getDamageTaken }
 import { getGameScore, resetGameScore, restoreGameScore } from "./score.js";
 import { resetLevel, getLevel, restoreLevel } from "./level.js";
 import { initUpgrades, getPendingLevelUps, getBulletDamageWithBuff, getCritChance } from "./upgrade.js";
+import { hitEffect } from "./config.js";
 import Bullet from "./bullet.js";
 import Enemy from "./enemy.js";
 import Item from "./item.js";
@@ -227,6 +228,9 @@ function _checkBulletsHitBoss(): void {
   for (let i = allBullets.length - 1; i >= 0; i--) {
     const b = allBullets[i];
     if (b.removable) continue;
+    // 穿透弹对 BOSS 每弹只结算一次（与敌机 hitEnemyIds 语义一致），
+    // 防止子弹重叠期间每帧重复扣血（帧率越高重复越多）
+    if (b.piercing && b.hitBoss) continue;
     if (
       b.mx + b.width >= bounds.left &&
       b.mx <= bounds.right &&
@@ -241,7 +245,9 @@ function _checkBulletsHitBoss(): void {
         frameCrit = true;
       }
       frameDamage += dmg;
-      if (!b.piercing) {
+      if (b.piercing) {
+        b.hitBoss = true;  // 穿透弹标记已结算，穿过 BOSS 期间不再重复扣血
+      } else {
         b.removable = true;
       }
     }
@@ -258,7 +264,7 @@ function _checkBulletsHitBoss(): void {
       critFontSize,
       critColor,
       Math.round(35 * fontScale),
-      25,
+      hitEffect.damageText.durationMs,
       Math.round(24 * fontScale),
       frameCrit
     );

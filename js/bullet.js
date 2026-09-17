@@ -22,6 +22,7 @@ class Bullet {
         this.n = n;
         this.isDiagonal = isDiagonal;
         this.piercing = piercing;
+        this.hitBoss = false;
         this.hitEnemyIds.clear(); // 复用 Set 实例，避免每次射击重新分配
         this.mx = heroX + (heroW - m.width) / 2 + this.n;
         this.my = this.n === 0 ? heroY - m.height : heroY + m.height;
