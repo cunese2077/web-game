@@ -6,7 +6,7 @@
 //     - 页面导航请求 network-first（优先拿新版本），断网回退缓存 → 离线可玩
 //     - 其余同源 GET 资源 stale-while-revalidate（先回缓存、后台更新，JS/图片带 hash 命中旧缓存也无害）
 //   - 带 hash 的构建产物（assets/*.js）在运行时按需缓存，无需在 SW 里硬编码文件名
-const CACHE_VERSION = "web-game-v1";
+const CACHE_VERSION = "web-game-v2";  // v2：60fps 帧率优化 + BOSS 穿透扣血修复
 
 // 预缓存清单：public 目录静态资源（文件名稳定，不带 hash）
 const PRECACHE_URLS = [
