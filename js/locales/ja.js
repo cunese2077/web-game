@@ -210,5 +210,6 @@ const ja = {
     "boss.type.fortress": "要塞型",
     "boss.type.carrier": "母艦型",
     "boss.type.phantom": "幻影型",
+    "boss.type.shifter": "シフター",
 };
 export { ja };

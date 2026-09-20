@@ -214,6 +214,7 @@ const en: Record<TextKey, string> = {
     "boss.type.fortress": "FORTRESS",
     "boss.type.carrier": "CARRIER",
     "boss.type.phantom": "PHANTOM",
+    "boss.type.shifter": "SHIFTER",
 };
 
 export { en };

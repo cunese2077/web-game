@@ -250,6 +250,7 @@ export type TextKey =
   | "boss.type.fortress"      // "堡垒型" / "FORTRESS"
   | "boss.type.carrier"       // "母舰型" / "CARRIER"
   | "boss.type.phantom"       // "幻影型" / "PHANTOM"
+  | "boss.type.shifter"       // "变形型" / "SHIFTER"
   // HTML
   | "html.title"         // "飞机大战网页版"
   | "html.unsupported";  // "您的浏览器不支持canvas绘图!!!" / "Your browser does not support canvas!!!"

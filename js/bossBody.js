@@ -1,4 +1,4 @@
-// BOSS 外观绘制模块（从 boss.ts 拆出）：4 种类型差异化外观的纯绘制函数
+// BOSS 外观绘制模块（从 boss.ts 拆出）：5 种类型差异化外观的纯绘制函数
 // 只读 BOSS 状态束 BossBodyState，不修改任何状态
 import { ctx, fontScale } from "./canvas.js";
 // 突击型外观：红色流线型 + 尖锐翼
@@ -259,4 +259,116 @@ function drawPhantomBody(b, left, top) {
         ctx.fillRect(left - b.bossWidth * 0.1, top, b.bossWidth * 1.2, b.bossHeight);
     }
 }
-export { drawAssaultBody, drawFortressBody, drawCarrierBody, drawPhantomBody };
+// ========== 变形型外观辅助（模块级纯函数） ==========
+// 三姿态主题色：0=突击红 1=堡垒蓝 2=幻影紫
+const SHIFTER_STANCE_COLORS = ["#f66", "#48f", "#a6f"];
+// 十六进制颜色（#rrggbb）转 RGB 分量
+function hexToRgb(hex) {
+    return {
+        r: parseInt(hex.slice(1, 3), 16),
+        g: parseInt(hex.slice(3, 5), 16),
+        b: parseInt(hex.slice(5, 7), 16),
+    };
+}
+// 两颜色按 t∈[0,1] 插值（姿态切换闪光期间核心色渐变过渡）
+function lerpColor(a, b, t) {
+    const ca = hexToRgb(a);
+    const cb = hexToRgb(b);
+    const r = Math.round(ca.r + (cb.r - ca.r) * t);
+    const g = Math.round(ca.g + (cb.g - ca.g) * t);
+    const bl = Math.round(ca.b + (cb.b - ca.b) * t);
+    return `rgb(${r}, ${g}, ${bl})`;
+}
+// 变形型外观：深灰紫无定形金属聚合体 + 姿态色核心（切换时 500ms 颜色渐变）
+function drawShifterBody(b, left, top) {
+    // 当前姿态核心色；切换闪光期间从上一姿态色渐变到新姿态色
+    const prevStance = (b.stance + 2) % 3;
+    let coreColor = SHIFTER_STANCE_COLORS[b.stance];
+    if (b.stanceFlashMs > 0) {
+        const t = 1 - b.stanceFlashMs / 500; // 渐变进度 0→1
+        coreColor = lerpColor(SHIFTER_STANCE_COLORS[prevStance], SHIFTER_STANCE_COLORS[b.stance], t);
+    }
+    const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.006);
+    ctx.shadowColor = b.attackPhase === 3 ? "#f0f" : coreColor;
+    ctx.shadowBlur = 12 * pulse;
+    // 主体：深灰紫基底
+    ctx.fillStyle = "#2a2433";
+    ctx.fillRect(left, top, b.bossWidth, b.bossHeight);
+    // 无定形碎片：5 块错位旋转的矩形聚合（缓慢漂移，体现“金属聚合体”）
+    const shardCount = 5;
+    const shardW = b.bossWidth / (shardCount + 1);
+    for (let i = 0; i < shardCount; i++) {
+        const drift = Math.sin(Date.now() * 0.002 + i * 1.3) * b.bossHeight * 0.08;
+        const sx = left + shardW * (i + 0.5);
+        const sy = top + b.bossHeight * 0.5 + drift;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(Math.sin(Date.now() * 0.001 + i) * 0.3);
+        ctx.fillStyle = i % 2 === 0 ? "#453a52" : "#38304a";
+        ctx.fillRect(-shardW * 0.42, -b.bossHeight * 0.32, shardW * 0.84, b.bossHeight * 0.64);
+        ctx.restore();
+    }
+    // 聚合体外壳包边（上下装甲条）
+    ctx.fillStyle = "#1d1826";
+    ctx.fillRect(left, top, b.bossWidth, b.bossHeight * 0.12);
+    ctx.fillRect(left, top + b.bossHeight * 0.88, b.bossWidth, b.bossHeight * 0.12);
+    // 护盾光圈（堡垒姿态持有护盾时：堡垒型六边形的弱化版）
+    if (b.shieldHp > 0 && b.shieldMaxHp > 0) {
+        const shieldAlpha = 0.25 + 0.15 * (b.shieldHp / b.shieldMaxHp);
+        ctx.strokeStyle = `rgba(100, 180, 255, ${shieldAlpha})`;
+        ctx.shadowColor = "#4af";
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 1.5 + (b.shieldHp / b.shieldMaxHp) * 1.5;
+        ctx.beginPath();
+        const hw = b.bossWidth * 0.6;
+        const hh = b.bossHeight * 1.2;
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI * 2 / 6) * i - Math.PI / 2;
+            const px = b.x + Math.cos(angle) * hw;
+            const py = b.y + Math.sin(angle) * hh;
+            if (i === 0)
+                ctx.moveTo(px, py);
+            else
+                ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+    }
+    // 核心发光（姿态色，切换时渐变）
+    const coreSize = b.bossWidth * 0.12;
+    ctx.fillStyle = coreColor;
+    ctx.shadowColor = coreColor;
+    ctx.shadowBlur = 22;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, coreSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, coreSize * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // 环绕碎片光点（3 个小碎片绕核心公转，体现聚合体流动感）
+    ctx.fillStyle = coreColor;
+    ctx.shadowColor = coreColor;
+    ctx.shadowBlur = 6;
+    const orbitR = coreSize * 2.2;
+    for (let i = 0; i < 3; i++) {
+        const a = Date.now() * 0.002 + (Math.PI * 2 / 3) * i;
+        ctx.beginPath();
+        ctx.arc(b.x + Math.cos(a) * orbitR, b.y + Math.sin(a) * orbitR * 0.5, 2 * fontScale, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // 姿态切换闪光：机体整体亮色脉冲（500ms 内渐灭）
+    if (b.stanceFlashMs > 0) {
+        ctx.save();
+        ctx.globalAlpha = (b.stanceFlashMs / 500) * 0.5;
+        ctx.fillStyle = coreColor;
+        ctx.fillRect(left - b.bossWidth * 0.05, top - b.bossHeight * 0.05, b.bossWidth * 1.1, b.bossHeight * 1.1);
+        ctx.restore();
+    }
+    // 阶段3狂暴闪烁（品红，与其他类型一致的高压提示）
+    if (b.attackPhase === 3) {
+        ctx.fillStyle = `rgba(255, 50, 255, ${0.2 + 0.3 * Math.sin(Date.now() * 0.01)})`;
+        ctx.fillRect(left - b.bossWidth * 0.1, top, b.bossWidth * 1.2, b.bossHeight);
+    }
+}
+export { drawAssaultBody, drawFortressBody, drawCarrierBody, drawPhantomBody, drawShifterBody };

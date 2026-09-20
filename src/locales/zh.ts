@@ -214,6 +214,7 @@ const zh: Record<TextKey, string> = {
     "boss.type.fortress": "堡垒型",
     "boss.type.carrier": "母舰型",
     "boss.type.phantom": "幻影型",
+    "boss.type.shifter": "变形型",
 };
 
 export { zh };
