@@ -336,8 +336,8 @@ const bulletConfig: BulletConfig = {
 // Roguelike 升级选择系统需要更多升级次数（50级满级，约20-25分钟一局）
 // BOSS 配置
 const bossConfig: BossConfig = {
-  baseHp: 500,               // 首次 BOSS（Lv5）基础 HP（更具挑战性）
-  hpGrowthFactor: 0.6,        // 每次递增 60%：Lv10=800, Lv15=1100, Lv20=1400...
+  baseHp: 320,               // 首次 BOSS（Lv5）基础 HP（500→320：5级玩家火力不足，首个 BOSS 需可击杀）
+  hpGrowthFactor: 0.75,       // 每次递增 75%（0.6→0.75：首个大幅降低后，后续 BOSS 保持渐进压力）：Lv10=560, Lv15=800, Lv20=1040...
   widthRatio: 0.35,           // 宽度占画布 35%
   heightRatio: 0.08,          // 高度占画布 8%
   moveSpeed: 30,              // 水平巡逻速度（px/s，原 1.5px/帧 × 20）
@@ -347,14 +347,14 @@ const bossConfig: BossConfig = {
   bullet: {
     speed: 70,                // 弹幕速度（px/s，原 3.5px/帧 × 20）
     size: 5,                  // 弹幕半径
-    fanCount: 5,              // 扇形弹幕数量（增加基础弹幕量）
+    fanCount: 4,              // 扇形弹幕数量（5→4：首个 BOSS 弹幕密度降低，可躲避性优先）
     fanSpreadAngle: 1.0,      // 扇形张角增大（约 57°）
-    aimedCount: 3,            // 定向射击数量增加
-    intervalMs: 1750,         // 攻击间隔（ms，原 35 帧 × 50ms）
+    aimedCount: 2,            // 定向射击数量（3→2：同上）
+    intervalMs: 2000,         // 攻击间隔（1750→2000ms：首个 BOSS 攻速放缓，后续按 bossIndex 递减不变）
   },
   defeatExpMultiplier: 4,     // 击败经验 ≈ 1 级经验量（Lv5时约420，Lv10约520）
   defeatItemDropProb: 0.5,    // 50% 概率掉落特殊道具
-  enemySpawnRateMs: 1000,     // BOSS 战期间每 1 秒生成一个敌机（更密集，原 20 帧 × 50ms）
+  enemySpawnRateMs: 1400,     // BOSS 战期间每 1.4 秒生成一个敌机（1000→1400：降低首个 BOSS 战的杂兵干扰密度）
 };
 
 const levelConfig: LevelConfig = {
